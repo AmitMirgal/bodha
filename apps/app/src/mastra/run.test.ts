@@ -80,7 +80,7 @@ describe("orchestration contract", () => {
 		expect(aborted).toBe(true);
 	});
 
-	it("does not silently one-shot when tools are unsupported", () => {
+	it("does not silently one-shot when tools are unsupported or unproven", () => {
 		expect(() =>
 			assertAgentToolsAllowed({
 				source: "user",
@@ -89,6 +89,16 @@ describe("orchestration contract", () => {
 				model: "gpt-4.1",
 				baseUrl: "https://api.openai.com/v1",
 				capabilities: { ...DEFAULT_CAPABILITIES, tools: "unsupported" },
+			}),
+		).toThrow(ToolsUnsupportedError);
+		expect(() =>
+			assertAgentToolsAllowed({
+				source: "user",
+				protocol: "openai-compatible",
+				provider: "openai",
+				model: "gpt-4.1",
+				baseUrl: "https://api.openai.com/v1",
+				capabilities: DEFAULT_CAPABILITIES,
 			}),
 		).toThrow(ToolsUnsupportedError);
 	});

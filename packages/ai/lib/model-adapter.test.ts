@@ -1,31 +1,65 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { ToolsUnsupportedError } from "./errors";
-import { toOpenAiCompatibleModel } from "./model-adapter";
+import { toProtectedLanguageModel } from "./model-adapter";
 import { DEFAULT_CAPABILITIES } from "./provider-types";
 
-describe("toOpenAiCompatibleModel", () => {
-	it("builds a shared OpenAI-compatible transport ref", () => {
-		const model = toOpenAiCompatibleModel(
+vi.mock("@ai-sdk/openai", () => ({
+	createOpenAI: (options: { fetch?: unknown }) => {
+		if (typeof options.fetch !== "function") {
+			throw new Error("Protected fetch is required.");
+		}
+		return {
+			chat: (model: string) => ({
+				modelId: model,
+				hasProtectedFetch: true,
+			}),
+		};
+	},
+}));
+
+const endpoint = {
+	href: "https://api.openai.com/v1",
+	origin: "https://api.openai.com",
+	host: "api.openai.com",
+};
+
+describe("toProtectedLanguageModel", () => {
+	it("builds a chat model with injected protected fetch", () => {
+		const model = toProtectedLanguageModel(
 			{
 				source: "user",
 				protocol: "openai-compatible",
 				provider: "openai",
 				model: "gpt-4.1",
 				baseUrl: "https://api.openai.com/v1",
-				capabilities: DEFAULT_CAPABILITIES,
+				capabilities: { ...DEFAULT_CAPABILITIES, tools: "supported" },
 			},
 			"sk-test-sentinel",
+			endpoint,
 		);
-		expect(model).toEqual({
-			id: "openai/gpt-4.1",
-			url: "https://api.openai.com/v1",
-			apiKey: "sk-test-sentinel",
+		expect(model).toMatchObject({
+			modelId: "gpt-4.1",
+			hasProtectedFetch: true,
 		});
 	});
 
-	it("refuses to construct a one-shot adapter when tools are unsupported", () => {
+	it("refuses unknown and unsupported tool capabilities", () => {
 		expect(() =>
-			toOpenAiCompatibleModel(
+			toProtectedLanguageModel(
+				{
+					source: "user",
+					protocol: "openai-compatible",
+					provider: "openai",
+					model: "gpt-4.1",
+					baseUrl: "https://api.openai.com/v1",
+					capabilities: DEFAULT_CAPABILITIES,
+				},
+				"sk-test-sentinel",
+				endpoint,
+			),
+		).toThrow(ToolsUnsupportedError);
+		expect(() =>
+			toProtectedLanguageModel(
 				{
 					source: "user",
 					protocol: "openai-compatible",
@@ -35,6 +69,7 @@ describe("toOpenAiCompatibleModel", () => {
 					capabilities: { ...DEFAULT_CAPABILITIES, tools: "unsupported" },
 				},
 				"sk-test-sentinel",
+				endpoint,
 			),
 		).toThrow(ToolsUnsupportedError);
 	});

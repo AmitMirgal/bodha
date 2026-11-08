@@ -33,6 +33,20 @@ export function allowHttpLlm(): boolean {
 	return process.env.BODHA_ALLOW_HTTP_LLM === "true";
 }
 
+function parseCapabilityStatus(
+	raw: string | undefined,
+): "supported" | "unsupported" | "unknown" {
+	const tools = raw?.trim() ?? "unknown";
+	switch (tools) {
+		case "supported":
+		case "unsupported":
+		case "unknown":
+			return tools;
+		default:
+			return "unknown";
+	}
+}
+
 export function getOperatorDefault() {
 	const provider = process.env.BODHA_OPERATOR_LLM_PROVIDER?.trim();
 	const model = process.env.BODHA_OPERATOR_LLM_MODEL?.trim();
@@ -47,6 +61,12 @@ export function getOperatorDefault() {
 		baseUrl,
 		apiKey,
 		source: "operator_default" as const,
+		capabilities: {
+			tools: parseCapabilityStatus(process.env.BODHA_OPERATOR_LLM_TOOLS),
+			structuredOutput: "unknown" as const,
+			streaming: "unknown" as const,
+			usageReporting: "unknown" as const,
+		},
 	};
 }
 

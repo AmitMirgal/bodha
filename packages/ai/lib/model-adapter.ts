@@ -1,29 +1,41 @@
+import { createOpenAI } from "@ai-sdk/openai";
+import { endpointFromHref, type ValidatedEndpoint } from "./endpoint";
 import { ToolsUnsupportedError } from "./errors";
 import type { ResolvedLlmConfig } from "./provider-types";
-
-export interface OpenAiCompatibleModelRef {
-	apiKey: string;
-	id: `${string}/${string}`;
-	url: string;
-}
+import { createProtectedFetch } from "./transport";
 
 export function assertAgentToolsAllowed(config: ResolvedLlmConfig): void {
-	if (config.capabilities.tools === "unsupported") {
-		throw new ToolsUnsupportedError();
+	if (config.capabilities.tools !== "supported") {
+		throw new ToolsUnsupportedError(
+			config.capabilities.tools === "unsupported"
+				? undefined
+				: "This provider has not proven tool calling. Save settings after a successful connection check. BODHA will not fall back to a one-shot completion.",
+		);
 	}
 }
 
-export function toOpenAiCompatibleModel(
+export function toProtectedLanguageModel(
 	config: ResolvedLlmConfig,
 	apiKey: string,
-): OpenAiCompatibleModelRef {
+	endpoint: ValidatedEndpoint,
+) {
 	assertAgentToolsAllowed(config);
 	if (!apiKey) {
 		throw new Error("LLM API key is missing.");
 	}
-	return {
-		id: `${config.provider}/${config.model}` as `${string}/${string}`,
-		url: config.baseUrl,
+	const expected = endpointFromHref(config.baseUrl);
+	if (
+		expected.href !== endpoint.href ||
+		expected.origin !== endpoint.origin ||
+		expected.host !== endpoint.host
+	) {
+		throw new Error("Resolved base URL does not match the validated endpoint.");
+	}
+	const openai = createOpenAI({
+		baseURL: endpoint.href,
 		apiKey,
-	};
+		name: config.provider,
+		fetch: createProtectedFetch(endpoint),
+	});
+	return openai.chat(config.model);
 }

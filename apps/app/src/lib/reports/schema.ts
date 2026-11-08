@@ -14,8 +14,20 @@ export const reportCitationSchema = z.object({
 	note: z.string().min(1).max(500),
 });
 
+export const reportObservationsSchema = z.object({
+	tests: z.object({
+		failed: z.number().int().nonnegative().nullable(),
+		fatal: z.string().nullable(),
+		found: z.boolean(),
+		passed: z.number().int().nonnegative().nullable(),
+		provenance: z.enum(["browser_harness", "insufficient_evidence"]),
+		total: z.number().int().nonnegative().nullable(),
+	}),
+});
+
 export const reportSchema = z.object({
 	summary: z.string().min(1).max(2000),
+	observations: reportObservationsSchema,
 	outcome: z.object({
 		observed: z.string().min(1).max(1000),
 		verification: z.string().min(1).max(1000),
@@ -57,6 +69,7 @@ export const reportSchema = z.object({
 export type LearningReport = z.infer<typeof reportSchema>;
 
 export const modelReviewSchema = reportSchema.omit({
+	observations: true,
 	outcome: true,
 	usage: true,
 });

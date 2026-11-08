@@ -86,6 +86,46 @@ describe("assembleLearningReport", () => {
 		expect(assembled.report.usage.trainer.inputTokens).toBe(12);
 		expect(assembled.report.usage.review.inputTokens).toBeNull();
 		expect(assembled.report.usage.incomplete).toBe(true);
+		expect(assembled.report.observations.tests).toMatchObject({
+			found: true,
+			passed: 1,
+			failed: 2,
+			total: 3,
+		});
+	});
+
+	it("rejects invented passing/token claims even when citations are valid", () => {
+		const assembled = assembleLearningReport({
+			sessionId: "sess",
+			model: {
+				...model,
+				summary:
+					"All tests passed and the trainer used 9999 input tokens. Independently verified.",
+			},
+			evidence: [
+				{
+					id: promptId,
+					kind: "prompt",
+					sessionId: "sess",
+					payload: { content: "help" },
+				},
+				{
+					id: testId,
+					kind: "test_run",
+					sessionId: "sess",
+					payload: {
+						results: [{ pass: true }, { pass: false }],
+						fatal: null,
+					},
+				},
+			],
+			usageRows: [],
+		});
+		expect(assembled.ok).toBe(false);
+		if (assembled.ok) {
+			return;
+		}
+		expect(assembled.error).toMatch(/all tests passed|token/i);
 	});
 
 	it("does not treat missing tests as a passing harness result", () => {

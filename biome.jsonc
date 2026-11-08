@@ -27,8 +27,7 @@
       "!apps/docs/**/*.json",
       "!apps/email/.react-email",
       "!packages/cms/basehub-types.d.ts",
-      "!apps/app/src/app/globals.css",
-      "!apps/app/src/app/sources.css"
+      "!apps/app/src/app/globals.css"
     ]
   },
   "overrides": [

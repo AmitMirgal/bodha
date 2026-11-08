@@ -76,6 +76,7 @@ function contextFor(input: RunInput) {
 		model: string;
 		baseUrl: string;
 		apiKey: string;
+		capabilitiesJson: string;
 	}>();
 	requestContext.set("userId", input.userId);
 	requestContext.set("sessionId", input.sessionId);
@@ -83,21 +84,31 @@ function contextFor(input: RunInput) {
 	requestContext.set("model", input.config.model);
 	requestContext.set("baseUrl", input.config.baseUrl);
 	requestContext.set("apiKey", input.apiKey);
+	requestContext.set(
+		"capabilitiesJson",
+		JSON.stringify(input.config.capabilities),
+	);
 	requestContext.setRaw("supabase", input.supabase);
 	return requestContext;
 }
 
+type ToolNameCarrier = {
+	name?: string;
+	payload?: { toolName?: string };
+	toolName?: string;
+};
+
 export function collectToolNames(response: {
 	steps?: {
-		toolResults?: { payload?: { toolName?: string }; toolName?: string }[];
+		toolCalls?: ToolNameCarrier[];
+		toolResults?: ToolNameCarrier[];
 	}[];
-	toolResults?: { payload?: { toolName?: string }; toolName?: string }[];
+	toolCalls?: ToolNameCarrier[];
+	toolResults?: ToolNameCarrier[];
 }): string[] {
 	const names: string[] = [];
-	const push = (
-		item: { payload?: { toolName?: string }; toolName?: string } | undefined,
-	) => {
-		const name = item?.toolName ?? item?.payload?.toolName;
+	const push = (item: ToolNameCarrier | undefined) => {
+		const name = item?.toolName ?? item?.payload?.toolName ?? item?.name;
 		if (typeof name === "string") {
 			names.push(name);
 		}
@@ -105,8 +116,14 @@ export function collectToolNames(response: {
 	for (const item of response.toolResults ?? []) {
 		push(item);
 	}
+	for (const item of response.toolCalls ?? []) {
+		push(item);
+	}
 	for (const step of response.steps ?? []) {
 		for (const item of step.toolResults ?? []) {
+			push(item);
+		}
+		for (const item of step.toolCalls ?? []) {
 			push(item);
 		}
 	}

@@ -30,6 +30,13 @@ describe("BODHA migration source constraints", () => {
 		);
 	});
 
+	it("persists probed LLM capabilities on llm_settings", () => {
+		expect(migration).toMatch(/capabilities jsonb not null/);
+		expect(migration).toMatch(
+			/create view public\.llm_settings_status[\s\S]*capabilities/,
+		);
+	});
+
 	it("grants insert-only on immutable evidence and snapshots", () => {
 		expect(migration).toMatch(
 			/grant select, insert on public\.evidence_events to authenticated/,

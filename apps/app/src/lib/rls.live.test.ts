@@ -19,11 +19,20 @@ type Queryable = {
 	query: <T>(sql: string, params?: unknown[]) => Promise<{ rows: T[] }>;
 };
 
-const hasLive =
-	Boolean(process.env.BODHA_LIVE_SUPABASE_URL) &&
-	Boolean(process.env.BODHA_LIVE_SUPABASE_SERVICE_ROLE) &&
-	Boolean(process.env.BODHA_LIVE_USER_A_ACCESS_TOKEN) &&
-	Boolean(process.env.BODHA_LIVE_USER_B_ACCESS_TOKEN);
+const liveMissing = [
+	process.env.BODHA_LIVE_SUPABASE_URL ? null : "BODHA_LIVE_SUPABASE_URL",
+	process.env.BODHA_LIVE_SUPABASE_PUBLISHABLE_KEY ||
+	process.env.BODHA_LIVE_SUPABASE_ANON_KEY
+		? null
+		: "BODHA_LIVE_SUPABASE_PUBLISHABLE_KEY",
+	process.env.BODHA_LIVE_USER_A_ACCESS_TOKEN
+		? null
+		: "BODHA_LIVE_USER_A_ACCESS_TOKEN",
+	process.env.BODHA_LIVE_USER_B_ACCESS_TOKEN
+		? null
+		: "BODHA_LIVE_USER_B_ACCESS_TOKEN",
+].filter((value): value is string => value !== null);
+const hasLive = liveMissing.length === 0;
 
 let pglite: Queryable | null = null;
 let pgliteSkip = "PGlite not initialized";
@@ -164,10 +173,73 @@ describe("local Postgres RLS (PGlite)", () => {
 		);
 		expect(existing.rows[0]?.payload).toEqual({ content: "hi" });
 	});
+
+	it("keeps remaining product tables owner-scoped", async ({ skip }) => {
+		if (!pglite) {
+			skip(pgliteSkip);
+			return;
+		}
+		await pglite.exec("set role authenticated");
+		await pglite.exec(asUser(USER_A));
+		await pglite.query(
+			`insert into public.messages (session_id, user_id, evidence_id, role, content)
+       values ('${SESSION_A}', '${USER_A}', '${EVIDENCE_A}', 'user', 'hi')`,
+		);
+		await pglite.query(
+			`insert into public.test_runs (
+          session_id, user_id, snapshot_id, code_revision_hash, results, provenance
+        ) values (
+          '${SESSION_A}', '${USER_A}', '${SNAP_A}', 'sha256:code', '[]'::jsonb, 'browser_harness'
+        )`,
+		);
+		await pglite.query(
+			`insert into public.reports (session_id, user_id, snapshot_id, version, status)
+       values ('${SESSION_A}', '${USER_A}', '${SNAP_A}', 1, 'running')`,
+		);
+		await pglite.query(
+			`insert into public.usage_records (
+          session_id, user_id, operation_id, agent_role, coverage
+        ) values (
+          '${SESSION_A}', '${USER_A}', 'op-1', 'trainer', 'unknown'
+        )`,
+		);
+		await pglite.query(
+			`insert into public.llm_settings (
+          user_id, provider, model, base_url, encrypted_api_key, encryption_iv, encryption_tag, key_fingerprint
+        ) values (
+          '${USER_A}', 'openai', 'gpt-4.1', 'https://api.openai.com/v1', 'cipher', 'iv', 'tag', 'fp'
+        )`,
+		);
+		await pglite.exec(asUser(USER_B));
+		await expect(
+			pglite.query("select * from public.messages"),
+		).resolves.toMatchObject({ rows: [] });
+		await expect(
+			pglite.query("select * from public.test_runs"),
+		).resolves.toMatchObject({ rows: [] });
+		await expect(
+			pglite.query("select * from public.reports"),
+		).resolves.toMatchObject({ rows: [] });
+		await expect(
+			pglite.query("select * from public.usage_records"),
+		).resolves.toMatchObject({ rows: [] });
+		await expect(
+			pglite.query("select * from public.llm_settings"),
+		).resolves.toMatchObject({ rows: [] });
+		await expect(
+			pglite.query(
+				`insert into public.llm_settings (
+          user_id, provider, model, base_url, encrypted_api_key, encryption_iv, encryption_tag, key_fingerprint
+        ) values (
+          '${USER_A}', 'openai', 'gpt-4.1', 'https://api.openai.com/v1', 'cipher', 'iv', 'tag', 'fp'
+        )`,
+			),
+		).rejects.toThrow();
+	});
 });
 
 describe.skipIf(!hasLive)(
-	"live isolated Supabase RLS (requires BODHA_LIVE_* credentials)",
+	"live isolated Supabase RLS (requires BODHA_LIVE_* user tokens; service role is unused)",
 	() => {
 		async function client(accessToken: string) {
 			const { createClient } = await import("@supabase/supabase-js");
@@ -180,6 +252,16 @@ describe.skipIf(!hasLive)(
 			);
 		}
 
+		async function requireUserId(
+			accessClient: Awaited<ReturnType<typeof client>>,
+		) {
+			const { data, error } = await accessClient.auth.getUser();
+			if (error || !data.user) {
+				throw new Error("Live access token did not resolve to a user.");
+			}
+			return data.user.id;
+		}
+
 		it("hides user A's session from user B, anon, and forged owner inserts", async () => {
 			const userA = await client(
 				process.env.BODHA_LIVE_USER_A_ACCESS_TOKEN ?? "",
@@ -187,9 +269,11 @@ describe.skipIf(!hasLive)(
 			const userB = await client(
 				process.env.BODHA_LIVE_USER_B_ACCESS_TOKEN ?? "",
 			);
+			const userAId = await requireUserId(userA);
 			const created = await userA
 				.from("sessions")
 				.insert({
+					user_id: userAId,
 					exercise_id: "shelf",
 					status: "running",
 				})
@@ -213,7 +297,9 @@ describe.skipIf(!hasLive)(
 				({ createClient }) =>
 					createClient(
 						process.env.BODHA_LIVE_SUPABASE_URL ?? "",
-						process.env.BODHA_LIVE_SUPABASE_PUBLISHABLE_KEY ?? "",
+						process.env.BODHA_LIVE_SUPABASE_PUBLISHABLE_KEY ??
+							process.env.BODHA_LIVE_SUPABASE_ANON_KEY ??
+							"",
 					),
 			);
 			const anonRead = await anon.from("sessions").select("id");
@@ -228,20 +314,31 @@ describe.skipIf(!hasLive)(
 			const userB = await client(
 				process.env.BODHA_LIVE_USER_B_ACCESS_TOKEN ?? "",
 			);
+			const userAId = await requireUserId(userA);
+			const userBId = await requireUserId(userB);
 			const sessionA = await userA
 				.from("sessions")
-				.insert({ exercise_id: "shelf", status: "running" })
+				.insert({
+					user_id: userAId,
+					exercise_id: "shelf",
+					status: "running",
+				})
 				.select("id")
 				.single();
 			const sessionB = await userB
 				.from("sessions")
-				.insert({ exercise_id: "cache", status: "running" })
+				.insert({
+					user_id: userBId,
+					exercise_id: "cache",
+					status: "running",
+				})
 				.select("id")
 				.single();
 			const evidence = await userA
 				.from("evidence_events")
 				.insert({
 					session_id: sessionA.data?.id,
+					user_id: userAId,
 					kind: "prompt",
 					source: "learner",
 					observation_type: "trainer_prompt",
@@ -250,8 +347,10 @@ describe.skipIf(!hasLive)(
 				})
 				.select("id")
 				.single();
+			expect(evidence.error).toBeNull();
 			const forgedMessage = await userB.from("messages").insert({
 				session_id: sessionB.data?.id,
+				user_id: userBId,
 				evidence_id: evidence.data?.id,
 				role: "user",
 				content: "forged",
@@ -265,3 +364,12 @@ describe.skipIf(!hasLive)(
 		});
 	},
 );
+
+describe("RLS harness limits", () => {
+	it("documents that PGlite is not Supabase PostgREST and live tests are skipped without user tokens", () => {
+		expect(hasLive || liveMissing.length > 0).toBe(true);
+		if (!hasLive) {
+			expect(liveMissing.join(",")).not.toMatch(/SERVICE_ROLE/);
+		}
+	});
+});

@@ -131,7 +131,7 @@ function assertHostAllowed(host: string, allowedHosts: string[]) {
 	}
 }
 
-async function assertPublicDns(host: string) {
+export async function assertPublicDns(host: string) {
 	try {
 		const resolved = await dns.lookup(host, { all: true, verbatim: true });
 		for (const record of resolved) {
@@ -147,6 +147,15 @@ async function assertPublicDns(host: string) {
 		}
 		throw new EndpointValidationError("Could not resolve the LLM host.");
 	}
+}
+
+export function endpointFromHref(href: string): ValidatedEndpoint {
+	const parsed = new URL(href);
+	return {
+		href: href.replace(TRAILING_SLASH, ""),
+		origin: parsed.origin,
+		host: parsed.hostname.toLowerCase(),
+	};
 }
 
 export async function validateLlmEndpoint(

@@ -169,12 +169,12 @@ export const getLatestTestRunTool = createTool({
 });
 
 export const trainerTools = {
-	getExerciseSnapshotTool,
-	getLatestTestRunTool,
+	"get-exercise-snapshot": getExerciseSnapshotTool,
+	"get-latest-test-run": getLatestTestRunTool,
 };
 
 export const reviewTools = {
-	getExerciseSnapshotTool,
-	getSessionEvidenceTool,
-	getLatestTestRunTool,
+	"get-exercise-snapshot": getExerciseSnapshotTool,
+	"get-session-evidence": getSessionEvidenceTool,
+	"get-latest-test-run": getLatestTestRunTool,
 };

@@ -73,8 +73,10 @@ create table public.llm_settings (
   encryption_iv text not null,
   encryption_tag text not null,
   key_fingerprint text not null,
+  capabilities jsonb not null default '{"tools":"unknown","structuredOutput":"unknown","streaming":"unknown","usageReporting":"unknown"}'::jsonb,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
+  constraint llm_settings_capabilities_object check (jsonb_typeof(capabilities) = 'object'),
   constraint llm_settings_provider_len check (char_length(provider) between 1 and 64),
   constraint llm_settings_model_len check (char_length(model) between 1 and 200),
   constraint llm_settings_base_url_len check (char_length(base_url) between 8 and 500)
@@ -111,6 +113,7 @@ select
   model,
   base_url,
   key_fingerprint,
+  capabilities,
   created_at,
   updated_at
 from public.llm_settings;

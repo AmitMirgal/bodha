@@ -11,6 +11,7 @@ import {
 	resolveLlmForUser,
 } from "../../../../../lib/llm/resolve-config";
 import { assembleLearningReport } from "../../../../../lib/reports/assemble";
+import { reportClaimDecision } from "../../../../../lib/sessions/report-claim";
 import { insertUsageRecord } from "../../../../../lib/sessions/service";
 import { requireUser } from "../../../../../lib/supabase/server";
 import {
@@ -67,14 +68,42 @@ export async function POST(
 			{ status: 500 },
 		);
 	}
-	if (existing?.status === "complete") {
-		return NextResponse.json({ report: existing, replayed: true });
-	}
-	if (existing?.status === "running") {
-		return NextResponse.json(
-			{ error: "A report is already running.", report: existing },
-			{ status: 409 },
-		);
+	const decision = reportClaimDecision(
+		existing
+			? {
+					status: String(existing.status),
+					created_at: String(existing.created_at),
+				}
+			: null,
+	);
+	switch (decision.action) {
+		case "replay":
+			return NextResponse.json({ report: existing, replayed: true });
+		case "in_flight":
+			return NextResponse.json(
+				{ error: "A report is already running.", report: existing },
+				{ status: 409 },
+			);
+		case "expire_then_create":
+			if (existing) {
+				await supabase
+					.from("reports")
+					.update({
+						status: "failed",
+						error:
+							"Previous report claim went stale before completion. Evidence was kept. Retry to start a new version.",
+					})
+					.eq("id", existing.id)
+					.eq("user_id", userId)
+					.eq("status", "running");
+			}
+			break;
+		case "create":
+			break;
+		default: {
+			const exhaustive: never = decision;
+			throw new Error(`Unhandled report claim: ${JSON.stringify(exhaustive)}`);
+		}
 	}
 
 	const { data: snapshot, error: snapshotError } = await supabase
@@ -137,8 +166,16 @@ export async function POST(
 		.eq("id", id)
 		.eq("user_id", userId);
 	if (finalizeError) {
+		await supabase
+			.from("reports")
+			.update({
+				status: "failed",
+				error: "Could not finalize session after claiming the report run.",
+			})
+			.eq("id", reportRow.id)
+			.eq("user_id", userId);
 		return NextResponse.json(
-			{ error: "Could not finalize session." },
+			{ error: "Could not finalize session.", evidencePreserved: true },
 			{ status: 500 },
 		);
 	}

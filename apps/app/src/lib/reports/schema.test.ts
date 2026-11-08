@@ -20,6 +20,16 @@ const evidence = [
 
 const valid = (): LearningReport => ({
 	summary: "The learner ran tests and asked one question.",
+	observations: {
+		tests: {
+			found: true,
+			passed: 0,
+			failed: 1,
+			total: 1,
+			fatal: null,
+			provenance: "browser_harness",
+		},
+	},
 	outcome: {
 		observed: "One test run recorded by the browser harness.",
 		verification: "Harness reported failing tests.",

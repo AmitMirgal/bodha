@@ -61,11 +61,13 @@ export async function probeOpenAiCompatible(
 			model,
 			controller.signal,
 		);
-		if (capabilities.tools === "unsupported") {
+		if (capabilities.tools !== "supported") {
 			return {
 				capabilities,
 				error:
-					"This endpoint rejected tool calling. BODHA will not fall back to a one-shot completion.",
+					capabilities.tools === "unsupported"
+						? "This endpoint rejected tool calling. BODHA will not fall back to a one-shot completion."
+						: "This endpoint did not actually execute a tool call. BODHA will not treat tool_choice=none or a 200 with no tool_calls as proof.",
 			};
 		}
 		return { capabilities };
@@ -103,15 +105,24 @@ async function probeToolSupport(
 				signal,
 				body: JSON.stringify({
 					model,
-					messages: [{ role: "user", content: "." }],
-					max_tokens: 1,
-					tool_choice: "none",
+					messages: [
+						{
+							role: "user",
+							content:
+								"Call bodha_capability_ping and do not answer otherwise.",
+						},
+					],
+					max_tokens: 32,
+					tool_choice: {
+						type: "function",
+						function: { name: "bodha_capability_ping" },
+					},
 					tools: [
 						{
 							type: "function",
 							function: {
 								name: "bodha_capability_ping",
-								description: "Capability probe only. Do not call.",
+								description: "Capability probe only.",
 								parameters: { type: "object", properties: {} },
 							},
 						},
@@ -123,7 +134,15 @@ async function probeToolSupport(
 			return "unsupported";
 		}
 		if (response.ok) {
-			return "supported";
+			const body = (await response.json()) as {
+				choices?: {
+					message?: { tool_calls?: { function?: { name?: string } }[] };
+				}[];
+			};
+			const names = (body.choices ?? []).flatMap((choice) =>
+				(choice.message?.tool_calls ?? []).map((call) => call.function?.name),
+			);
+			return names.includes("bodha_capability_ping") ? "supported" : "unknown";
 		}
 		const text = (await response.text()).toLowerCase();
 		if (

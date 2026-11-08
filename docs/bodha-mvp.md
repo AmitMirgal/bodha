@@ -14,9 +14,12 @@ npm run dev --workspace=app
 npm run test --workspace=app
 npm run typecheck --workspace=app
 npm run build --workspace=app
-npm run check   # Ultracite/Biome at repo root
+npm run lint:bodha --workspace=app   # BODHA sources; parent dirs so `[id]` is not a glob
+npm run check   # Ultracite/Biome at repo root (includes unrelated next-forge packages)
 npm run validate --workspace=app
 ```
+
+Biome treats `[id]` in a CLI file argument as a glob character class. Lint those routes by checking `apps/app/src` (or `apps/app/src/app/api/sessions`) rather than the bracketed filename. Tailwind class scanning for `apps/app` uses `@tailwindcss/postcss` `base` (the app directory) plus the design-system stylesheet; there is no separate `sources.css`.
 
 ## Environment (placeholders only)
 
@@ -66,7 +69,7 @@ Pinned via `@mastra/core` in `apps/app`. Official references:
 - https://mastra.ai/models
 - https://mastra.ai/integrations/frameworks/next-js
 
-Trainer and review are one Mastra instance with role-specific agents. Model is `{ id, url, apiKey }` OpenAI-compatible from the owner's resolved config (user BYOK, else operator default). Tools are read-only: current session snapshot, evidence, latest test run. Request context supplies `userId`/`sessionId`; model-supplied ids cannot change scope.
+Trainer and review are one Mastra instance with role-specific agents. Generation uses `@ai-sdk/openai` `createOpenAI({ fetch })` with BODHA's protected fetch (origin pin, per-request DNS re-check, `redirect: "manual"`). Mastra's `{ id, url, apiKey }` config is not used because it has no custom fetch hook. Tools must be stored as `supported` after a probe that requires an actual `tool_calls` response; `unknown` and `unsupported` fail closed. Tools are read-only: current session snapshot, evidence, latest test run. Request context supplies `userId`/`sessionId`; model-supplied ids cannot change scope.
 
 Budgets: trainer 6 steps / 45s / 800 output tokens; review 8 steps / 60s / 2000 output tokens, with AbortSignal cancellation. Missing required tool use is an error (no one-shot fallback). Memory/storage is disabled; app records live in Supabase. Telemetry of raw prompts is disabled.
 
@@ -97,18 +100,18 @@ PR review: keep IDs stable (`^[a-z0-9-]+$`), do not rename an id that existing s
 
 Capture starts only after explicit consent. Stored: prompts/replies, snapshot, saved session files, browser test summaries, provider usage when returned. Retention: owner-scoped rows until the user is deleted (`ON DELETE CASCADE` from `auth.users`) or a future approved cleanup job. No manager access.
 
-## Preview / Grok / production
+## Deployment (user-owned; nothing is deployed from this branch)
 
-Grok Build publishes to `grok.me` from a Grok chat (web/iOS/Android): describe an app, preview it in the conversation, then use the in-chat Publish sheet. That is not a Cursor Cloud Agent, X MCP, or CLI deploy API. This environment has no `grok`/`grok-build` binary, no grok.me publish tool, and no way to host this Next.js + external-Supabase + encrypted-BYOK app as a Grok Build project without rewriting it into Grok's in-chat stack (which would drop the required host). Parent is checking Grok-side publishing separately.
+**Nothing was deployed.** Not Vercel, Grok, Cursor Apps, preview, production, DNS, or any other host. Prior “publish on Grok” approval is revoked. You own deployment and hosting secrets.
 
-Cursor Live Apps is a different host and is not authorized by the Grok-only publish approval. Isolated Live Apps secrets were not present, so no Live Apps preview was started. Public production, DNS, paid resources, and production Supabase migrations remain on hold.
+This agent does not apply remote Supabase migrations or change isolated/production project config. Local tests (PGlite, local OpenAI-compatible fixtures, optional `BODHA_LIVE_*` against a project you already control) stay in-repo.
 
-This branch is the full `apps/app` trainer, not a Canvas mock.
+When you are ready to deploy yourself:
 
-## Production setup (not executed)
+1. Create a dedicated non-production Supabase project first. Do not apply this schema to production or unrelated projects until you choose to.
+2. Apply `supabase/migrations/*` from your own machine (`npx supabase db push` or the SQL editor) against that project.
+3. Copy `apps/app/.env.example` to `apps/app/.env.local` (and later to your host’s env). Set `NEXT_PUBLIC_SUPABASE_*`, `BODHA_CREDENTIALS_ENCRYPTION_KEY` (32 bytes / 64 hex chars), `BODHA_ALLOWED_LLM_HOSTS`, and optional operator defaults. Add `{APP_ORIGIN}/auth/callback` to the Supabase Auth redirect allowlist.
+4. Deploy `apps/app` to a host you choose. Configure the same env vars there. Do not reuse preview data or encryption keys across environments.
+5. Production is a separate later step: new project, new encryption key, reviewed migrations, your DNS.
 
-1. Create a dedicated production Supabase project.
-2. Apply `supabase/migrations/*` after review.
-3. Set production env vars (encryption key, allowed hosts, callback URLs).
-4. Deploy `apps/app` to an approved host with those secrets.
-5. Do not reuse preview data or encryption keys.
+PGlite RLS tests are not Supabase PostgREST. Live `BODHA_LIVE_*` tests use user access tokens only (no service role) and are skipped unless those vars are set.

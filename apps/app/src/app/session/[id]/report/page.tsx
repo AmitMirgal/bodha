@@ -81,6 +81,10 @@ export default async function ReportPage({
 								<CardTitle>Summary</CardTitle>
 							</CardHeader>
 							<CardContent className="grid gap-2">
+								<p className="text-muted-foreground text-sm">
+									Coaching summary is not a measured result. Outcome, usage, and
+									test counts come from stored observations.
+								</p>
 								<p>{body.summary}</p>
 								<p>
 									<strong>Observed outcome:</strong> {body.outcome.observed}
@@ -89,6 +93,14 @@ export default async function ReportPage({
 									<strong>Verification:</strong> {body.outcome.verification} (
 									{body.outcome.verificationProvenance})
 								</p>
+								{body.observations ? (
+									<p>
+										<strong>Stored test observations:</strong>{" "}
+										{body.observations.tests.found
+											? `${body.observations.tests.passed} passed, ${body.observations.tests.failed} failed of ${body.observations.tests.total}`
+											: "no browser harness run recorded"}
+									</p>
+								) : null}
 							</CardContent>
 						</Card>
 						{body.suggestions.map((suggestion) => (
@@ -107,8 +119,8 @@ export default async function ReportPage({
 									</p>
 									<p className="text-muted-foreground text-sm">
 										{suggestion.illustrative
-											? "Illustrative advice"
-											: "Observed"}{" "}
+											? "Illustrative recommendation"
+											: "Recommendation (not a measured result)"}{" "}
 										· cites{" "}
 										{suggestion.citations
 											.map((citation) => citation.evidenceId)

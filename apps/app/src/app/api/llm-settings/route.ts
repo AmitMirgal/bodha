@@ -54,6 +54,22 @@ export async function PUT(request: Request) {
 			getAllowedLlmHosts(),
 			{ allowHttpForApprovedHosts: allowHttpLlm() },
 		);
+		const probe = await probeOpenAiCompatible(
+			endpoint,
+			parsed.data.apiKey,
+			parsed.data.model,
+		);
+		if (probe.capabilities.tools !== "supported") {
+			return NextResponse.json(
+				{
+					error:
+						probe.error ??
+						"This endpoint has not proven tool calling. Settings were not saved.",
+					capabilities: probe.capabilities,
+				},
+				{ status: 400 },
+			);
+		}
 		const secret = encryptSecret(parsed.data.apiKey, userId, {
 			provider: parsed.data.provider,
 			model: parsed.data.model,
@@ -68,6 +84,7 @@ export async function PUT(request: Request) {
 			encryption_iv: secret.iv,
 			encryption_tag: secret.tag,
 			key_fingerprint: secret.fingerprint,
+			capabilities: probe.capabilities,
 			updated_at: new Date().toISOString(),
 		});
 		if (error) {
@@ -84,6 +101,7 @@ export async function PUT(request: Request) {
 				model: parsed.data.model,
 				baseUrl: endpoint.href,
 				keyFingerprint: secret.fingerprint,
+				capabilities: probe.capabilities,
 			},
 		});
 	} catch (error) {

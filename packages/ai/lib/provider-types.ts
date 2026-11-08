@@ -36,3 +36,40 @@ export const DEFAULT_CAPABILITIES: ProviderCapabilities = {
 	streaming: "unknown",
 	usageReporting: "unknown",
 };
+
+const STATUSES: readonly CapabilityStatus[] = [
+	"supported",
+	"unsupported",
+	"unknown",
+];
+
+function isCapabilityStatus(value: unknown): value is CapabilityStatus {
+	return (
+		typeof value === "string" && STATUSES.includes(value as CapabilityStatus)
+	);
+}
+
+export function parseProviderCapabilities(
+	value: unknown,
+): ProviderCapabilities | null {
+	if (!value || typeof value !== "object") {
+		return null;
+	}
+	const record = value as Record<string, unknown>;
+	if (
+		!(
+			isCapabilityStatus(record.tools) &&
+			isCapabilityStatus(record.structuredOutput) &&
+			isCapabilityStatus(record.streaming) &&
+			isCapabilityStatus(record.usageReporting)
+		)
+	) {
+		return null;
+	}
+	return {
+		tools: record.tools,
+		structuredOutput: record.structuredOutput,
+		streaming: record.streaming,
+		usageReporting: record.usageReporting,
+	};
+}

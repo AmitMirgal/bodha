@@ -1,8 +1,9 @@
 import "server-only";
 
 import {
-	DEFAULT_CAPABILITIES,
 	type MaskedLlmSettings,
+	parseProviderCapabilities,
+	probeOpenAiCompatible,
 	type ResolvedLlmConfig,
 	validateLlmEndpoint,
 } from "@repo/ai/provider";
@@ -19,6 +20,7 @@ export class LlmConfigError extends Error {
 
 interface LlmRow {
 	base_url: string;
+	capabilities: unknown;
 	encrypted_api_key: string;
 	encryption_iv: string;
 	encryption_tag: string;
@@ -27,13 +29,26 @@ interface LlmRow {
 	provider: string;
 }
 
+function requireSupportedTools(
+	value: unknown,
+	label: string,
+): NonNullable<ReturnType<typeof parseProviderCapabilities>> {
+	const capabilities = parseProviderCapabilities(value);
+	if (!capabilities || capabilities.tools !== "supported") {
+		throw new LlmConfigError(
+			`${label} has not proven tool calling. Save settings after a successful connection check. BODHA will not fall back to a one-shot completion.`,
+		);
+	}
+	return capabilities;
+}
+
 export async function getMaskedSettings(
 	supabase: SupabaseClient,
 	userId: string,
 ): Promise<MaskedLlmSettings> {
 	const { data } = await supabase
 		.from("llm_settings_status")
-		.select("provider, model, base_url, key_fingerprint")
+		.select("provider, model, base_url, key_fingerprint, capabilities")
 		.eq("user_id", userId)
 		.maybeSingle();
 
@@ -45,7 +60,7 @@ export async function getMaskedSettings(
 			model: data.model,
 			baseUrl: data.base_url,
 			keyFingerprint: data.key_fingerprint,
-			capabilities: DEFAULT_CAPABILITIES,
+			capabilities: parseProviderCapabilities(data.capabilities),
 		};
 	}
 
@@ -58,7 +73,7 @@ export async function getMaskedSettings(
 			model: operator.model,
 			baseUrl: operator.baseUrl,
 			keyFingerprint: "operator-env",
-			capabilities: DEFAULT_CAPABILITIES,
+			capabilities: parseProviderCapabilities(operator.capabilities),
 		};
 	}
 
@@ -86,7 +101,7 @@ export async function resolveLlmForUser(
 	const { data, error } = await supabase
 		.from("llm_settings")
 		.select(
-			"provider, model, base_url, encrypted_api_key, encryption_iv, encryption_tag, key_fingerprint",
+			"provider, model, base_url, encrypted_api_key, encryption_iv, encryption_tag, key_fingerprint, capabilities",
 		)
 		.eq("user_id", userId)
 		.maybeSingle();
@@ -124,7 +139,7 @@ export async function resolveLlmForUser(
 				provider: row.provider,
 				model: row.model,
 				baseUrl: endpoint.href,
-				capabilities: DEFAULT_CAPABILITIES,
+				capabilities: requireSupportedTools(row.capabilities, "Saved settings"),
 			},
 		};
 	}
@@ -140,6 +155,11 @@ export async function resolveLlmForUser(
 		getAllowedLlmHosts(),
 		{ allowHttpForApprovedHosts: allowHttpLlm() },
 	);
+	const probe = await probeOpenAiCompatible(
+		endpoint,
+		operator.apiKey,
+		operator.model,
+	);
 	return {
 		apiKey: operator.apiKey,
 		config: {
@@ -148,7 +168,10 @@ export async function resolveLlmForUser(
 			provider: operator.provider,
 			model: operator.model,
 			baseUrl: endpoint.href,
-			capabilities: DEFAULT_CAPABILITIES,
+			capabilities: requireSupportedTools(
+				probe.capabilities,
+				"Operator default",
+			),
 		},
 	};
 }

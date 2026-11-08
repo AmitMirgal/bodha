@@ -23,18 +23,10 @@ export interface StoredUsageRow {
 	output_tokens: number | null;
 }
 
-export function outcomeFromEvidence(
-	evidence: StoredEvidence[],
-): LearningReport["outcome"] {
+export type MeasuredObservations = LearningReport["observations"];
+
+function testPayload(evidence: StoredEvidence[]) {
 	const tests = evidence.filter((item) => item.kind === "test_run");
-	if (tests.length === 0) {
-		return {
-			observed: "No browser harness run was recorded for this session.",
-			verification:
-				"The server did not independently execute learner code. Suggestions below are not a measured result.",
-			verificationProvenance: "insufficient_evidence",
-		};
-	}
 	const latest = tests.at(-1);
 	const payload =
 		latest?.payload && typeof latest.payload === "object"
@@ -48,14 +40,104 @@ export function outcomeFromEvidence(
 	const failed = results.length - passed;
 	const fatal =
 		typeof payload.fatal === "string" && payload.fatal ? payload.fatal : null;
+	return { tests, results, passed, failed, fatal };
+}
+
+export function observationsFromEvidence(
+	evidence: StoredEvidence[],
+): MeasuredObservations {
+	const { tests, results, passed, failed, fatal } = testPayload(evidence);
+	if (tests.length === 0) {
+		return {
+			tests: {
+				found: false,
+				passed: null,
+				failed: null,
+				total: null,
+				fatal: null,
+				provenance: "insufficient_evidence",
+			},
+		};
+	}
+	return {
+		tests: {
+			found: true,
+			passed,
+			failed,
+			total: results.length,
+			fatal,
+			provenance: "browser_harness",
+		},
+	};
+}
+
+export function outcomeFromEvidence(
+	evidence: StoredEvidence[],
+): LearningReport["outcome"] {
+	const observations = observationsFromEvidence(evidence);
+	if (!observations.tests.found) {
+		return {
+			observed: "No browser harness run was recorded for this session.",
+			verification:
+				"The server did not independently execute learner code. Suggestions below are not a measured result.",
+			verificationProvenance: "insufficient_evidence",
+		};
+	}
+	const { passed, failed, total, fatal } = observations.tests;
 	return {
 		observed: fatal
-			? `Latest browser harness run ended with a fatal error after reporting ${results.length} tests.`
-			: `Latest browser harness run observed ${passed} passing and ${failed} failing of ${results.length} tests.`,
+			? `Latest browser harness run ended with a fatal error after reporting ${total} tests.`
+			: `Latest browser harness run observed ${passed} passing and ${failed} failing of ${total} tests.`,
 		verification:
 			"Results are browser-harness observations, not independent server execution.",
 		verificationProvenance: "browser_harness",
 	};
+}
+
+function coachingText(model: {
+	summary: string;
+	insufficientEvidence: string[];
+	suggestions: { title: string; detail: string; improvedExample: string }[];
+}): string {
+	return [
+		model.summary,
+		...model.insufficientEvidence,
+		...model.suggestions.flatMap((suggestion) => [
+			suggestion.title,
+			suggestion.detail,
+			suggestion.improvedExample,
+		]),
+	].join("\n");
+}
+
+export function inventedCoachingClaims(
+	text: string,
+	observations: MeasuredObservations,
+): string[] {
+	const issues: string[] = [];
+	const lower = text.toLowerCase();
+	if (
+		/\b\d+\s*(input|output|prompt|completion|cached)?\s*tokens?\b/i.test(text)
+	) {
+		issues.push("Coaching text must not include token counts.");
+	}
+	const claimedAllPass =
+		/all tests passed|every test passed|tests all pass/.test(lower);
+	const actuallyAllPass =
+		observations.tests.found &&
+		observations.tests.fatal === null &&
+		observations.tests.total !== null &&
+		observations.tests.total > 0 &&
+		observations.tests.failed === 0;
+	if (claimedAllPass && !actuallyAllPass) {
+		issues.push(
+			"Summary claimed all tests passed without a matching harness observation.",
+		);
+	}
+	if (/independently verif|server executed|certified pass/.test(lower)) {
+		issues.push("Coaching text claimed independent verification.");
+	}
+	return issues;
 }
 
 function toNormalized(row: StoredUsageRow): NormalizedUsage {
@@ -126,10 +208,19 @@ export function assembleLearningReport(input: {
 			error: "Review output was not a valid learning report.",
 		};
 	}
+	const observations = observationsFromEvidence(input.evidence);
+	const invented = inventedCoachingClaims(
+		coachingText(parsed.data),
+		observations,
+	);
+	if (invented.length > 0) {
+		return { ok: false, error: invented[0] ?? "Invented coaching claims." };
+	}
 	const assembled: LearningReport = {
 		summary: parsed.data.summary,
 		suggestions: parsed.data.suggestions,
 		insufficientEvidence: parsed.data.insufficientEvidence,
+		observations,
 		outcome: outcomeFromEvidence(input.evidence),
 		usage: usageFromStoredRecords(input.usageRows),
 	};

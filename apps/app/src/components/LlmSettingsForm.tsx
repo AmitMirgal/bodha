@@ -20,6 +20,7 @@ import { runBackground } from "../lib/background";
 
 interface Masked {
 	baseUrl: string | null;
+	capabilities?: { tools?: string } | null;
 	configured: boolean;
 	keyFingerprint: string | null;
 	model: string | null;
@@ -178,6 +179,9 @@ export function LlmSettingsForm() {
 						Active source: <strong>{masked?.source ?? "none"}</strong>
 						{masked?.keyFingerprint
 							? ` · fingerprint ${masked.keyFingerprint}`
+							: ""}
+						{masked?.capabilities?.tools
+							? ` · tools ${masked.capabilities.tools}`
 							: ""}
 					</p>
 					<p className="text-muted-foreground text-sm">

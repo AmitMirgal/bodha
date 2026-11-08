@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { recentChronologicalTurns } from "../../../../../lib/chat/history";
 import {
 	PersistenceError,
 	redactProviderError,
@@ -130,7 +131,7 @@ export async function POST(
 			.eq("session_id", id)
 			.eq("user_id", userId)
 			.in("role", ["user", "assistant"])
-			.order("created_at", { ascending: true })
+			.order("created_at", { ascending: false })
 			.limit(20);
 		if (historyError) {
 			throw new PersistenceError("Could not load chat history.");
@@ -143,7 +144,7 @@ export async function POST(
 			role: "trainer",
 			config,
 			apiKey,
-			messages: (history ?? [])
+			messages: recentChronologicalTurns(history ?? [])
 				.map((row) => asChatTurn(row.role, row.content))
 				.filter(
 					(message): message is NonNullable<typeof message> => message !== null,

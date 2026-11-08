@@ -13,13 +13,12 @@ import {
 	USER_B,
 } from "../rls/harness";
 import { createPrismaClient } from "./factory";
+import { inspectLivePrismaTarget } from "./live-target";
 import { PrismaPglite } from "./pglite-adapter";
 import { insertEvidenceOnce, listSessions } from "./queries";
 import { RlsContextError, withAnonDb, withUserDb } from "./rls";
 
-const livePrisma =
-	process.env.BODHA_LIVE_PRISMA_RLS === "1" &&
-	Boolean(process.env.DATABASE_URL);
+const liveTarget = inspectLivePrismaTarget(process.env);
 
 let prisma: ReturnType<typeof createPrismaClient> | null = null;
 let skip = "PGlite Prisma adapter not initialized";
@@ -196,9 +195,7 @@ describe("Prisma request-path RLS (PGlite)", () => {
 		).rejects.toThrow();
 	});
 
-	it("keeps first-write-wins evidence inserts and refuses privileged bypass", async ({
-		skip: skipTest,
-	}) => {
+	it("keeps first-write-wins evidence inserts", async ({ skip: skipTest }) => {
 		if (!prisma) {
 			skipTest(skip);
 			return;
@@ -221,26 +218,144 @@ describe("Prisma request-path RLS (PGlite)", () => {
 			})
 		);
 		expect(payload?.payload).toEqual({ content: "hi" });
-		await expect(
-			prisma.$transaction(async (tx) => {
-				const rows = await tx.$queryRaw<Array<{ role_name: string }>>`
-          SELECT current_user::text AS role_name
-        `;
-				if (
-					rows[0]?.role_name === "postgres" ||
-					rows[0]?.role_name === "pglite"
-				) {
-					throw new RlsContextError(
-						"Raw Prisma client remains the privileged login; product queries must use withUserDb."
-					);
-				}
-			})
-		).rejects.toBeInstanceOf(RlsContextError);
+	});
+
+	it("leaves a raw Prisma transaction on the privileged login role", async ({
+		skip: skipTest,
+	}) => {
+		if (!prisma) {
+			skipTest(skip);
+			return;
+		}
+		const rows = await prisma.$transaction(
+			async (tx) =>
+				tx.$queryRaw<
+					Array<{ bypass: unknown; role_name: string; super: unknown }>
+				>`SELECT current_user::text AS role_name,
+        r.rolsuper AS super,
+        r.rolbypassrls AS bypass
+        FROM pg_roles r
+        WHERE r.rolname = current_user`
+		);
+		expect(rows[0]?.role_name).not.toBe("authenticated");
+		expect(rows[0]?.role_name).not.toBe("anon");
+		expect(rows[0]?.role_name).toBe("postgres");
+		expect(rows[0]?.super === true || rows[0]?.bypass === true).toBe(true);
+	});
+
+	it("fails closed when authenticated is a non-superuser BYPASSRLS role", async ({
+		skip: skipTest,
+	}) => {
+		if (!prisma) {
+			skipTest(skip);
+			return;
+		}
+		await prisma.$executeRawUnsafe("ALTER ROLE authenticated BYPASSRLS");
+		try {
+			const flags = await prisma.$queryRaw<
+				Array<{ rolbypassrls: unknown; rolsuper: unknown }>
+			>`SELECT r.rolsuper, r.rolbypassrls
+        FROM pg_roles r
+        WHERE r.rolname = 'authenticated'`;
+			expect(flags[0]?.rolsuper).toBe(false);
+			expect(flags[0]?.rolbypassrls).toBe(true);
+			await expect(
+				withUserDb(prisma, USER_A, (db) => db.session.findMany())
+			).rejects.toBeInstanceOf(RlsContextError);
+			const claims = JSON.stringify({ sub: USER_B, role: "authenticated" });
+			const leaked = await prisma.$transaction(async (tx) => {
+				await tx.$executeRaw`SELECT set_config('request.jwt.claims', ${claims}, true)`;
+				await tx.$executeRaw`SELECT set_config('request.jwt.claim.sub', ${USER_B}, true)`;
+				await tx.$executeRawUnsafe("SET LOCAL ROLE authenticated");
+				return tx.session.findMany({ where: { id: SESSION_A } });
+			});
+			expect(leaked.some((row) => row.id === SESSION_A)).toBe(true);
+		} finally {
+			await prisma.$executeRawUnsafe("ALTER ROLE authenticated NOBYPASSRLS");
+		}
+		const restored = await withUserDb(prisma, USER_B, (db) =>
+			db.session.findMany({ where: { id: SESSION_A } })
+		);
+		expect(restored).toEqual([]);
 	});
 });
 
-describe("live Prisma RLS", () => {
-	it("is blocked unless BODHA_LIVE_PRISMA_RLS=1 is set on an isolated project", () => {
-		expect(livePrisma).toBe(false);
+describe("opt-in live PrismaPg RLS (Supabase transaction pooler)", () => {
+	it("records that the live PrismaPg suite was not executed without an isolated target", () => {
+		switch (liveTarget.kind) {
+			case "skipped":
+				expect(liveTarget.reason).toMatch(/was not executed/);
+				return;
+			case "refused":
+				expect.fail(liveTarget.reason);
+				return;
+			case "ready":
+				expect(liveTarget.connectionString).toContain(":6543");
+				return;
+			default: {
+				const exhaustive: never = liveTarget;
+				throw new Error(`Unhandled live target: ${JSON.stringify(exhaustive)}`);
+			}
+		}
+	});
+
+	it("runs owner, cross-user, anon, and pooled GUC leakage checks on PrismaPg", async ({
+		skip: skipTest,
+	}) => {
+		if (liveTarget.kind !== "ready") {
+			skipTest(liveTarget.reason);
+			return;
+		}
+		const { PrismaPg } = await import("@prisma/adapter-pg");
+		const client = createPrismaClient(
+			new PrismaPg({ connectionString: liveTarget.connectionString })
+		);
+		try {
+			const marker = `live-prisma-${crypto.randomUUID()}`;
+			const created = await withUserDb(client, liveTarget.userAId, (db) =>
+				db.session.create({
+					data: {
+						userId: liveTarget.userAId,
+						exerciseId: marker,
+						status: "running",
+						files: {},
+						timezone: "UTC",
+					},
+					select: { id: true },
+				})
+			);
+			const owned = await withUserDb(client, liveTarget.userAId, (db) =>
+				db.session.findMany({
+					where: { id: created.id, exerciseId: marker },
+				})
+			);
+			expect(owned.some((row) => row.id === created.id)).toBe(true);
+			const other = await withUserDb(client, liveTarget.userBId, (db) =>
+				db.session.findMany({ where: { id: created.id } })
+			);
+			expect(other).toEqual([]);
+			await expect(
+				withAnonDb(client, (db) => db.session.findMany())
+			).rejects.toThrow();
+			const leftover = await client.$transaction(
+				async (tx) =>
+					tx.$queryRaw<Array<{ role_name: string; sub: string | null }>>`
+          SELECT current_user::text AS role_name,
+            current_setting('request.jwt.claim.sub', true) AS sub
+        `
+			);
+			expect(leftover[0]?.role_name).not.toBe("authenticated");
+			expect(leftover[0]?.role_name).not.toBe("anon");
+			expect(leftover[0]?.sub ?? "").toBe("");
+			await withUserDb(client, liveTarget.userBId, async (db) => {
+				const identity = await db.$queryRaw<
+					Array<{ role_name: string; uid: string | null }>
+				>`SELECT current_user::text AS role_name, auth.uid()::text AS uid`;
+				expect(identity[0]?.role_name).toBe("authenticated");
+				expect(identity[0]?.uid).toBe(liveTarget.userBId);
+			});
+		} finally {
+			await client.$disconnect();
+		}
 	});
 });

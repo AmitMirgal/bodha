@@ -21,6 +21,10 @@ const ROLES: Record<RlsRole, RlsRole> = {
 	anon: "anon",
 };
 
+function pgBool(value: unknown): boolean {
+	return value === true || value === "t" || value === "true" || value === "on";
+}
+
 export class RlsContextError extends Error {
 	constructor(message: string) {
 		super(message);
@@ -61,10 +65,30 @@ export async function applyRlsContext(
 	const role = ROLES[safe.role];
 	await db.$executeRawUnsafe(`SET LOCAL ROLE ${role}`);
 	const rows = await db.$queryRaw<
-		Array<{ role_name: string; super: string; uid: string | null }>
-	>`SELECT current_user::text AS role_name, current_setting('is_superuser') AS super, auth.uid()::text AS uid`;
+		Array<{
+			role_name: string;
+			super: string;
+			uid: string | null;
+			rolsuper: unknown;
+			rolbypassrls: unknown;
+		}>
+	>`SELECT current_user::text AS role_name,
+    current_setting('is_superuser') AS super,
+    auth.uid()::text AS uid,
+    r.rolsuper AS rolsuper,
+    r.rolbypassrls AS rolbypassrls
+    FROM pg_roles r
+    WHERE r.rolname = current_user`;
 	const row = rows[0];
-	if (!row || row.role_name !== role || row.super === "on") {
+	// FORCE ROW LEVEL SECURITY does not constrain BYPASSRLS roles. Fail closed
+	// on pg_roles.rolbypassrls, not only is_superuser / current_user.
+	if (
+		!row ||
+		row.role_name !== role ||
+		row.super === "on" ||
+		pgBool(row.rolsuper) ||
+		pgBool(row.rolbypassrls)
+	) {
 		throw new RlsContextError(
 			"Refusing to run product queries: SET LOCAL ROLE did not drop to a non-bypass RLS role."
 		);

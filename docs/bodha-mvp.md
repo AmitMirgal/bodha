@@ -53,7 +53,7 @@ Every product table has RLS. Owner is `auth.uid()`. Snapshots have no UPDATE/DEL
 
 **Authoritative schema:** `supabase/migrations/*.sql`. Prisma (`apps/app/prisma/schema.prisma`, Prisma **7.4.2**, generator `prisma-client`) only maps those tables. Do **not** run `prisma migrate` / `prisma db push` on a BODHA database (that would add a competing history). Generate the client with `pnpm --filter app prisma:generate`. `packages/database` is Neon Prisma for `apps/api` and is unrelated.
 
-Runtime product queries use Prisma + `@prisma/adapter-pg` on `DATABASE_URL`. Each request opens a short transaction, sets `request.jwt.claims` / `request.jwt.claim.sub` from `auth.getUser()`, `SET LOCAL ROLE authenticated` (or `anon`), and **fails closed** if `current_user` is still a superuser/bypass role or `auth.uid()` does not match. The privileged `postgres` pooler login is for the TCP connection only; tenant rows are not read or written as `postgres`. Supabase JS remains for Auth (cookies, `getUser`, sign-in/out).
+Runtime product queries use Prisma + `@prisma/adapter-pg` on `DATABASE_URL`. Each request opens a short transaction, sets `request.jwt.claims` / `request.jwt.claim.sub` from `auth.getUser()`, `SET LOCAL ROLE authenticated` (or `anon`), and **fails closed** if `current_user` is not that role, `is_superuser`/`pg_roles.rolsuper` is on, **`pg_roles.rolbypassrls` is true**, or `auth.uid()` does not match. `FORCE ROW LEVEL SECURITY` does not constrain `BYPASSRLS` roles. The privileged `postgres` pooler login is for the TCP connection only; tenant rows are not read or written as `postgres`. Supabase JS remains for Auth (cookies, `getUser`, sign-in/out).
 
 Service role is not used for user operations.
 
@@ -120,4 +120,6 @@ When you are ready:
 4. Deploy only `apps/app` with pnpm (Vercel Install `pnpm install --frozen-lockfile`, Build `pnpm --filter app build`, Output `apps/app/.next`). Preview and production need separate projects and encryption keys.
 5. Production is a later step: new project, new encryption key, reviewed migrations, your DNS.
 
-PGlite Prisma RLS tests exercise the same `withUserDb` request path locally. They are not Supabase PostgREST. Live `BODHA_LIVE_*` (PostgREST) and `BODHA_LIVE_PRISMA_RLS=1` checks stay skipped unless you opt in against a project you already control. No service role.
+**Executed locally:** Prisma `withUserDb` against PGlite with stub `auth.uid()`. That is not Supabase PostgREST, not the transaction pooler, and not Supabase Auth.
+
+**Not executed by default:** PrismaPg against a real `:6543` pooler, real Auth cookies/`getUser()`, and PostgREST with live user tokens. Those suites are missing from default CI. PrismaPg opt-in requires `BODHA_LIVE_PRISMA_RLS=1` **and** `BODHA_LIVE_ISOLATED_TARGET=1` on a throwaway project you already control; otherwise no connection is opened. Live PostgREST still uses `BODHA_LIVE_SUPABASE_*` plus two user access tokens. No service role.

@@ -1,8 +1,7 @@
-import { assertNoRedirectToPrivate, type ValidatedEndpoint } from "./endpoint";
+import type { ValidatedEndpoint } from "./endpoint";
 import type { CapabilityStatus, ProviderCapabilities } from "./provider-types";
 import { DEFAULT_CAPABILITIES } from "./provider-types";
-
-const TRAILING_SLASH = /\/$/;
+import { fetchApprovedEndpoint } from "./transport";
 
 export interface ProbeResult {
 	capabilities: ProviderCapabilities;
@@ -24,30 +23,13 @@ export async function probeOpenAiCompatible(
 	const { controller, timer } = timeoutSignal(12_000);
 
 	try {
-		const modelsUrl = `${endpoint.href.replace(TRAILING_SLASH, "")}/models`;
-		const response = await fetch(modelsUrl, {
+		const response = await fetchApprovedEndpoint(endpoint, "/models", {
 			method: "GET",
 			headers: {
 				authorization: `Bearer ${apiKey}`,
 			},
-			redirect: "manual",
 			signal: controller.signal,
 		});
-
-		if (response.status >= 300 && response.status < 400) {
-			const location = response.headers.get("location");
-			if (location) {
-				assertNoRedirectToPrivate(
-					new URL(location, endpoint.href).href,
-					endpoint,
-				);
-			}
-			return {
-				capabilities,
-				error:
-					"The endpoint issued a redirect; refusing to follow it automatically.",
-			};
-		}
 
 		if (!response.ok) {
 			capabilities.tools = "unknown";
@@ -71,16 +53,89 @@ export async function probeOpenAiCompatible(
 		}
 
 		capabilities.streaming = "unknown";
-		capabilities.tools = "unknown";
 		capabilities.structuredOutput = "unknown";
 		capabilities.usageReporting = "unknown";
+		capabilities.tools = await probeToolSupport(
+			endpoint,
+			apiKey,
+			model,
+			controller.signal,
+		);
+		if (capabilities.tools === "unsupported") {
+			return {
+				capabilities,
+				error:
+					"This endpoint rejected tool calling. BODHA will not fall back to a one-shot completion.",
+			};
+		}
 		return { capabilities };
 	} catch (error) {
 		const message =
 			error instanceof Error ? error.message : "Connection check failed.";
-		return { capabilities, error: message };
+		if (/redirect/i.test(message) || /private/i.test(message)) {
+			return { capabilities, error: message };
+		}
+		return {
+			capabilities,
+			error: "Connection check failed.",
+		};
 	} finally {
 		clearTimeout(timer);
+	}
+}
+
+async function probeToolSupport(
+	endpoint: ValidatedEndpoint,
+	apiKey: string,
+	model: string,
+	signal: AbortSignal,
+): Promise<CapabilityStatus> {
+	try {
+		const response = await fetchApprovedEndpoint(
+			endpoint,
+			"/chat/completions",
+			{
+				method: "POST",
+				headers: {
+					authorization: `Bearer ${apiKey}`,
+					"content-type": "application/json",
+				},
+				signal,
+				body: JSON.stringify({
+					model,
+					messages: [{ role: "user", content: "." }],
+					max_tokens: 1,
+					tool_choice: "none",
+					tools: [
+						{
+							type: "function",
+							function: {
+								name: "bodha_capability_ping",
+								description: "Capability probe only. Do not call.",
+								parameters: { type: "object", properties: {} },
+							},
+						},
+					],
+				}),
+			},
+		);
+		if (response.status === 404) {
+			return "unsupported";
+		}
+		if (response.ok) {
+			return "supported";
+		}
+		const text = (await response.text()).toLowerCase();
+		if (
+			text.includes("tool") ||
+			text.includes("function calling") ||
+			text.includes("tools is not supported")
+		) {
+			return "unsupported";
+		}
+		return "unknown";
+	} catch {
+		return "unknown";
 	}
 }
 

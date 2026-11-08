@@ -1,18 +1,26 @@
 import { RequestContext } from "@mastra/core/request-context";
-import { normalizeUsage, type ResolvedLlmConfig } from "@repo/ai/provider";
-import type { SupabaseClient } from "@supabase/supabase-js";
 import {
-	type LearningReport,
-	reportSchema,
-	validateReportAgainstEvidence,
-} from "../lib/reports/schema";
+	assertAgentToolsAllowed,
+	type ResolvedLlmConfig,
+	usageFromAgentOutput,
+} from "@repo/ai/provider";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import { parseModelReview } from "../lib/reports/assemble";
+import type { ModelReview } from "../lib/reports/schema";
 import type { AgentRole } from "./context";
 import { mastra } from "./index";
 
 const BUDGETS = {
-	trainer: { maxSteps: 6, timeoutMs: 45_000 },
-	review: { maxSteps: 8, timeoutMs: 60_000 },
+	trainer: { maxSteps: 6, timeoutMs: 45_000, maxTokens: 800 },
+	review: { maxSteps: 8, timeoutMs: 60_000, maxTokens: 2000 },
 };
+
+const TRAINER_REQUIRED_TOOLS = ["get-exercise-snapshot"];
+const REVIEW_REQUIRED_TOOLS = [
+	"get-exercise-snapshot",
+	"get-session-evidence",
+	"get-latest-test-run",
+];
 
 export class AgentBudgetError extends Error {
 	constructor(message: string) {
@@ -79,94 +87,134 @@ function contextFor(input: RunInput) {
 	return requestContext;
 }
 
-function countToolResults(response: {
-	toolResults?: unknown[];
-	steps?: { toolResults?: unknown[] }[];
-}): number {
-	const direct = response.toolResults?.length ?? 0;
-	const nested =
-		response.steps?.reduce(
-			(sum, step) => sum + (step.toolResults?.length ?? 0),
-			0,
-		) ?? 0;
-	return Math.max(direct, nested);
+export function collectToolNames(response: {
+	steps?: {
+		toolResults?: { payload?: { toolName?: string }; toolName?: string }[];
+	}[];
+	toolResults?: { payload?: { toolName?: string }; toolName?: string }[];
+}): string[] {
+	const names: string[] = [];
+	const push = (
+		item: { payload?: { toolName?: string }; toolName?: string } | undefined,
+	) => {
+		const name = item?.toolName ?? item?.payload?.toolName;
+		if (typeof name === "string") {
+			names.push(name);
+		}
+	};
+	for (const item of response.toolResults ?? []) {
+		push(item);
+	}
+	for (const step of response.steps ?? []) {
+		for (const item of step.toolResults ?? []) {
+			push(item);
+		}
+	}
+	return [...new Set(names)];
+}
+
+export function assertRequiredTools(
+	response: Parameters<typeof collectToolNames>[0],
+	requiredIds: string[],
+	label: string,
+): string[] {
+	const names = collectToolNames(response);
+	const missing = requiredIds.filter((id) => !names.includes(id));
+	if (missing.length > 0) {
+		throw new MissingToolUseError(
+			`${label} did not use required tools (${missing.join(", ")}). Refusing a one-shot completion.`,
+		);
+	}
+	return names;
+}
+
+export async function generateWithBudget<T>(
+	run: (signal: AbortSignal) => Promise<T>,
+	timeoutMs: number,
+	label: string,
+): Promise<T> {
+	const controller = new AbortController();
+	const timer = setTimeout(() => controller.abort(), timeoutMs);
+	const budget = new Promise<never>((_, reject) => {
+		const fail = () =>
+			reject(new AgentBudgetError(`${label} hit the time budget.`));
+		if (controller.signal.aborted) {
+			fail();
+			return;
+		}
+		controller.signal.addEventListener("abort", fail, { once: true });
+	});
+	try {
+		return await Promise.race([run(controller.signal), budget]);
+	} catch (error) {
+		if (
+			controller.signal.aborted ||
+			(error instanceof Error &&
+				(error.name === "AbortError" || error.name === "AgentBudgetError"))
+		) {
+			throw error instanceof AgentBudgetError
+				? error
+				: new AgentBudgetError(`${label} hit the time budget.`);
+		}
+		throw error;
+	} finally {
+		clearTimeout(timer);
+	}
 }
 
 export async function runTrainer(input: RunInput) {
+	assertAgentToolsAllowed(input.config);
 	const agent = mastra.getAgentById("bodha-trainer");
 	const budget = BUDGETS.trainer;
-	const response = await Promise.race([
-		agent.generate(toMastraMessages(input.messages), {
-			requestContext: contextFor(input),
-			maxSteps: budget.maxSteps,
-		}),
-		new Promise<never>((_, reject) => {
-			setTimeout(
-				() => reject(new AgentBudgetError("Trainer hit the time budget.")),
-				budget.timeoutMs,
-			);
-		}),
-	]);
-
-	const toolCount = countToolResults(response);
-	if (toolCount < 1) {
-		throw new MissingToolUseError(
-			"Trainer did not use required tools. Refusing a one-shot completion.",
-		);
-	}
-
+	const response = await generateWithBudget(
+		(abortSignal) =>
+			agent.generate(toMastraMessages(input.messages), {
+				requestContext: contextFor(input),
+				maxSteps: budget.maxSteps,
+				abortSignal,
+				modelSettings: { maxOutputTokens: budget.maxTokens },
+			}),
+		budget.timeoutMs,
+		"Trainer",
+	);
+	const tools = assertRequiredTools(
+		response,
+		TRAINER_REQUIRED_TOOLS,
+		"Trainer",
+	);
 	return {
 		text: response.text ?? "",
-		toolCount,
-		usage: normalizeUsage(response.usage ?? null),
+		toolCount: tools.length,
+		tools,
+		usage: usageFromAgentOutput(response),
 	};
 }
 
-export async function runReview(
-	input: RunInput & {
-		evidence: { id: string; kind: string; sessionId: string }[];
-	},
-) {
+export async function runReview(input: RunInput) {
+	assertAgentToolsAllowed(input.config);
 	const agent = mastra.getAgentById("bodha-review");
 	const budget = BUDGETS.review;
-	const response = await Promise.race([
-		agent.generate(toMastraMessages(input.messages), {
-			requestContext: contextFor(input),
-			maxSteps: budget.maxSteps,
-		}),
-		new Promise<never>((_, reject) => {
-			setTimeout(
-				() => reject(new AgentBudgetError("Review hit the time budget.")),
-				budget.timeoutMs,
-			);
-		}),
-	]);
-
-	const toolCount = countToolResults(response);
-	if (toolCount < 2) {
-		throw new MissingToolUseError(
-			"Review did not retrieve evidence with tools. Refusing an ungrounded one-shot report.",
-		);
-	}
-
-	const rawText = response.text ?? "";
-	const jsonText = extractJson(rawText);
-	const parsed = reportSchema.safeParse(jsonText);
+	const response = await generateWithBudget(
+		(abortSignal) =>
+			agent.generate(toMastraMessages(input.messages), {
+				requestContext: contextFor(input),
+				maxSteps: budget.maxSteps,
+				abortSignal,
+				modelSettings: { maxOutputTokens: budget.maxTokens },
+			}),
+		budget.timeoutMs,
+		"Review",
+	);
+	const tools = assertRequiredTools(response, REVIEW_REQUIRED_TOOLS, "Review");
+	const parsed = parseModelReview(extractJson(response.text ?? ""));
 	if (!parsed.success) {
 		throw new Error("Review output was not a valid learning report.");
 	}
-	const validated = validateReportAgainstEvidence(
-		parsed.data,
-		input.evidence,
-		input.sessionId,
-	);
-	if (!validated.ok) {
-		throw new Error(validated.error);
-	}
 	return {
-		report: validated.report as LearningReport,
-		toolCount,
-		usage: normalizeUsage(response.usage ?? null),
+		model: parsed.data as ModelReview,
+		toolCount: tools.length,
+		tools,
+		usage: usageFromAgentOutput(response),
 	};
 }
 
@@ -180,6 +228,10 @@ function extractJson(text: string): unknown {
 }
 
 export const mastraBudgets = BUDGETS;
+export const mastraRequiredTools = {
+	trainer: TRAINER_REQUIRED_TOOLS,
+	review: REVIEW_REQUIRED_TOOLS,
+};
 export const mastraDocs = {
 	agents: "https://mastra.ai/docs/agents/overview",
 	tools: "https://mastra.ai/docs/agents/tools",

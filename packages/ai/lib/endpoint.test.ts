@@ -46,4 +46,18 @@ describe("endpoint validation", () => {
 		]);
 		expect(endpoint.host).toBe("api.openai.com");
 	});
+
+	it("allows HTTP only for operator-approved public hosts", async () => {
+		const endpoint = await validateLlmEndpoint(
+			"http://api.openai.com/v1",
+			["api.openai.com"],
+			{ allowHttpForApprovedHosts: true },
+		);
+		expect(endpoint.href).toContain("http://api.openai.com");
+		await expect(
+			validateLlmEndpoint("http://127.0.0.1/v1", ["127.0.0.1"], {
+				allowHttpForApprovedHosts: true,
+			}),
+		).rejects.toThrow(/not allowed|Private/);
+	});
 });

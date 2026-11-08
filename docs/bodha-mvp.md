@@ -48,11 +48,13 @@ Service role is not used for user operations. Server routes use the authenticate
 
 ## Encryption / BYOK
 
-User API keys are AES-256-GCM encrypted with `BODHA_CREDENTIALS_ENCRYPTION_KEY` and bound to the owner id as AAD. Ciphertext lives in `llm_settings`. The `llm_settings_status` view hides ciphertext. Application APIs return masked fingerprint only. Keys are never written to localStorage, logs, or model history.
+User API keys are AES-256-GCM encrypted with `BODHA_CREDENTIALS_ENCRYPTION_KEY` and bound to owner + provider + model + base URL as AAD. Ciphertext lives in `llm_settings`. The `llm_settings_status` view hides ciphertext. Application APIs return masked fingerprint only. Keys are never written to localStorage, logs, or model history.
 
 If the encryption key is missing, save/load of user credentials fails closed. Removal deletes the saved credential only.
 
-Endpoint validation requires HTTPS, denies private/metadata addresses, and allowlists `BODHA_ALLOWED_LLM_HOSTS`. Connection checks list models only and do not send exercise content.
+Immutable snapshots, evidence, and usage are INSERT-only. Idempotent writes insert and, on unique conflict, select the first row. They do not use `ON CONFLICT DO UPDATE` (that requires UPDATE privilege).
+
+Endpoint validation requires HTTPS (HTTP only when `BODHA_ALLOW_HTTP_LLM=true` for operator-approved public hosts), denies private/metadata addresses, and allowlists `BODHA_ALLOWED_LLM_HOSTS`. Connection checks list models and probe tool support. They do not send exercise content. Redirects are not followed. Auth `next` must be an in-app relative path.
 
 ## Mastra
 
@@ -66,9 +68,11 @@ Pinned via `@mastra/core` in `apps/app`. Official references:
 
 Trainer and review are one Mastra instance with role-specific agents. Model is `{ id, url, apiKey }` OpenAI-compatible from the owner's resolved config (user BYOK, else operator default). Tools are read-only: current session snapshot, evidence, latest test run. Request context supplies `userId`/`sessionId`; model-supplied ids cannot change scope.
 
-Budgets: trainer 6 steps / 45s; review 8 steps / 60s. Missing tool use is an error (no one-shot fallback). Memory/storage is disabled; app records live in Supabase. Telemetry of raw prompts is disabled.
+Budgets: trainer 6 steps / 45s / 800 output tokens; review 8 steps / 60s / 2000 output tokens, with AbortSignal cancellation. Missing required tool use is an error (no one-shot fallback). Memory/storage is disabled; app records live in Supabase. Telemetry of raw prompts is disabled.
 
-Usage: missing is `unknown`, not zero. Cached tokens are recorded separately and never blindly added to input.
+Usage: missing is `unknown`, not zero. Cached tokens are recorded separately and never inferred as included in input from `cached <= input`. Report outcome and usage are assembled from stored evidence and usage rows, not from model-authored numbers.
+
+Sessions resume from the immutable exercise snapshot (spec + tests). Autosave uses `expectedUpdatedAt` and surfaces revision conflicts.
 
 ## Exercises
 

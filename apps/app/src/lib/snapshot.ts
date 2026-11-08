@@ -47,6 +47,45 @@ export function buildExerciseSnapshot(
 	};
 }
 
+export function challengeFromSnapshot(
+	current: Challenge,
+	snapshot: {
+		exercise_id: string;
+		meta: unknown;
+		spec_markdown: string;
+		starter: unknown;
+		tests_source: string;
+	},
+): Challenge {
+	const meta =
+		snapshot.meta && typeof snapshot.meta === "object"
+			? (snapshot.meta as Partial<Challenge>)
+			: {};
+	const starter =
+		snapshot.starter &&
+		typeof snapshot.starter === "object" &&
+		!Array.isArray(snapshot.starter)
+			? (snapshot.starter as Record<string, string>)
+			: current.starter;
+	return {
+		...current,
+		id: snapshot.exercise_id || current.id,
+		title: typeof meta.title === "string" ? meta.title : current.title,
+		blurb: typeof meta.blurb === "string" ? meta.blurb : current.blurb,
+		difficulty:
+			typeof meta.difficulty === "string"
+				? meta.difficulty
+				: current.difficulty,
+		minutes: typeof meta.minutes === "number" ? meta.minutes : current.minutes,
+		tasks: Array.isArray(meta.tasks) ? meta.tasks : current.tasks,
+		tests: snapshot.tests_source,
+		starter: {
+			...starter,
+			"README.md": snapshot.spec_markdown,
+		},
+	};
+}
+
 export function hashFiles(files: Record<string, string>): string {
 	const canonical = JSON.stringify(
 		Object.keys(files)

@@ -54,6 +54,22 @@ export interface EncryptedSecret {
 	tag: string;
 }
 
+export interface CredentialBinding {
+	baseUrl: string;
+	model: string;
+	provider: string;
+}
+
+export function credentialAad(
+	ownerId: string,
+	binding: CredentialBinding,
+): Buffer {
+	return Buffer.from(
+		`${ownerId}\0${binding.provider}\0${binding.model}\0${binding.baseUrl}`,
+		"utf8",
+	);
+}
+
 export function fingerprintKey(plaintext: string): string {
 	const digest = createHash("sha256").update(plaintext).digest("hex");
 	return `sha256:${digest.slice(0, 8)}…${digest.slice(-4)}`;
@@ -62,6 +78,7 @@ export function fingerprintKey(plaintext: string): string {
 export function encryptSecret(
 	plaintext: string,
 	ownerId: string,
+	binding: CredentialBinding,
 ): EncryptedSecret {
 	if (!plaintext) {
 		throw new Error("API key is required.");
@@ -69,7 +86,7 @@ export function encryptSecret(
 	const key = getEncryptionKey();
 	const iv = randomBytes(12);
 	const cipher = createCipheriv(ALGO, key, iv);
-	cipher.setAAD(Buffer.from(ownerId, "utf8"));
+	cipher.setAAD(credentialAad(ownerId, binding));
 	const encrypted = Buffer.concat([
 		cipher.update(plaintext, "utf8"),
 		cipher.final(),
@@ -86,6 +103,7 @@ export function encryptSecret(
 export function decryptSecret(
 	secret: EncryptedSecret,
 	ownerId: string,
+	binding: CredentialBinding,
 ): string {
 	const key = getEncryptionKey();
 	const decipher = createDecipheriv(
@@ -93,7 +111,7 @@ export function decryptSecret(
 		key,
 		Buffer.from(secret.iv, "base64"),
 	);
-	decipher.setAAD(Buffer.from(ownerId, "utf8"));
+	decipher.setAAD(credentialAad(ownerId, binding));
 	decipher.setAuthTag(Buffer.from(secret.tag, "base64"));
 	const decrypted = Buffer.concat([
 		decipher.update(Buffer.from(secret.ciphertext, "base64")),

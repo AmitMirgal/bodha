@@ -56,6 +56,13 @@ export const reportSchema = z.object({
 
 export type LearningReport = z.infer<typeof reportSchema>;
 
+export const modelReviewSchema = reportSchema.omit({
+	outcome: true,
+	usage: true,
+});
+
+export type ModelReview = z.infer<typeof modelReviewSchema>;
+
 export interface EvidenceRef {
 	id: string;
 	kind: string;

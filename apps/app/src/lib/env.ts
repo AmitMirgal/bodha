@@ -29,6 +29,10 @@ export function getAllowedLlmHosts(): string[] {
 		.filter(Boolean);
 }
 
+export function allowHttpLlm(): boolean {
+	return process.env.BODHA_ALLOW_HTTP_LLM === "true";
+}
+
 export function getOperatorDefault() {
 	const provider = process.env.BODHA_OPERATOR_LLM_PROVIDER?.trim();
 	const model = process.env.BODHA_OPERATOR_LLM_MODEL?.trim();

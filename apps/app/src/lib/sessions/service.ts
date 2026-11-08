@@ -1,6 +1,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getChallenge } from "../challenges";
+import { insertOnce } from "../db/insert-once";
 import { PROGRESS_TIMEZONE } from "../env";
+import { PersistenceError, RevisionConflictError } from "../errors";
 import { newIdempotencyKey, operationId } from "../idempotency";
 import type { TestResult } from "../runner";
 import { buildExerciseSnapshot, hashFiles } from "../snapshot";
@@ -43,26 +45,65 @@ export async function insertEvidence(
 		idempotencyKey: string;
 	},
 ) {
-	const { data, error } = await supabase
-		.from("evidence_events")
-		.upsert(
-			{
-				session_id: input.sessionId,
-				user_id: input.userId,
-				kind: input.kind,
-				source: input.source,
-				observation_type: input.observationType,
-				payload: input.payload,
-				idempotency_key: input.idempotencyKey,
-			},
-			{ onConflict: "session_id,idempotency_key" },
-		)
-		.select("id, seq")
-		.single();
-	if (error) {
-		throw new Error("Could not store evidence.");
-	}
-	return data;
+	const result = await insertOnce<{ id: string; seq: number }>(
+		supabase,
+		"evidence_events",
+		{
+			session_id: input.sessionId,
+			user_id: input.userId,
+			kind: input.kind,
+			source: input.source,
+			observation_type: input.observationType,
+			payload: input.payload,
+			idempotency_key: input.idempotencyKey,
+		},
+		{
+			session_id: input.sessionId,
+			idempotency_key: input.idempotencyKey,
+		},
+		"id, seq",
+	);
+	return { ...result.data, created: result.created };
+}
+
+export async function insertUsageRecord(
+	supabase: SupabaseClient,
+	input: {
+		sessionId: string;
+		userId: string;
+		operationId: string;
+		agentRole: "trainer" | "review";
+		usage: {
+			cachedIncludedInInput: boolean | null;
+			cachedTokens: number | null;
+			coverage: string;
+			inputTokens: number | null;
+			native: unknown;
+			outputTokens: number | null;
+		};
+	},
+) {
+	return insertOnce(
+		supabase,
+		"usage_records",
+		{
+			session_id: input.sessionId,
+			user_id: input.userId,
+			operation_id: input.operationId,
+			agent_role: input.agentRole,
+			input_tokens: input.usage.inputTokens,
+			output_tokens: input.usage.outputTokens,
+			cached_tokens: input.usage.cachedTokens,
+			cached_included_in_input: input.usage.cachedIncludedInInput,
+			coverage: input.usage.coverage,
+			native: input.usage.native,
+		},
+		{
+			session_id: input.sessionId,
+			operation_id: input.operationId,
+		},
+		"id, operation_id",
+	);
 }
 
 export async function createSession(
@@ -86,7 +127,7 @@ export async function createSession(
 		.select("*")
 		.single();
 	if (error || !session) {
-		throw new Error("Could not create session.");
+		throw new PersistenceError("Could not create session.");
 	}
 	return session;
 }
@@ -113,7 +154,9 @@ export async function startSession(
 		throw new Error("Unknown exercise.");
 	}
 	const snapshot = buildExerciseSnapshot(challenge);
-	const { error: snapError } = await supabase.from("exercise_snapshots").upsert(
+	await insertOnce(
+		supabase,
+		"exercise_snapshots",
 		{
 			session_id: sessionId,
 			user_id: userId,
@@ -124,19 +167,9 @@ export async function startSession(
 			starter: snapshot.starter,
 			meta: snapshot.meta,
 		},
-		{ onConflict: "session_id" },
+		{ session_id: sessionId },
+		"id",
 	);
-	if (snapError && !snapError.message.includes("duplicate")) {
-		// Insert-only table: ignore if snapshot already exists.
-		const { data: existing } = await supabase
-			.from("exercise_snapshots")
-			.select("id")
-			.eq("session_id", sessionId)
-			.maybeSingle();
-		if (!existing) {
-			throw new Error("Could not freeze the exercise snapshot.");
-		}
-	}
 	await insertEvidence(supabase, {
 		sessionId,
 		userId,
@@ -166,7 +199,7 @@ export async function startSession(
 		.select("*")
 		.single();
 	if (startError || !started) {
-		throw new Error("Could not start session.");
+		throw new PersistenceError("Could not start session.");
 	}
 	return started;
 }
@@ -176,8 +209,9 @@ export async function saveFiles(
 	userId: string,
 	sessionId: string,
 	files: Record<string, string>,
+	expectedUpdatedAt?: string,
 ) {
-	const { data, error } = await supabase
+	let query = supabase
 		.from("sessions")
 		.update({
 			files,
@@ -186,13 +220,26 @@ export async function saveFiles(
 		})
 		.eq("id", sessionId)
 		.eq("user_id", userId)
-		.eq("status", "running")
-		.select("id, updated_at")
-		.maybeSingle();
+		.eq("status", "running");
+	if (expectedUpdatedAt) {
+		query = query.eq("updated_at", expectedUpdatedAt);
+	}
+	const { data, error } = await query.select("id, updated_at").maybeSingle();
 	if (error) {
-		throw new Error("Save failed.");
+		throw new PersistenceError("Save failed.");
 	}
 	if (!data) {
+		if (expectedUpdatedAt) {
+			const { data: current } = await supabase
+				.from("sessions")
+				.select("id, status, updated_at")
+				.eq("id", sessionId)
+				.eq("user_id", userId)
+				.maybeSingle();
+			if (current && current.status === "running") {
+				throw new RevisionConflictError();
+			}
+		}
 		throw new Error("Session is not running or not yours.");
 	}
 	return data;
@@ -206,8 +253,16 @@ export async function recordTestRun(
 		results: TestResult[];
 		fatal?: string;
 		files: Record<string, string>;
+		expectedUpdatedAt?: string;
 	},
 ) {
+	const saved = await saveFiles(
+		supabase,
+		input.userId,
+		input.sessionId,
+		input.files,
+		input.expectedUpdatedAt,
+	);
 	const { data: snapshot } = await supabase
 		.from("exercise_snapshots")
 		.select("id")
@@ -245,9 +300,9 @@ export async function recordTestRun(
 		.select("*")
 		.single();
 	if (error || !data) {
-		throw new Error("Could not store test run.");
+		throw new PersistenceError("Could not store test run.");
 	}
-	return data;
+	return { ...data, savedAt: saved.updated_at };
 }
 
 export function dayBucket(iso: string, timeZone: string): string {

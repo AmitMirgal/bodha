@@ -5,7 +5,8 @@ import {
 	encryptionAvailable,
 	encryptSecret,
 } from "../../../lib/crypto/credentials";
-import { getAllowedLlmHosts } from "../../../lib/env";
+import { allowHttpLlm, getAllowedLlmHosts } from "../../../lib/env";
+import { redactProviderError } from "../../../lib/errors";
 import { getMaskedSettings } from "../../../lib/llm/resolve-config";
 import { requireUser } from "../../../lib/supabase/server";
 
@@ -51,8 +52,13 @@ export async function PUT(request: Request) {
 		const endpoint = await validateLlmEndpoint(
 			parsed.data.baseUrl,
 			getAllowedLlmHosts(),
+			{ allowHttpForApprovedHosts: allowHttpLlm() },
 		);
-		const secret = encryptSecret(parsed.data.apiKey, userId);
+		const secret = encryptSecret(parsed.data.apiKey, userId, {
+			provider: parsed.data.provider,
+			model: parsed.data.model,
+			baseUrl: endpoint.href,
+		});
 		const { error } = await supabase.from("llm_settings").upsert({
 			user_id: userId,
 			provider: parsed.data.provider,
@@ -81,9 +87,10 @@ export async function PUT(request: Request) {
 			},
 		});
 	} catch (error) {
-		const message =
-			error instanceof Error ? error.message : "Could not save settings.";
-		return NextResponse.json({ error: message }, { status: 400 });
+		return NextResponse.json(
+			{ error: redactProviderError(error) },
+			{ status: 400 },
+		);
 	}
 }
 
@@ -121,6 +128,7 @@ export async function POST(request: Request) {
 		const endpoint = await validateLlmEndpoint(
 			parsed.data.baseUrl,
 			getAllowedLlmHosts(),
+			{ allowHttpForApprovedHosts: allowHttpLlm() },
 		);
 		const probe = await probeOpenAiCompatible(
 			endpoint,
@@ -132,11 +140,12 @@ export async function POST(request: Request) {
 			error: probe.error ?? null,
 			capabilities: probe.capabilities,
 			notice:
-				"This check lists models only. It does not send exercise content.",
+				"This check lists models and probes tool support. It does not send exercise content.",
 		});
 	} catch (error) {
-		const message =
-			error instanceof Error ? error.message : "Connection check failed.";
-		return NextResponse.json({ error: message }, { status: 400 });
+		return NextResponse.json(
+			{ error: redactProviderError(error) },
+			{ status: 400 },
+		);
 	}
 }

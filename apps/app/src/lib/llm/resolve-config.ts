@@ -8,7 +8,7 @@ import {
 } from "@repo/ai/provider";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { decryptSecret, encryptionAvailable } from "../crypto/credentials";
-import { getAllowedLlmHosts, getOperatorDefault } from "../env";
+import { allowHttpLlm, getAllowedLlmHosts, getOperatorDefault } from "../env";
 
 export class LlmConfigError extends Error {
 	constructor(message: string) {
@@ -105,10 +105,16 @@ export async function resolveLlmForUser(
 				fingerprint: row.key_fingerprint,
 			},
 			userId,
+			{
+				provider: row.provider,
+				model: row.model,
+				baseUrl: row.base_url,
+			},
 		);
 		const endpoint = await validateLlmEndpoint(
 			row.base_url,
 			getAllowedLlmHosts(),
+			{ allowHttpForApprovedHosts: allowHttpLlm() },
 		);
 		return {
 			apiKey,
@@ -132,6 +138,7 @@ export async function resolveLlmForUser(
 	const endpoint = await validateLlmEndpoint(
 		operator.baseUrl,
 		getAllowedLlmHosts(),
+		{ allowHttpForApprovedHosts: allowHttpLlm() },
 	);
 	return {
 		apiKey: operator.apiKey,

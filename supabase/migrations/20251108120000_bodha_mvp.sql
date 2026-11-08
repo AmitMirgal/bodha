@@ -187,6 +187,7 @@ create table public.exercise_snapshots (
   created_at timestamptz not null default now(),
   unique (session_id),
   unique (id, user_id),
+  unique (id, session_id),
   foreign key (session_id, user_id) references public.sessions (id, user_id) on delete cascade
 );
 
@@ -202,11 +203,13 @@ create policy snapshots_insert_own
     user_id = auth.uid()
     and exists (
       select 1 from public.sessions s
-      where s.id = session_id and s.user_id = auth.uid()
+      where s.id = exercise_snapshots.session_id and s.user_id = auth.uid()
     )
   );
 
 -- Intentionally no UPDATE or DELETE policies: immutability is enforced by RLS.
+-- Idempotent writes must INSERT and, on unique conflict, SELECT the existing
+-- row. ON CONFLICT DO UPDATE is not granted and must not be used.
 
 revoke all on public.exercise_snapshots from anon, public;
 grant select, insert on public.exercise_snapshots to authenticated;
@@ -227,6 +230,8 @@ create table public.evidence_events (
   created_at timestamptz not null default now(),
   unique (session_id, idempotency_key),
   unique (session_id, seq),
+  unique (id, session_id),
+  unique (id, user_id),
   foreign key (session_id, user_id) references public.sessions (id, user_id) on delete cascade,
   constraint evidence_kind_check check (
     kind in (
@@ -258,7 +263,7 @@ create policy evidence_insert_own
     user_id = auth.uid()
     and exists (
       select 1 from public.sessions s
-      where s.id = session_id and s.user_id = auth.uid()
+      where s.id = evidence_events.session_id and s.user_id = auth.uid()
     )
   );
 
@@ -272,11 +277,12 @@ create table public.messages (
   id uuid primary key default gen_random_uuid(),
   session_id uuid not null,
   user_id uuid not null,
-  evidence_id uuid references public.evidence_events (id) on delete set null,
+  evidence_id uuid,
   role text not null,
   content text not null,
   created_at timestamptz not null default now(),
   foreign key (session_id, user_id) references public.sessions (id, user_id) on delete cascade,
+  foreign key (evidence_id, session_id) references public.evidence_events (id, session_id) on delete set null,
   constraint messages_role_check check (role in ('user', 'assistant', 'system', 'tool'))
 );
 
@@ -294,7 +300,7 @@ create policy messages_insert_own
     user_id = auth.uid()
     and exists (
       select 1 from public.sessions s
-      where s.id = session_id and s.user_id = auth.uid()
+      where s.id = messages.session_id and s.user_id = auth.uid()
     )
   );
 
@@ -309,14 +315,16 @@ create table public.test_runs (
   session_id uuid not null,
   user_id uuid not null,
   snapshot_id uuid not null,
-  evidence_id uuid references public.evidence_events (id) on delete set null,
+  evidence_id uuid,
   code_revision_hash text not null,
   results jsonb not null,
   fatal text,
   provenance text not null default 'browser_harness',
   created_at timestamptz not null default now(),
   foreign key (session_id, user_id) references public.sessions (id, user_id) on delete cascade,
-  foreign key (snapshot_id, user_id) references public.exercise_snapshots (id, user_id)
+  foreign key (snapshot_id, user_id) references public.exercise_snapshots (id, user_id),
+  foreign key (snapshot_id, session_id) references public.exercise_snapshots (id, session_id),
+  foreign key (evidence_id, session_id) references public.evidence_events (id, session_id)
 );
 
 create index test_runs_session_idx on public.test_runs (session_id, created_at);
@@ -333,11 +341,13 @@ create policy test_runs_insert_own
     user_id = auth.uid()
     and exists (
       select 1 from public.sessions s
-      where s.id = session_id and s.user_id = auth.uid()
+      where s.id = test_runs.session_id and s.user_id = auth.uid()
     )
     and exists (
       select 1 from public.exercise_snapshots snap
-      where snap.id = snapshot_id and snap.user_id = auth.uid() and snap.session_id = session_id
+      where snap.id = test_runs.snapshot_id
+        and snap.user_id = auth.uid()
+        and snap.session_id = test_runs.session_id
     )
   );
 
@@ -360,6 +370,7 @@ create table public.reports (
   unique (session_id, version),
   foreign key (session_id, user_id) references public.sessions (id, user_id) on delete cascade,
   foreign key (snapshot_id, user_id) references public.exercise_snapshots (id, user_id),
+  foreign key (snapshot_id, session_id) references public.exercise_snapshots (id, session_id),
   constraint reports_status_check check (
     status in ('running', 'complete', 'failed', 'incomplete')
   )
@@ -379,7 +390,13 @@ create policy reports_insert_own
     user_id = auth.uid()
     and exists (
       select 1 from public.sessions s
-      where s.id = session_id and s.user_id = auth.uid()
+      where s.id = reports.session_id and s.user_id = auth.uid()
+    )
+    and exists (
+      select 1 from public.exercise_snapshots snap
+      where snap.id = reports.snapshot_id
+        and snap.user_id = auth.uid()
+        and snap.session_id = reports.session_id
     )
   );
 
@@ -425,22 +442,12 @@ create policy usage_insert_own
     user_id = auth.uid()
     and exists (
       select 1 from public.sessions s
-      where s.id = session_id and s.user_id = auth.uid()
+      where s.id = usage_records.session_id and s.user_id = auth.uid()
     )
   );
 
 revoke all on public.usage_records from anon, public;
 grant select, insert on public.usage_records to authenticated;
 
--- Deny table access to anon explicitly (defense in depth)
-revoke all on all tables in schema public from anon;
-grant select, insert, update on public.profiles to authenticated;
-grant select, insert, update, delete on public.llm_settings to authenticated;
-grant select on public.llm_settings_status to authenticated;
-grant select, insert, update on public.sessions to authenticated;
-grant select, insert on public.exercise_snapshots to authenticated;
-grant select, insert on public.evidence_events to authenticated;
-grant select, insert on public.messages to authenticated;
-grant select, insert on public.test_runs to authenticated;
-grant select, insert, update on public.reports to authenticated;
-grant select, insert on public.usage_records to authenticated;
+-- Anon is denied only on BODHA product relations above. Do not revoke
+-- unrelated tables in schema public.

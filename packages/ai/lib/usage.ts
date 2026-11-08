@@ -85,8 +85,7 @@ export function normalizeUsage(raw: unknown): NormalizedUsage {
 	}
 
 	const cached = cachedTokens ?? cachedFromDetails;
-	const cachedIncludedInInput =
-		cached !== null && inputTokens !== null ? cached <= inputTokens : null;
+	const cachedIncludedInInput = cachedInclusion(nested, cachedFromDetails);
 
 	const hasAny =
 		inputTokens !== null || outputTokens !== null || cached !== null;
@@ -117,6 +116,54 @@ export function normalizeUsage(raw: unknown): NormalizedUsage {
 		coverage,
 		native: Object.keys(native).length ? native : null,
 	};
+}
+
+function cachedInclusion(
+	nested: Record<string, unknown>,
+	cachedFromDetails: number | null,
+): boolean | null {
+	if ("cached_tokens_included_in_prompt" in nested) {
+		return Boolean(nested.cached_tokens_included_in_prompt);
+	}
+	if (cachedFromDetails !== null) {
+		// OpenAI prompt_tokens includes cached tokens by contract.
+		return true;
+	}
+	if ("cache_read_input_tokens" in nested || "cacheReadInputTokens" in nested) {
+		// Anthropic-style: cache reads are reported beside input, not inside it.
+		return false;
+	}
+	return null;
+}
+
+export function usageFromAgentOutput(response: {
+	steps?: { usage?: unknown }[];
+	totalUsage?: unknown;
+	usage?: unknown;
+}): NormalizedUsage {
+	if (response.totalUsage) {
+		return normalizeUsage(response.totalUsage);
+	}
+	if (response.steps && response.steps.length > 0) {
+		const parts = response.steps.map((step) => normalizeUsage(step.usage));
+		const aggregate = aggregateUsage(parts);
+		const inclusions = [
+			...new Set(
+				parts
+					.map((part) => part.cachedIncludedInInput)
+					.filter((value): value is boolean => value !== null),
+			),
+		];
+		return {
+			inputTokens: aggregate.inputTokens,
+			outputTokens: aggregate.outputTokens,
+			cachedTokens: aggregate.cachedTokens,
+			cachedIncludedInInput: inclusions.length === 1 ? inclusions[0] : null,
+			coverage: aggregate.coverage,
+			native: { steps: parts.length },
+		};
+	}
+	return normalizeUsage(response.usage);
 }
 
 export function aggregateUsage(records: NormalizedUsage[]): {

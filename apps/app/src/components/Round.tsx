@@ -16,10 +16,13 @@ import AiPanel from "./AiPanel";
 
 interface Props {
 	challenge: Challenge;
+	enqueue?: (files: Record<string, string>) => Promise<unknown>;
+	expectedUpdatedAt: { current: string | undefined };
 	files: Record<string, string>;
 	onExit: () => void;
 	onFiles: (files: Record<string, string>) => void;
 	onFinish: () => void;
+	onSavedAt: (updatedAt: string) => void;
 	saveError: string;
 	sessionId: string;
 	startedAt: number;
@@ -51,9 +54,12 @@ export default function Round({
 	files,
 	startedAt,
 	saveError,
+	enqueue,
+	expectedUpdatedAt,
 	onFiles,
 	onFinish,
 	onExit,
+	onSavedAt,
 }: Props) {
 	const paths = Object.keys(files);
 	const [active, setActive] = useState(
@@ -68,31 +74,64 @@ export default function Round({
 	const [confirming, setConfirming] = useState(false);
 	const [now, setNow] = useState(Date.now());
 	const [finishError, setFinishError] = useState("");
+	const [testPersistError, setTestPersistError] = useState("");
 	const filesRef = useRef(files);
 	filesRef.current = files;
+	const lastRunFiles = useRef<Record<string, string> | null>(null);
+	const lastRun = useRef<{ results: TestResult[]; fatal?: string } | null>(
+		null,
+	);
 	const finished = useRef(false);
 
 	const deadline = startedAt + challenge.minutes * 60_000;
 	const left = deadline - now;
 
+	const persistTestRun = useCallback(
+		async (
+			runFiles: Record<string, string>,
+			out: { results: TestResult[]; fatal?: string },
+		) => {
+			const response = await fetch(`/api/sessions/${sessionId}/tests`, {
+				method: "POST",
+				headers: { "content-type": "application/json" },
+				body: JSON.stringify({
+					files: runFiles,
+					results: out.results,
+					fatal: out.fatal,
+					expectedUpdatedAt: expectedUpdatedAt.current,
+				}),
+			});
+			const body = await response.json().catch(() => ({}));
+			if (!response.ok) {
+				setTestPersistError(body.error ?? "Could not record the test run.");
+				return false;
+			}
+			if (typeof body.run?.savedAt === "string") {
+				onSavedAt(body.run.savedAt);
+			}
+			setTestPersistError("");
+			return true;
+		},
+		[expectedUpdatedAt, onSavedAt, sessionId],
+	);
+
 	const run = useCallback(async (): Promise<TestResult[]> => {
 		setRunning(true);
 		setFatal("");
-		const out = await runTests(filesRef.current, challenge.tests);
+		setTestPersistError("");
+		const filesForRun = { ...filesRef.current };
+		lastRunFiles.current = filesForRun;
+		const out = await runTests(filesForRun, challenge.tests);
+		lastRun.current = out;
 		setRunning(false);
 		setFatal(out.fatal ?? "");
 		setResults(out.results);
-		await fetch(`/api/sessions/${sessionId}/tests`, {
-			method: "POST",
-			headers: { "content-type": "application/json" },
-			body: JSON.stringify({
-				files: filesRef.current,
-				results: out.results,
-				fatal: out.fatal,
-			}),
-		});
+		if (enqueue) {
+			await enqueue(filesForRun);
+		}
+		await persistTestRun(filesForRun, out);
 		return out.results;
-	}, [challenge.tests, sessionId]);
+	}, [challenge.tests, enqueue, persistTestRun]);
 
 	const finish = useCallback(async () => {
 		if (finished.current) {
@@ -205,6 +244,24 @@ export default function Round({
 			</header>
 			{saveError ? <div className="fatal">{saveError}</div> : null}
 			{finishError ? <div className="fatal">{finishError}</div> : null}
+			{testPersistError ? (
+				<div className="fatal">
+					{testPersistError}{" "}
+					<button
+						className="btn ghost"
+						onClick={() => {
+							const runFiles = lastRunFiles.current;
+							const out = lastRun.current;
+							if (runFiles && out) {
+								runBackground(persistTestRun(runFiles, out));
+							}
+						}}
+						type="button"
+					>
+						Retry recording tests
+					</button>
+				</div>
+			) : null}
 
 			<aside className="side">
 				<section>

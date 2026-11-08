@@ -1,11 +1,19 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import {
+	PersistenceError,
+	redactProviderError,
+} from "../../../../../lib/errors";
 import { newIdempotencyKey, operationId } from "../../../../../lib/idempotency";
 import {
 	LlmConfigError,
 	resolveLlmForUser,
 } from "../../../../../lib/llm/resolve-config";
-import { insertEvidence } from "../../../../../lib/sessions/service";
+import { claimChatTurn } from "../../../../../lib/sessions/chat-claim";
+import {
+	insertEvidence,
+	insertUsageRecord,
+} from "../../../../../lib/sessions/service";
 import { requireUser } from "../../../../../lib/supabase/server";
 import {
 	AgentBudgetError,
@@ -52,12 +60,18 @@ export async function POST(
 		return NextResponse.json({ error: "Invalid message." }, { status: 400 });
 	}
 
-	const { data: session } = await supabase
+	const { data: session, error: sessionError } = await supabase
 		.from("sessions")
 		.select("id, status")
 		.eq("id", id)
 		.eq("user_id", userId)
 		.maybeSingle();
+	if (sessionError) {
+		return NextResponse.json(
+			{ error: "Could not load session." },
+			{ status: 500 },
+		);
+	}
 	if (!session || session.status !== "running") {
 		return NextResponse.json(
 			{ error: "Session is not running." },
@@ -66,38 +80,51 @@ export async function POST(
 	}
 
 	const idempotencyKey = operationId(["chat", id, parsed.data.clientRequestId]);
-	const { data: existing } = await supabase
-		.from("evidence_events")
-		.select("id")
-		.eq("session_id", id)
-		.eq("idempotency_key", `${idempotencyKey}:assistant`)
-		.maybeSingle();
-	if (existing) {
+	let claim: Awaited<ReturnType<typeof claimChatTurn>>;
+	try {
+		claim = await claimChatTurn(supabase, {
+			sessionId: id,
+			userId,
+			message: parsed.data.message,
+			idempotencyKey,
+		});
+	} catch {
+		return NextResponse.json(
+			{ error: "Could not record the prompt." },
+			{ status: 500 },
+		);
+	}
+	if (claim.kind === "replay") {
 		return NextResponse.json({
 			replayed: true,
-			error: "This chat turn was already recorded.",
+			reply: claim.reply,
 		});
+	}
+	if (claim.kind === "in_flight") {
+		return NextResponse.json(
+			{
+				error:
+					"This chat turn is already in flight or failed after the prompt was recorded. Send a new request id to retry.",
+				inFlight: true,
+			},
+			{ status: 409 },
+		);
 	}
 
 	try {
 		const { config, apiKey } = await resolveLlmForUser(supabase, userId);
-		await insertEvidence(supabase, {
-			sessionId: id,
-			userId,
-			kind: "prompt",
-			source: "learner",
-			observationType: "trainer_prompt",
-			payload: { content: parsed.data.message },
-			idempotencyKey: `${idempotencyKey}:prompt`,
-		});
-		await supabase.from("messages").insert({
+		const { error: messageError } = await supabase.from("messages").insert({
 			session_id: id,
 			user_id: userId,
+			evidence_id: claim.promptId,
 			role: "user",
 			content: parsed.data.message,
 		});
+		if (messageError) {
+			throw new PersistenceError("Could not store the learner message.");
+		}
 
-		const { data: history } = await supabase
+		const { data: history, error: historyError } = await supabase
 			.from("messages")
 			.select("role, content")
 			.eq("session_id", id)
@@ -105,6 +132,9 @@ export async function POST(
 			.in("role", ["user", "assistant"])
 			.order("created_at", { ascending: true })
 			.limit(20);
+		if (historyError) {
+			throw new PersistenceError("Could not load chat history.");
+		}
 
 		const result = await runTrainer({
 			supabase,
@@ -120,7 +150,7 @@ export async function POST(
 				),
 		});
 
-		await insertEvidence(supabase, {
+		const assistant = await insertEvidence(supabase, {
 			sessionId: id,
 			userId,
 			kind: "assistant",
@@ -129,27 +159,31 @@ export async function POST(
 			payload: { content: result.text, toolCount: result.toolCount },
 			idempotencyKey: `${idempotencyKey}:assistant`,
 		});
-		await supabase.from("messages").insert({
-			session_id: id,
-			user_id: userId,
-			role: "assistant",
-			content: result.text,
-		});
-		await supabase.from("usage_records").upsert(
-			{
+		if (!assistant.created) {
+			return NextResponse.json({
+				replayed: true,
+				reply: result.text,
+			});
+		}
+		const { error: assistantMessageError } = await supabase
+			.from("messages")
+			.insert({
 				session_id: id,
 				user_id: userId,
-				operation_id: idempotencyKey,
-				agent_role: "trainer",
-				input_tokens: result.usage.inputTokens,
-				output_tokens: result.usage.outputTokens,
-				cached_tokens: result.usage.cachedTokens,
-				cached_included_in_input: result.usage.cachedIncludedInInput,
-				coverage: result.usage.coverage,
-				native: result.usage.native,
-			},
-			{ onConflict: "session_id,operation_id" },
-		);
+				evidence_id: assistant.id,
+				role: "assistant",
+				content: result.text,
+			});
+		if (assistantMessageError) {
+			throw new PersistenceError("Could not store the assistant reply.");
+		}
+		await insertUsageRecord(supabase, {
+			sessionId: id,
+			userId,
+			operationId: idempotencyKey,
+			agentRole: "trainer",
+			usage: result.usage,
+		});
 
 		return NextResponse.json({
 			reply: result.text,
@@ -172,15 +206,20 @@ export async function POST(
 				kind: "system",
 				source: "server",
 				observationType: "trainer_incomplete",
-				payload: { reason: error.message },
+				payload: { reason: redactProviderError(error) },
 				idempotencyKey: newIdempotencyKey("trainer-incomplete"),
 			});
 			return NextResponse.json(
-				{ error: error.message, incomplete: true },
+				{ error: redactProviderError(error), incomplete: true },
 				{ status: 409 },
 			);
 		}
-		const message = error instanceof Error ? error.message : "Trainer failed.";
-		return NextResponse.json({ error: message }, { status: 500 });
+		if (error instanceof PersistenceError) {
+			return NextResponse.json({ error: error.message }, { status: 500 });
+		}
+		return NextResponse.json(
+			{ error: redactProviderError(error) },
+			{ status: 500 },
+		);
 	}
 }

@@ -1,53 +1,56 @@
-'use client';
+"use client";
 
-import { useRouter } from 'next/navigation';
-import { useCallback, useEffect, useState } from 'react';
-import { loadSession, saveSession, type Session } from '../lib/storage';
-import type { Challenge } from '../lib/types';
-import Round from './Round';
+import { useRouter } from "next/navigation";
+import { useCallback, useState } from "react";
+import { runBackground } from "../lib/background";
+import type { Challenge } from "../lib/types";
+import Round from "./Round";
 
-const freshSession = (c: Challenge): Session => ({
-  challengeId: c.id,
-  startedAt: Date.now(),
-  files: { ...c.starter },
-  prompts: 0,
-  runs: 0,
-});
+export default function RoundScreen({
+	challenge,
+	sessionId,
+	initialFiles,
+	startedAt,
+}: {
+	challenge: Challenge;
+	sessionId: string;
+	initialFiles: Record<string, string>;
+	startedAt: number;
+}) {
+	const router = useRouter();
+	const [files, setFiles] = useState(initialFiles);
+	const [saveError, setSaveError] = useState("");
 
-// Owns the saved session for a round: resumes it, or starts a new one.
-export default function RoundScreen({ challenge }: { challenge: Challenge }) {
-  const router = useRouter();
-  const [session, setSession] = useState<Session | null>(null);
+	const persist = useCallback(
+		async (nextFiles: Record<string, string>) => {
+			const response = await fetch(`/api/sessions/${sessionId}/save`, {
+				method: "POST",
+				headers: { "content-type": "application/json" },
+				body: JSON.stringify({ files: nextFiles }),
+			});
+			if (!response.ok) {
+				const body = await response.json().catch(() => ({}));
+				setSaveError(body.error ?? "Save failed.");
+				return;
+			}
+			setSaveError("");
+		},
+		[sessionId],
+	);
 
-  useEffect(() => {
-    const saved = loadSession(challenge.id);
-    if (saved?.finishedAt) {
-      router.replace(`/results/${challenge.id}`);
-      return;
-    }
-    const s = saved ?? freshSession(challenge);
-    if (!saved) saveSession(s);
-    setSession(s);
-  }, [challenge, router]);
-
-  const onFinish = useCallback(
-    (done: Session) => {
-      saveSession(done);
-      router.push(`/results/${challenge.id}`);
-    },
-    [challenge.id, router],
-  );
-
-  if (!session) return <div className="boot" aria-busy="true" />;
-
-  return (
-    <Round
-      key={session.startedAt}
-      challenge={challenge}
-      session={session}
-      onChange={setSession}
-      onFinish={onFinish}
-      onExit={() => router.push('/')}
-    />
-  );
+	return (
+		<Round
+			challenge={challenge}
+			files={files}
+			onExit={() => router.push("/")}
+			onFiles={(next) => {
+				setFiles(next);
+				runBackground(persist(next));
+			}}
+			onFinish={() => router.push(`/session/${sessionId}/report`)}
+			saveError={saveError}
+			sessionId={sessionId}
+			startedAt={startedAt}
+		/>
+	);
 }

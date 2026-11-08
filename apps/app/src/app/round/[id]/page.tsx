@@ -1,10 +1,10 @@
-import { notFound } from 'next/navigation';
-import RoundScreen from '../../../components/RoundScreen';
-import { getChallenge } from '../../../lib/challenges';
+import { redirect } from "next/navigation";
 
-export default async function RoundPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params;
-  const challenge = getChallenge(id);
-  if (!challenge) notFound();
-  return <RoundScreen challenge={challenge} />;
+export default async function RoundAliasPage({
+	params,
+}: {
+	params: Promise<{ id: string }>;
+}) {
+	await params;
+	redirect("/");
 }

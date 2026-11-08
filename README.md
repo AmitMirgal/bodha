@@ -1,3 +1,11 @@
+# BODHA
+
+Individual learning product: `apps/app` (trainer MVP). Setup: [`docs/bodha-mvp.md`](docs/bodha-mvp.md).
+
+The rest of this monorepo is a next-forge template used as the workspace. Clerk/Neon/Prisma remain for unrelated packages and must not be used as BODHA product auth/database.
+
+---
+
 # ▲ / next-forge
 
 **Production-grade Turborepo template for Next.js apps.**

@@ -1,28 +1,28 @@
-export type TaskKind = 'bugs' | 'feature' | 'perf';
+export type TaskKind = "bugs" | "feature" | "perf";
 
 export interface Task {
-  id: string;
-  kind: TaskKind;
-  title: string;
-  brief: string;
+	brief: string;
+	id: string;
+	kind: TaskKind;
+	title: string;
 }
 
 // What the home and results pages need.
 export interface ChallengeMeta {
-  id: string;
-  order: number;
-  title: string;
-  blurb: string;
-  difficulty: string;
-  minutes: number;
-  tasks: Task[];
+	blurb: string;
+	difficulty: string;
+	id: string;
+	minutes: number;
+	order: number;
+	tasks: Task[];
+	title: string;
 }
 
 // What a round needs to run. The reference solution is deliberately not in here.
 export interface Challenge extends ChallengeMeta {
-  tests: string;
-  starter: Record<string, string>;
+	starter: Record<string, string>;
+	tests: string;
 }
 
 // The README is context for the candidate, not something to edit.
-export const isReadOnly = (path: string) => path === 'README.md';
+export const isReadOnly = (path: string) => path === "README.md";

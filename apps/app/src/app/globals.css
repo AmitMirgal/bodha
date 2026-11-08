@@ -12,6 +12,41 @@
 	--amber: #ffb84d;
 	--display: "Bricolage Grotesque", system-ui, sans-serif;
 	--mono: "JetBrains Mono", ui-monospace, monospace;
+	--background: #f2f0e8;
+	--foreground: #0d0d0f;
+	--card: #ffffff;
+	--card-foreground: #0d0d0f;
+	--primary: #3f5a00;
+	--primary-foreground: #f2f0e8;
+	--secondary: #e7e5dc;
+	--secondary-foreground: #0d0d0f;
+	--muted: #e7e5dc;
+	--muted-foreground: #5c5c68;
+	--accent: #e7e5dc;
+	--accent-foreground: #0d0d0f;
+	--destructive: #b00040;
+	--border: #d9d6cc;
+	--input: #cfcabe;
+	--ring: #3f5a00;
+}
+
+.dark {
+	--background: var(--ink);
+	--foreground: var(--text);
+	--card: var(--panel);
+	--card-foreground: var(--text);
+	--primary: var(--lime);
+	--primary-foreground: var(--ink);
+	--secondary: var(--panel-2);
+	--secondary-foreground: var(--text);
+	--muted: var(--panel-2);
+	--muted-foreground: var(--dim);
+	--accent: var(--panel-2);
+	--accent-foreground: var(--text);
+	--destructive: var(--pink);
+	--border: var(--line);
+	--input: var(--line);
+	--ring: var(--lime);
 }
 
 * {
@@ -26,8 +61,8 @@ body {
 	margin: 0;
 	font: 15px / 1.55 var(--display);
 	-webkit-font-smoothing: antialiased;
-	color: var(--text);
-	background: var(--ink);
+	color: var(--foreground);
+	background: var(--background);
 }
 h1,
 h2,
@@ -37,7 +72,7 @@ h5,
 p {
 	margin: 0;
 }
-button {
+.btn {
 	font: inherit;
 	color: inherit;
 	cursor: pointer;

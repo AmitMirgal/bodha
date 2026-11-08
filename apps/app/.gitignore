@@ -30,3 +30,6 @@ next-env.d.ts
 
 # local tooling
 .claude/
+
+# local verification artifacts (never commit secrets)
+test-artifacts/

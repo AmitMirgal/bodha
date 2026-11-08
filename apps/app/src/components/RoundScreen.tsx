@@ -1,53 +1,116 @@
-'use client';
+"use client";
 
-import { useRouter } from 'next/navigation';
-import { useCallback, useEffect, useState } from 'react';
-import { loadSession, saveSession, type Session } from '../lib/storage';
-import type { Challenge } from '../lib/types';
-import Round from './Round';
+import { useRouter } from "next/navigation";
+import { useCallback, useRef, useState } from "react";
+import { runBackground } from "../lib/background";
+import type { Challenge } from "../lib/types";
+import Round from "./Round";
 
-const freshSession = (c: Challenge): Session => ({
-  challengeId: c.id,
-  startedAt: Date.now(),
-  files: { ...c.starter },
-  prompts: 0,
-  runs: 0,
-});
+export default function RoundScreen({
+	challenge,
+	sessionId,
+	initialFiles,
+	initialUpdatedAt,
+	startedAt,
+}: {
+	challenge: Challenge;
+	sessionId: string;
+	initialFiles: Record<string, string>;
+	initialUpdatedAt?: string;
+	startedAt: number;
+}) {
+	const router = useRouter();
+	const [files, setFiles] = useState(initialFiles);
+	const [saveError, setSaveError] = useState("");
+	const [conflict, setConflict] = useState(false);
+	const expectedUpdatedAt = useRef(initialUpdatedAt);
+	const saveChain = useRef(Promise.resolve());
+	const filesRef = useRef(files);
+	filesRef.current = files;
 
-// Owns the saved session for a round: resumes it, or starts a new one.
-export default function RoundScreen({ challenge }: { challenge: Challenge }) {
-  const router = useRouter();
-  const [session, setSession] = useState<Session | null>(null);
+	const persist = useCallback(
+		async (nextFiles: Record<string, string>) => {
+			const response = await fetch(`/api/sessions/${sessionId}/save`, {
+				method: "POST",
+				headers: { "content-type": "application/json" },
+				body: JSON.stringify({
+					files: nextFiles,
+					expectedUpdatedAt: expectedUpdatedAt.current,
+				}),
+			});
+			const body = await response.json().catch(() => ({}));
+			if (response.status === 409 && body.code === "revision_conflict") {
+				setConflict(true);
+				setSaveError(body.error ?? "This session was updated elsewhere.");
+				return;
+			}
+			if (!response.ok) {
+				setSaveError(body.error ?? "Save failed. Retry to persist your edits.");
+				return;
+			}
+			if (typeof body.saved?.updated_at === "string") {
+				expectedUpdatedAt.current = body.saved.updated_at;
+			}
+			setConflict(false);
+			setSaveError("");
+		},
+		[sessionId],
+	);
 
-  useEffect(() => {
-    const saved = loadSession(challenge.id);
-    if (saved?.finishedAt) {
-      router.replace(`/results/${challenge.id}`);
-      return;
-    }
-    const s = saved ?? freshSession(challenge);
-    if (!saved) saveSession(s);
-    setSession(s);
-  }, [challenge, router]);
+	const enqueuePersist = useCallback(
+		(nextFiles: Record<string, string>) => {
+			saveChain.current = saveChain.current
+				.catch(() => undefined)
+				.then(() => persist(nextFiles));
+			return saveChain.current;
+		},
+		[persist],
+	);
 
-  const onFinish = useCallback(
-    (done: Session) => {
-      saveSession(done);
-      router.push(`/results/${challenge.id}`);
-    },
-    [challenge.id, router],
-  );
-
-  if (!session) return <div className="boot" aria-busy="true" />;
-
-  return (
-    <Round
-      key={session.startedAt}
-      challenge={challenge}
-      session={session}
-      onChange={setSession}
-      onFinish={onFinish}
-      onExit={() => router.push('/')}
-    />
-  );
+	return (
+		<>
+			{conflict ? (
+				<div className="fatal">
+					Saved revision conflict. Reload to take the stored copy, or retry to
+					write these files again.
+					<button
+						className="btn ghost"
+						onClick={() => router.refresh()}
+						type="button"
+					>
+						Reload
+					</button>
+					<button
+						className="btn lime"
+						onClick={() => {
+							expectedUpdatedAt.current = undefined;
+							setConflict(false);
+							runBackground(enqueuePersist(filesRef.current));
+						}}
+						type="button"
+					>
+						Retry save
+					</button>
+				</div>
+			) : null}
+			<Round
+				challenge={challenge}
+				enqueue={enqueuePersist}
+				expectedUpdatedAt={expectedUpdatedAt}
+				files={files}
+				onExit={() => router.push("/")}
+				onFiles={(next) => {
+					setFiles(next);
+					runBackground(enqueuePersist(next));
+				}}
+				onFinish={() => router.push(`/session/${sessionId}/report`)}
+				onSavedAt={(updatedAt) => {
+					expectedUpdatedAt.current = updatedAt;
+				}}
+				saveError={saveError}
+				sessionId={sessionId}
+				startedAt={startedAt}
+			/>
+		</>
+	);
 }

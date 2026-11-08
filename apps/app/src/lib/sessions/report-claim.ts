@@ -25,7 +25,7 @@ function asReportStatus(status: string): ReportStatus {
 export function reportClaimDecision(
 	existing: { created_at: string; status: string } | null,
 	now = Date.now(),
-	staleMs = REPORT_STALE_MS,
+	staleMs = REPORT_STALE_MS
 ): ReportClaimDecision {
 	if (!existing) {
 		return { action: "create" };

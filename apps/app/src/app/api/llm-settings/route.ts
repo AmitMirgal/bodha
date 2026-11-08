@@ -5,6 +5,8 @@ import {
 	encryptionAvailable,
 	encryptSecret,
 } from "../../../lib/crypto/credentials";
+import { withUserDb } from "../../../lib/db/client";
+import { deleteLlmSettings, upsertLlmSettings } from "../../../lib/db/queries";
 import { allowHttpLlm, getAllowedLlmHosts } from "../../../lib/env";
 import { redactProviderError } from "../../../lib/errors";
 import { getMaskedSettings } from "../../../lib/llm/resolve-config";
@@ -18,11 +20,13 @@ const saveSchema = z.object({
 });
 
 export async function GET() {
-	const { supabase, userId } = await requireUser();
+	const { userId } = await requireUser();
 	if (!userId) {
 		return NextResponse.json({ error: "Sign in required." }, { status: 401 });
 	}
-	const settings = await getMaskedSettings(supabase, userId);
+	const settings = await withUserDb(userId, (db) =>
+		getMaskedSettings(db, userId)
+	);
 	return NextResponse.json({
 		settings,
 		encryptionReady: encryptionAvailable(),
@@ -31,7 +35,7 @@ export async function GET() {
 }
 
 export async function PUT(request: Request) {
-	const { supabase, userId } = await requireUser();
+	const { userId } = await requireUser();
 	if (!userId) {
 		return NextResponse.json({ error: "Sign in required." }, { status: 401 });
 	}
@@ -41,7 +45,7 @@ export async function PUT(request: Request) {
 				error:
 					"Server encryption is not configured. Refusing to store credentials.",
 			},
-			{ status: 503 },
+			{ status: 503 }
 		);
 	}
 	const parsed = saveSchema.safeParse(await request.json());
@@ -52,12 +56,12 @@ export async function PUT(request: Request) {
 		const endpoint = await validateLlmEndpoint(
 			parsed.data.baseUrl,
 			getAllowedLlmHosts(),
-			{ allowHttpForApprovedHosts: allowHttpLlm() },
+			{ allowHttpForApprovedHosts: allowHttpLlm() }
 		);
 		const probe = await probeOpenAiCompatible(
 			endpoint,
 			parsed.data.apiKey,
-			parsed.data.model,
+			parsed.data.model
 		);
 		if (probe.capabilities.tools !== "supported") {
 			return NextResponse.json(
@@ -67,7 +71,7 @@ export async function PUT(request: Request) {
 						"This endpoint has not proven tool calling. Settings were not saved.",
 					capabilities: probe.capabilities,
 				},
-				{ status: 400 },
+				{ status: 400 }
 			);
 		}
 		const secret = encryptSecret(parsed.data.apiKey, userId, {
@@ -75,24 +79,19 @@ export async function PUT(request: Request) {
 			model: parsed.data.model,
 			baseUrl: endpoint.href,
 		});
-		const { error } = await supabase.from("llm_settings").upsert({
-			user_id: userId,
-			provider: parsed.data.provider,
-			model: parsed.data.model,
-			base_url: endpoint.href,
-			encrypted_api_key: secret.ciphertext,
-			encryption_iv: secret.iv,
-			encryption_tag: secret.tag,
-			key_fingerprint: secret.fingerprint,
-			capabilities: probe.capabilities,
-			updated_at: new Date().toISOString(),
-		});
-		if (error) {
-			return NextResponse.json(
-				{ error: "Could not save settings." },
-				{ status: 500 },
-			);
-		}
+		await withUserDb(userId, (db) =>
+			upsertLlmSettings(db, {
+				userId,
+				provider: parsed.data.provider,
+				model: parsed.data.model,
+				baseUrl: endpoint.href,
+				encryptedApiKey: secret.ciphertext,
+				encryptionIv: secret.iv,
+				encryptionTag: secret.tag,
+				keyFingerprint: secret.fingerprint,
+				capabilities: probe.capabilities,
+			})
+		);
 		return NextResponse.json({
 			settings: {
 				configured: true,
@@ -107,27 +106,25 @@ export async function PUT(request: Request) {
 	} catch (error) {
 		return NextResponse.json(
 			{ error: redactProviderError(error) },
-			{ status: 400 },
+			{ status: 400 }
 		);
 	}
 }
 
 export async function DELETE() {
-	const { supabase, userId } = await requireUser();
+	const { userId } = await requireUser();
 	if (!userId) {
 		return NextResponse.json({ error: "Sign in required." }, { status: 401 });
 	}
-	const { error } = await supabase
-		.from("llm_settings")
-		.delete()
-		.eq("user_id", userId);
-	if (error) {
+	try {
+		await withUserDb(userId, (db) => deleteLlmSettings(db, userId));
+		return NextResponse.json({ ok: true });
+	} catch {
 		return NextResponse.json(
 			{ error: "Could not remove settings." },
-			{ status: 500 },
+			{ status: 500 }
 		);
 	}
-	return NextResponse.json({ ok: true });
 }
 
 export async function POST(request: Request) {
@@ -139,19 +136,19 @@ export async function POST(request: Request) {
 	if (!parsed.success) {
 		return NextResponse.json(
 			{ error: "Invalid settings for connection check." },
-			{ status: 400 },
+			{ status: 400 }
 		);
 	}
 	try {
 		const endpoint = await validateLlmEndpoint(
 			parsed.data.baseUrl,
 			getAllowedLlmHosts(),
-			{ allowHttpForApprovedHosts: allowHttpLlm() },
+			{ allowHttpForApprovedHosts: allowHttpLlm() }
 		);
 		const probe = await probeOpenAiCompatible(
 			endpoint,
 			parsed.data.apiKey,
-			parsed.data.model,
+			parsed.data.model
 		);
 		return NextResponse.json({
 			ok: !probe.error,
@@ -163,7 +160,7 @@ export async function POST(request: Request) {
 	} catch (error) {
 		return NextResponse.json(
 			{ error: redactProviderError(error) },
-			{ status: 400 },
+			{ status: 400 }
 		);
 	}
 }

@@ -17,7 +17,7 @@ export interface ExerciseSnapshotPayload {
 }
 
 export function buildExerciseSnapshot(
-	challenge: Challenge,
+	challenge: Challenge
 ): ExerciseSnapshotPayload {
 	const specMarkdown = challenge.starter["README.md"] ?? "";
 	const canonical = JSON.stringify({
@@ -55,7 +55,7 @@ export function challengeFromSnapshot(
 		spec_markdown: string;
 		starter: unknown;
 		tests_source: string;
-	},
+	}
 ): Challenge {
 	const meta =
 		snapshot.meta && typeof snapshot.meta === "object"
@@ -90,7 +90,7 @@ export function hashFiles(files: Record<string, string>): string {
 	const canonical = JSON.stringify(
 		Object.keys(files)
 			.sort()
-			.map((path) => [path, files[path]]),
+			.map((path) => [path, files[path]])
 	);
 	return `sha256:${createHash("sha256").update(canonical).digest("hex")}`;
 }

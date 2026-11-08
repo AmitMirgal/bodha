@@ -24,7 +24,7 @@ const TIMEOUT_MS = 10_000;
 // the clock runs out the tests that finished still count and only the stuck one is marked as timed out.
 export function runTests(
 	files: Record<string, string>,
-	tests: string,
+	tests: string
 ): Promise<RunOutcome> {
 	return new Promise((resolve) => {
 		const worker = new Worker("/harness.js");
@@ -85,7 +85,7 @@ export type TaskStatus = "untested" | "failing" | "solved";
 
 export function taskStatus(
 	taskId: string,
-	results: TestResult[] | undefined,
+	results: TestResult[] | undefined
 ): { status: TaskStatus; passed: number; total: number } {
 	const mine = (results ?? []).filter((r) => r.task === taskId);
 	const passed = mine.filter((r) => r.pass).length;

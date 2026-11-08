@@ -25,6 +25,11 @@ export interface StoredUsageRow {
 
 export type MeasuredObservations = LearningReport["observations"];
 
+const TOKEN_COUNT_CLAIM =
+	/\b\d+\s*(input|output|prompt|completion|cached)?\s*tokens?\b/i;
+const ALL_TESTS_PASSED = /all tests passed|every test passed|tests all pass/;
+const INDEPENDENT_VERIFY = /independently verif|server executed|certified pass/;
+
 function testPayload(evidence: StoredEvidence[]) {
 	const tests = evidence.filter((item) => item.kind === "test_run");
 	const latest = tests.at(-1);
@@ -44,7 +49,7 @@ function testPayload(evidence: StoredEvidence[]) {
 }
 
 export function observationsFromEvidence(
-	evidence: StoredEvidence[],
+	evidence: StoredEvidence[]
 ): MeasuredObservations {
 	const { tests, results, passed, failed, fatal } = testPayload(evidence);
 	if (tests.length === 0) {
@@ -72,7 +77,7 @@ export function observationsFromEvidence(
 }
 
 export function outcomeFromEvidence(
-	evidence: StoredEvidence[],
+	evidence: StoredEvidence[]
 ): LearningReport["outcome"] {
 	const observations = observationsFromEvidence(evidence);
 	if (!observations.tests.found) {
@@ -112,17 +117,14 @@ function coachingText(model: {
 
 export function inventedCoachingClaims(
 	text: string,
-	observations: MeasuredObservations,
+	observations: MeasuredObservations
 ): string[] {
 	const issues: string[] = [];
 	const lower = text.toLowerCase();
-	if (
-		/\b\d+\s*(input|output|prompt|completion|cached)?\s*tokens?\b/i.test(text)
-	) {
+	if (TOKEN_COUNT_CLAIM.test(text)) {
 		issues.push("Coaching text must not include token counts.");
 	}
-	const claimedAllPass =
-		/all tests passed|every test passed|tests all pass/.test(lower);
+	const claimedAllPass = ALL_TESTS_PASSED.test(lower);
 	const actuallyAllPass =
 		observations.tests.found &&
 		observations.tests.fatal === null &&
@@ -131,10 +133,10 @@ export function inventedCoachingClaims(
 		observations.tests.failed === 0;
 	if (claimedAllPass && !actuallyAllPass) {
 		issues.push(
-			"Summary claimed all tests passed without a matching harness observation.",
+			"Summary claimed all tests passed without a matching harness observation."
 		);
 	}
-	if (/independently verif|server executed|certified pass/.test(lower)) {
+	if (INDEPENDENT_VERIFY.test(lower)) {
 		issues.push("Coaching text claimed independent verification.");
 	}
 	return issues;
@@ -179,7 +181,7 @@ function packRole(rows: StoredUsageRow[]): LearningReport["usage"]["trainer"] {
 }
 
 export function usageFromStoredRecords(
-	rows: StoredUsageRow[],
+	rows: StoredUsageRow[]
 ): LearningReport["usage"] {
 	const trainer = packRole(rows.filter((row) => row.agent_role === "trainer"));
 	const review = packRole(rows.filter((row) => row.agent_role === "review"));
@@ -211,7 +213,7 @@ export function assembleLearningReport(input: {
 	const observations = observationsFromEvidence(input.evidence);
 	const invented = inventedCoachingClaims(
 		coachingText(parsed.data),
-		observations,
+		observations
 	);
 	if (invented.length > 0) {
 		return { ok: false, error: invented[0] ?? "Invented coaching claims." };
@@ -235,6 +237,6 @@ export function assembleLearningReport(input: {
 			kind: item.kind,
 			sessionId: item.sessionId,
 		})),
-		input.sessionId,
+		input.sessionId
 	);
 }

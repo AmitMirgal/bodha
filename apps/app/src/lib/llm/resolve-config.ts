@@ -7,8 +7,9 @@ import {
 	type ResolvedLlmConfig,
 	validateLlmEndpoint,
 } from "@repo/ai/provider";
-import type { SupabaseClient } from "@supabase/supabase-js";
 import { decryptSecret, encryptionAvailable } from "../crypto/credentials";
+import { getLlmSecrets, getMaskedLlmRow, hasLlmSettings } from "../db/queries";
+import type { BodhaDb } from "../db/rls";
 import { allowHttpLlm, getAllowedLlmHosts, getOperatorDefault } from "../env";
 
 export class LlmConfigError extends Error {
@@ -18,39 +19,24 @@ export class LlmConfigError extends Error {
 	}
 }
 
-interface LlmRow {
-	base_url: string;
-	capabilities: unknown;
-	encrypted_api_key: string;
-	encryption_iv: string;
-	encryption_tag: string;
-	key_fingerprint: string;
-	model: string;
-	provider: string;
-}
-
 function requireSupportedTools(
 	value: unknown,
-	label: string,
+	label: string
 ): NonNullable<ReturnType<typeof parseProviderCapabilities>> {
 	const capabilities = parseProviderCapabilities(value);
 	if (!capabilities || capabilities.tools !== "supported") {
 		throw new LlmConfigError(
-			`${label} has not proven tool calling. Save settings after a successful connection check. BODHA will not fall back to a one-shot completion.`,
+			`${label} has not proven tool calling. Save settings after a successful connection check. BODHA will not fall back to a one-shot completion.`
 		);
 	}
 	return capabilities;
 }
 
 export async function getMaskedSettings(
-	supabase: SupabaseClient,
-	userId: string,
+	db: BodhaDb,
+	userId: string
 ): Promise<MaskedLlmSettings> {
-	const { data } = await supabase
-		.from("llm_settings_status")
-		.select("provider, model, base_url, key_fingerprint, capabilities")
-		.eq("user_id", userId)
-		.maybeSingle();
+	const data = await getMaskedLlmRow(db, userId);
 
 	if (data) {
 		return {
@@ -58,8 +44,8 @@ export async function getMaskedSettings(
 			source: "user",
 			provider: data.provider,
 			model: data.model,
-			baseUrl: data.base_url,
-			keyFingerprint: data.key_fingerprint,
+			baseUrl: data.baseUrl,
+			keyFingerprint: data.keyFingerprint,
 			capabilities: parseProviderCapabilities(data.capabilities),
 		};
 	}
@@ -89,57 +75,49 @@ export async function getMaskedSettings(
 }
 
 export async function resolveLlmForUser(
-	supabase: SupabaseClient,
-	userId: string,
+	db: BodhaDb,
+	userId: string
 ): Promise<{ config: ResolvedLlmConfig; apiKey: string }> {
-	if (!encryptionAvailable() && (await hasUserSettings(supabase, userId))) {
+	if (!encryptionAvailable() && (await hasLlmSettings(db, userId))) {
 		throw new LlmConfigError(
-			"Encryption key is not configured. Refusing to use stored credentials.",
+			"Encryption key is not configured. Refusing to use stored credentials."
 		);
 	}
 
-	const { data, error } = await supabase
-		.from("llm_settings")
-		.select(
-			"provider, model, base_url, encrypted_api_key, encryption_iv, encryption_tag, key_fingerprint, capabilities",
-		)
-		.eq("user_id", userId)
-		.maybeSingle();
-
-	if (error) {
-		throw new LlmConfigError("Could not load LLM settings.");
-	}
+	const data = await getLlmSecrets(db, userId);
 
 	if (data) {
-		const row = data as LlmRow;
 		const apiKey = decryptSecret(
 			{
-				ciphertext: row.encrypted_api_key,
-				iv: row.encryption_iv,
-				tag: row.encryption_tag,
-				fingerprint: row.key_fingerprint,
+				ciphertext: data.encryptedApiKey,
+				iv: data.encryptionIv,
+				tag: data.encryptionTag,
+				fingerprint: data.keyFingerprint,
 			},
 			userId,
 			{
-				provider: row.provider,
-				model: row.model,
-				baseUrl: row.base_url,
-			},
+				provider: data.provider,
+				model: data.model,
+				baseUrl: data.baseUrl,
+			}
 		);
 		const endpoint = await validateLlmEndpoint(
-			row.base_url,
+			data.baseUrl,
 			getAllowedLlmHosts(),
-			{ allowHttpForApprovedHosts: allowHttpLlm() },
+			{ allowHttpForApprovedHosts: allowHttpLlm() }
 		);
 		return {
 			apiKey,
 			config: {
 				source: "user",
 				protocol: "openai-compatible",
-				provider: row.provider,
-				model: row.model,
+				provider: data.provider,
+				model: data.model,
 				baseUrl: endpoint.href,
-				capabilities: requireSupportedTools(row.capabilities, "Saved settings"),
+				capabilities: requireSupportedTools(
+					data.capabilities,
+					"Saved settings"
+				),
 			},
 		};
 	}
@@ -147,18 +125,18 @@ export async function resolveLlmForUser(
 	const operator = getOperatorDefault();
 	if (!operator) {
 		throw new LlmConfigError(
-			"No LLM key is configured. Add your provider settings before chatting or generating a report.",
+			"No LLM key is configured. Add your provider settings before chatting or generating a report."
 		);
 	}
 	const endpoint = await validateLlmEndpoint(
 		operator.baseUrl,
 		getAllowedLlmHosts(),
-		{ allowHttpForApprovedHosts: allowHttpLlm() },
+		{ allowHttpForApprovedHosts: allowHttpLlm() }
 	);
 	const probe = await probeOpenAiCompatible(
 		endpoint,
 		operator.apiKey,
-		operator.model,
+		operator.model
 	);
 	return {
 		apiKey: operator.apiKey,
@@ -170,17 +148,8 @@ export async function resolveLlmForUser(
 			baseUrl: endpoint.href,
 			capabilities: requireSupportedTools(
 				probe.capabilities,
-				"Operator default",
+				"Operator default"
 			),
 		},
 	};
-}
-
-async function hasUserSettings(supabase: SupabaseClient, userId: string) {
-	const { data } = await supabase
-		.from("llm_settings_status")
-		.select("user_id")
-		.eq("user_id", userId)
-		.maybeSingle();
-	return Boolean(data);
 }

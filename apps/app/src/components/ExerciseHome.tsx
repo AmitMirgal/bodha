@@ -44,7 +44,7 @@ export function ExerciseHome({ challenges }: { challenges: ChallengeMeta[] }) {
 			fetch("/api/sessions")
 				.then((response) => response.json())
 				.then((body) => setSessions(body.sessions ?? []))
-				.catch(() => setSessions([])),
+				.catch(() => setSessions([]))
 		);
 	}, []);
 

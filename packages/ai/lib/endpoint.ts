@@ -78,7 +78,7 @@ export interface ValidatedEndpoint {
 
 function parseEndpointUrl(
 	rawUrl: string,
-	options?: { allowHttpForApprovedHosts?: boolean },
+	options?: { allowHttpForApprovedHosts?: boolean }
 ): URL {
 	let parsed: URL;
 	try {
@@ -110,23 +110,23 @@ function assertHostAllowed(host: string, allowedHosts: string[]) {
 	}
 	if (isIP(host) && isPrivateIp(host)) {
 		throw new EndpointValidationError(
-			"Private or link-local addresses are not allowed.",
+			"Private or link-local addresses are not allowed."
 		);
 	}
 	const allowed = new Set(allowedHosts.map((value) => value.toLowerCase()));
 	if (allowed.size === 0) {
 		throw new EndpointValidationError(
-			"No allowed LLM hosts are configured. Set BODHA_ALLOWED_LLM_HOSTS.",
+			"No allowed LLM hosts are configured. Set BODHA_ALLOWED_LLM_HOSTS."
 		);
 	}
 	const hostAllowed =
 		allowed.has(host) ||
 		[...allowed].some(
-			(entry) => entry.startsWith("*.") && host.endsWith(entry.slice(1)),
+			(entry) => entry.startsWith("*.") && host.endsWith(entry.slice(1))
 		);
 	if (!hostAllowed) {
 		throw new EndpointValidationError(
-			`Host ${host} is not on the operator-approved LLM host list.`,
+			`Host ${host} is not on the operator-approved LLM host list.`
 		);
 	}
 }
@@ -137,7 +137,7 @@ export async function assertPublicDns(host: string) {
 		for (const record of resolved) {
 			if (isPrivateIp(record.address)) {
 				throw new EndpointValidationError(
-					"The host resolves to a private or link-local address.",
+					"The host resolves to a private or link-local address."
 				);
 			}
 		}
@@ -161,7 +161,7 @@ export function endpointFromHref(href: string): ValidatedEndpoint {
 export async function validateLlmEndpoint(
 	rawUrl: string,
 	allowedHosts: string[],
-	options?: { allowHttpForApprovedHosts?: boolean },
+	options?: { allowHttpForApprovedHosts?: boolean }
 ): Promise<ValidatedEndpoint> {
 	const parsed = parseEndpointUrl(rawUrl, options);
 	const host = parsed.hostname.toLowerCase();
@@ -182,12 +182,12 @@ export async function validateLlmEndpoint(
 
 export function assertNoRedirectToPrivate(
 	responseUrl: string,
-	original: ValidatedEndpoint,
+	original: ValidatedEndpoint
 ) {
 	const next = new URL(responseUrl);
 	if (next.origin !== original.origin) {
 		throw new EndpointValidationError(
-			"LLM endpoint redirected off the approved origin.",
+			"LLM endpoint redirected off the approved origin."
 		);
 	}
 }

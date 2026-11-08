@@ -46,7 +46,7 @@ export default function AiPanel({ sessionId }: { sessionId: string }) {
 					const loaded = (body.messages ?? [])
 						.filter(
 							(row: { id: string; role: string }) =>
-								row.role === "user" || row.role === "assistant",
+								row.role === "user" || row.role === "assistant"
 						)
 						.map(
 							(row: {
@@ -57,11 +57,11 @@ export default function AiPanel({ sessionId }: { sessionId: string }) {
 								id: row.id,
 								role: row.role,
 								content: row.content,
-							}),
+							})
 						);
 					setMessages(loaded);
 				})
-				.catch(() => undefined),
+				.catch(() => undefined)
 		);
 	}, [sessionId]);
 

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { withUserDb } from "../../../../../lib/db/client";
 import { RevisionConflictError } from "../../../../../lib/errors";
 import { recordTestRun } from "../../../../../lib/sessions/service";
 import { requireUser } from "../../../../../lib/supabase/server";
@@ -13,7 +14,7 @@ const schema = z.object({
 			pass: z.boolean(),
 			error: z.string().optional(),
 			ms: z.number(),
-		}),
+		})
 	),
 	fatal: z.string().optional(),
 	expectedUpdatedAt: z.string().min(1).optional(),
@@ -21,10 +22,10 @@ const schema = z.object({
 
 export async function POST(
 	request: Request,
-	{ params }: { params: Promise<{ id: string }> },
+	{ params }: { params: Promise<{ id: string }> }
 ) {
 	const { id } = await params;
-	const { supabase, userId } = await requireUser();
+	const { userId } = await requireUser();
 	if (!userId) {
 		return NextResponse.json({ error: "Sign in required." }, { status: 401 });
 	}
@@ -32,18 +33,20 @@ export async function POST(
 	if (!parsed.success) {
 		return NextResponse.json(
 			{ error: "Invalid test payload." },
-			{ status: 400 },
+			{ status: 400 }
 		);
 	}
 	try {
-		const run = await recordTestRun(supabase, {
-			userId,
-			sessionId: id,
-			results: parsed.data.results,
-			fatal: parsed.data.fatal,
-			files: parsed.data.files,
-			expectedUpdatedAt: parsed.data.expectedUpdatedAt,
-		});
+		const run = await withUserDb(userId, (db) =>
+			recordTestRun(db, {
+				userId,
+				sessionId: id,
+				results: parsed.data.results,
+				fatal: parsed.data.fatal,
+				files: parsed.data.files,
+				expectedUpdatedAt: parsed.data.expectedUpdatedAt,
+			})
+		);
 		return NextResponse.json({
 			run: {
 				id: run.id,
@@ -56,7 +59,7 @@ export async function POST(
 		if (error instanceof RevisionConflictError) {
 			return NextResponse.json(
 				{ error: error.message, code: "revision_conflict" },
-				{ status: 409 },
+				{ status: 409 }
 			);
 		}
 		const message =

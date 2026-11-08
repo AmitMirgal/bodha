@@ -9,13 +9,15 @@ export const EVIDENCE_A = "44444444-4444-4444-8444-444444444444";
 
 const MIGRATION_PATH = new URL(
 	"../../../../../supabase/migrations/20251108120000_bodha_mvp.sql",
-	import.meta.url,
+	import.meta.url
 );
+const PGCRYPTO_EXT = /create extension if not exists pgcrypto;/i;
+const AUTH_USER_TRIGGER = /create trigger on_auth_user_created[\s\S]*?;/;
 
 export function migrationSql(): string {
 	return readFileSync(MIGRATION_PATH, "utf8")
-		.replace(/create extension if not exists pgcrypto;/i, "")
-		.replace(/create trigger on_auth_user_created[\s\S]*?;/, "");
+		.replace(PGCRYPTO_EXT, "")
+		.replace(AUTH_USER_TRIGGER, "");
 }
 
 export const AUTH_STUB = `
@@ -29,7 +31,10 @@ returns uuid
 language sql
 stable
 as $$
-  select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid
+  select coalesce(
+    nullif(current_setting('request.jwt.claim.sub', true), ''),
+    nullif(current_setting('request.jwt.claims', true), '')::json->>'sub'
+  )::uuid
 $$;
 `;
 
@@ -67,5 +72,10 @@ grant usage, select on all sequences in schema public to authenticated;
 
 export function asUser(id: string): string {
 	// Session-level (is_local=false): PGlite commits each statement.
-	return `select set_config('request.jwt.claim.sub', '${id}', false)`;
+	const claims = JSON.stringify({ sub: id, role: "authenticated" }).replace(
+		/'/g,
+		"''"
+	);
+	return `select set_config('request.jwt.claim.sub', '${id}', false);
+select set_config('request.jwt.claims', '${claims}', false)`;
 }

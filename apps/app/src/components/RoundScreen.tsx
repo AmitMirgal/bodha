@@ -54,7 +54,7 @@ export default function RoundScreen({
 			setConflict(false);
 			setSaveError("");
 		},
-		[sessionId],
+		[sessionId]
 	);
 
 	const enqueuePersist = useCallback(
@@ -64,7 +64,7 @@ export default function RoundScreen({
 				.then(() => persist(nextFiles));
 			return saveChain.current;
 		},
-		[persist],
+		[persist]
 	);
 
 	return (

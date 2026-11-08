@@ -17,8 +17,8 @@ describe("orchestration contract", () => {
 			assertRequiredTools(
 				{ toolResults: [], steps: [{ toolResults: [] }] },
 				["get-exercise-snapshot"],
-				"Trainer",
-			),
+				"Trainer"
+			)
 		).toThrow(MissingToolUseError);
 	});
 
@@ -36,8 +36,8 @@ describe("orchestration contract", () => {
 					"get-session-evidence",
 					"get-latest-test-run",
 				],
-				"Review",
-			),
+				"Review"
+			)
 		).toThrow(/get-session-evidence/);
 
 		const names = assertRequiredTools(
@@ -49,7 +49,7 @@ describe("orchestration contract", () => {
 				],
 			},
 			["get-exercise-snapshot", "get-session-evidence", "get-latest-test-run"],
-			"Review",
+			"Review"
 		);
 		expect(names).toEqual([
 			"get-exercise-snapshot",
@@ -74,8 +74,8 @@ describe("orchestration contract", () => {
 					return "too-late";
 				},
 				20,
-				"Trainer",
-			),
+				"Trainer"
+			)
 		).rejects.toBeInstanceOf(AgentBudgetError);
 		expect(aborted).toBe(true);
 	});
@@ -89,7 +89,7 @@ describe("orchestration contract", () => {
 				model: "gpt-4.1",
 				baseUrl: "https://api.openai.com/v1",
 				capabilities: { ...DEFAULT_CAPABILITIES, tools: "unsupported" },
-			}),
+			})
 		).toThrow(ToolsUnsupportedError);
 		expect(() =>
 			assertAgentToolsAllowed({
@@ -99,7 +99,7 @@ describe("orchestration contract", () => {
 				model: "gpt-4.1",
 				baseUrl: "https://api.openai.com/v1",
 				capabilities: DEFAULT_CAPABILITIES,
-			}),
+			})
 		).toThrow(ToolsUnsupportedError);
 	});
 });

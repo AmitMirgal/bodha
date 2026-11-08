@@ -1,6 +1,9 @@
+/** biome-ignore-all lint/style/noNestedTernary: local OpenAI fixture payload tree */
+/** biome-ignore-all lint/suspicious/noMisplacedAssertion: request handler asserts the captured body */
 import http from "node:http";
 import type { AddressInfo } from "node:net";
 import { afterEach, describe, expect, it } from "vitest";
+import type { RunWithDb } from "../lib/db/rls";
 import { runReview, runTrainer } from "./run";
 
 const USER = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
@@ -34,74 +37,40 @@ function hasToolResult(messages: unknown[]): boolean {
 	});
 }
 
-function mockSupabase() {
-	function chain(table: string) {
-		const self = {
-			select() {
-				return self;
+function mockRunWithDb(): RunWithDb {
+	return async (_identity, fn) => {
+		const db = {
+			exerciseSnapshot: {
+				findFirst: async () =>
+					await Promise.resolve({
+						exerciseId: "shelf",
+						contentHash: "sha256:x",
+						specMarkdown: "Read the snapshot. Do not paste a solution.",
+						testsSource: "test('x', () => {})",
+						meta: {},
+						sessionId: SESSION,
+						userId: USER,
+					}),
 			},
-			eq() {
-				return self;
-			},
-			in() {
-				return self;
-			},
-			order() {
-				return self;
-			},
-			limit() {
-				return self;
-			},
-			maybeSingle: async () => {
-				if (table === "exercise_snapshots") {
-					return {
-						data: {
-							exercise_id: "shelf",
-							content_hash: "sha256:x",
-							spec_markdown: "Read the snapshot. Do not paste a solution.",
-							tests_source: "test('x', () => {})",
-							meta: {},
-							session_id: SESSION,
-							user_id: USER,
+			evidenceEvent: {
+				findMany: async () =>
+					await Promise.resolve([
+						{
+							id: EVIDENCE,
+							seq: 1n,
+							kind: "prompt",
+							source: "learner",
+							observationType: "trainer_prompt",
+							payload: { content: "help" },
+							createdAt: new Date(),
 						},
-						error: null,
-					};
-				}
-				if (table === "test_runs") {
-					return { data: null, error: null };
-				}
-				return { data: null, error: null };
+					]),
 			},
-			// biome-ignore lint/suspicious/noThenProperty: supabase query mock is thenable
-			then(
-				resolve: (value: { data: unknown; error: null }) => unknown,
-				reject?: (reason: unknown) => unknown,
-			) {
-				const data =
-					table === "evidence_events"
-						? [
-								{
-									id: EVIDENCE,
-									seq: 1,
-									kind: "prompt",
-									source: "learner",
-									observation_type: "trainer_prompt",
-									payload: { content: "help" },
-									created_at: new Date().toISOString(),
-									session_id: SESSION,
-									user_id: USER,
-								},
-							]
-						: [];
-				return Promise.resolve({ data, error: null }).then(resolve, reject);
+			testRun: {
+				findFirst: async () => await Promise.resolve(null),
 			},
 		};
-		return self;
-	}
-	return {
-		from(table: string) {
-			return chain(table);
-		},
+		return await fn(db as never);
 	};
 }
 
@@ -280,7 +249,7 @@ describe("Mastra orchestration against a local OpenAI-compatible fixture", () =>
 		const fixture = await startFixture("trainer");
 		running = fixture.server;
 		const result = await runTrainer({
-			supabase: mockSupabase() as never,
+			runWithDb: mockRunWithDb(),
 			userId: USER,
 			sessionId: SESSION,
 			role: "trainer",
@@ -299,7 +268,7 @@ describe("Mastra orchestration against a local OpenAI-compatible fixture", () =>
 		const fixture = await startFixture("review");
 		running = fixture.server;
 		const result = await runReview({
-			supabase: mockSupabase() as never,
+			runWithDb: mockRunWithDb(),
 			userId: USER,
 			sessionId: SESSION,
 			role: "review",
@@ -318,7 +287,7 @@ describe("Mastra orchestration against a local OpenAI-compatible fixture", () =>
 				"get-exercise-snapshot",
 				"get-session-evidence",
 				"get-latest-test-run",
-			]),
+			])
 		);
 		expect(result.model.summary).toMatch(/snapshot/i);
 		expect(JSON.stringify(result.model)).not.toMatch(/\d+\s+tokens/);
@@ -329,14 +298,14 @@ describe("Mastra orchestration against a local OpenAI-compatible fixture", () =>
 		running = fixture.server;
 		await expect(
 			runTrainer({
-				supabase: mockSupabase() as never,
+				runWithDb: mockRunWithDb(),
 				userId: USER,
 				sessionId: SESSION,
 				role: "trainer",
 				config: supportedConfig(fixture.href),
 				apiKey: SENTINEL,
 				messages: [{ role: "user", content: "hello" }],
-			}),
+			})
 		).rejects.toThrow(/redirect/i);
 	}, 30_000);
 });

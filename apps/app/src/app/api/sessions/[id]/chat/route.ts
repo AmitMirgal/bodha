@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { recentChronologicalTurns } from "../../../../../lib/chat/history";
+import { runtimeRunWithDb, withUserDb } from "../../../../../lib/db/client";
+import {
+	insertMessage,
+	listRecentChatTurns,
+} from "../../../../../lib/db/queries";
 import {
 	PersistenceError,
 	redactProviderError,
@@ -46,10 +51,10 @@ function rateLimit(userId: string) {
 
 export async function POST(
 	request: Request,
-	{ params }: { params: Promise<{ id: string }> },
+	{ params }: { params: Promise<{ id: string }> }
 ) {
 	const { id } = await params;
-	const { supabase, userId } = await requireUser();
+	const { userId } = await requireUser();
 	if (!userId) {
 		return NextResponse.json({ error: "Sign in required." }, { status: 401 });
 	}
@@ -61,38 +66,34 @@ export async function POST(
 		return NextResponse.json({ error: "Invalid message." }, { status: 400 });
 	}
 
-	const { data: session, error: sessionError } = await supabase
-		.from("sessions")
-		.select("id, status")
-		.eq("id", id)
-		.eq("user_id", userId)
-		.maybeSingle();
-	if (sessionError) {
-		return NextResponse.json(
-			{ error: "Could not load session." },
-			{ status: 500 },
-		);
-	}
+	const session = await withUserDb(userId, (db) =>
+		db.session.findFirst({
+			where: { id },
+			select: { id: true, status: true },
+		})
+	);
 	if (!session || session.status !== "running") {
 		return NextResponse.json(
 			{ error: "Session is not running." },
-			{ status: 409 },
+			{ status: 409 }
 		);
 	}
 
 	const idempotencyKey = operationId(["chat", id, parsed.data.clientRequestId]);
 	let claim: Awaited<ReturnType<typeof claimChatTurn>>;
 	try {
-		claim = await claimChatTurn(supabase, {
-			sessionId: id,
-			userId,
-			message: parsed.data.message,
-			idempotencyKey,
-		});
+		claim = await withUserDb(userId, (db) =>
+			claimChatTurn(db, {
+				sessionId: id,
+				userId,
+				message: parsed.data.message,
+				idempotencyKey,
+			})
+		);
 	} catch {
 		return NextResponse.json(
 			{ error: "Could not record the prompt." },
-			{ status: 500 },
+			{ status: 500 }
 		);
 	}
 	if (claim.kind === "replay") {
@@ -108,83 +109,77 @@ export async function POST(
 					"This chat turn is already in flight or failed after the prompt was recorded. Send a new request id to retry.",
 				inFlight: true,
 			},
-			{ status: 409 },
+			{ status: 409 }
 		);
 	}
 
 	try {
-		const { config, apiKey } = await resolveLlmForUser(supabase, userId);
-		const { error: messageError } = await supabase.from("messages").insert({
-			session_id: id,
-			user_id: userId,
-			evidence_id: claim.promptId,
-			role: "user",
-			content: parsed.data.message,
-		});
-		if (messageError) {
-			throw new PersistenceError("Could not store the learner message.");
-		}
+		const { config, apiKey } = await withUserDb(userId, (db) =>
+			resolveLlmForUser(db, userId)
+		);
+		await withUserDb(userId, (db) =>
+			insertMessage(db, {
+				sessionId: id,
+				userId,
+				evidenceId: claim.promptId,
+				role: "user",
+				content: parsed.data.message,
+			})
+		);
 
-		const { data: history, error: historyError } = await supabase
-			.from("messages")
-			.select("role, content")
-			.eq("session_id", id)
-			.eq("user_id", userId)
-			.in("role", ["user", "assistant"])
-			.order("created_at", { ascending: false })
-			.limit(20);
-		if (historyError) {
-			throw new PersistenceError("Could not load chat history.");
-		}
+		const history = await withUserDb(userId, (db) =>
+			listRecentChatTurns(db, id)
+		);
 
 		const result = await runTrainer({
-			supabase,
+			runWithDb: runtimeRunWithDb(),
 			userId,
 			sessionId: id,
 			role: "trainer",
 			config,
 			apiKey,
-			messages: recentChronologicalTurns(history ?? [])
+			messages: recentChronologicalTurns(history)
 				.map((row) => asChatTurn(row.role, row.content))
 				.filter(
-					(message): message is NonNullable<typeof message> => message !== null,
+					(message): message is NonNullable<typeof message> => message !== null
 				),
 		});
 
-		const assistant = await insertEvidence(supabase, {
-			sessionId: id,
-			userId,
-			kind: "assistant",
-			source: "provider",
-			observationType: "trainer_reply",
-			payload: { content: result.text, toolCount: result.toolCount },
-			idempotencyKey: `${idempotencyKey}:assistant`,
-		});
+		const assistant = await withUserDb(userId, (db) =>
+			insertEvidence(db, {
+				sessionId: id,
+				userId,
+				kind: "assistant",
+				source: "provider",
+				observationType: "trainer_reply",
+				payload: { content: result.text, toolCount: result.toolCount },
+				idempotencyKey: `${idempotencyKey}:assistant`,
+			})
+		);
 		if (!assistant.created) {
 			return NextResponse.json({
 				replayed: true,
 				reply: result.text,
 			});
 		}
-		const { error: assistantMessageError } = await supabase
-			.from("messages")
-			.insert({
-				session_id: id,
-				user_id: userId,
-				evidence_id: assistant.id,
+		await withUserDb(userId, (db) =>
+			insertMessage(db, {
+				sessionId: id,
+				userId,
+				evidenceId: assistant.id,
 				role: "assistant",
 				content: result.text,
-			});
-		if (assistantMessageError) {
-			throw new PersistenceError("Could not store the assistant reply.");
-		}
-		await insertUsageRecord(supabase, {
-			sessionId: id,
-			userId,
-			operationId: idempotencyKey,
-			agentRole: "trainer",
-			usage: result.usage,
-		});
+			})
+		);
+		await withUserDb(userId, (db) =>
+			insertUsageRecord(db, {
+				sessionId: id,
+				userId,
+				operationId: idempotencyKey,
+				agentRole: "trainer",
+				usage: result.usage,
+			})
+		);
 
 		return NextResponse.json({
 			reply: result.text,
@@ -201,18 +196,20 @@ export async function POST(
 			error instanceof MissingToolUseError ||
 			error instanceof AgentBudgetError
 		) {
-			await insertEvidence(supabase, {
-				sessionId: id,
-				userId,
-				kind: "system",
-				source: "server",
-				observationType: "trainer_incomplete",
-				payload: { reason: redactProviderError(error) },
-				idempotencyKey: newIdempotencyKey("trainer-incomplete"),
-			});
+			await withUserDb(userId, (db) =>
+				insertEvidence(db, {
+					sessionId: id,
+					userId,
+					kind: "system",
+					source: "server",
+					observationType: "trainer_incomplete",
+					payload: { reason: redactProviderError(error) },
+					idempotencyKey: newIdempotencyKey("trainer-incomplete"),
+				})
+			);
 			return NextResponse.json(
 				{ error: redactProviderError(error), incomplete: true },
-				{ status: 409 },
+				{ status: 409 }
 			);
 		}
 		if (error instanceof PersistenceError) {
@@ -220,7 +217,7 @@ export async function POST(
 		}
 		return NextResponse.json(
 			{ error: redactProviderError(error) },
-			{ status: 500 },
+			{ status: 500 }
 		);
 	}
 }

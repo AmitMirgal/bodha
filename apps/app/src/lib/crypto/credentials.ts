@@ -19,7 +19,7 @@ export function getEncryptionKey(): Buffer {
 	const raw = process.env.BODHA_CREDENTIALS_ENCRYPTION_KEY;
 	if (!raw) {
 		throw new EncryptionConfigError(
-			"BODHA_CREDENTIALS_ENCRYPTION_KEY is not set. Refusing to store or read credentials.",
+			"BODHA_CREDENTIALS_ENCRYPTION_KEY is not set. Refusing to store or read credentials."
 		);
 	}
 	if (HEX_KEY.test(raw)) {
@@ -34,7 +34,7 @@ export function getEncryptionKey(): Buffer {
 		// fall through
 	}
 	throw new EncryptionConfigError(
-		"BODHA_CREDENTIALS_ENCRYPTION_KEY must be 32 bytes as 64 hex chars or base64.",
+		"BODHA_CREDENTIALS_ENCRYPTION_KEY must be 32 bytes as 64 hex chars or base64."
 	);
 }
 
@@ -62,11 +62,11 @@ export interface CredentialBinding {
 
 export function credentialAad(
 	ownerId: string,
-	binding: CredentialBinding,
+	binding: CredentialBinding
 ): Buffer {
 	return Buffer.from(
 		`${ownerId}\0${binding.provider}\0${binding.model}\0${binding.baseUrl}`,
-		"utf8",
+		"utf8"
 	);
 }
 
@@ -78,7 +78,7 @@ export function fingerprintKey(plaintext: string): string {
 export function encryptSecret(
 	plaintext: string,
 	ownerId: string,
-	binding: CredentialBinding,
+	binding: CredentialBinding
 ): EncryptedSecret {
 	if (!plaintext) {
 		throw new Error("API key is required.");
@@ -103,13 +103,13 @@ export function encryptSecret(
 export function decryptSecret(
 	secret: EncryptedSecret,
 	ownerId: string,
-	binding: CredentialBinding,
+	binding: CredentialBinding
 ): string {
 	const key = getEncryptionKey();
 	const decipher = createDecipheriv(
 		ALGO,
 		key,
-		Buffer.from(secret.iv, "base64"),
+		Buffer.from(secret.iv, "base64")
 	);
 	decipher.setAAD(credentialAad(ownerId, binding));
 	decipher.setAuthTag(Buffer.from(secret.tag, "base64"));

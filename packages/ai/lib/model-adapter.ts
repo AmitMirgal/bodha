@@ -1,4 +1,5 @@
 import { createOpenAI } from "@ai-sdk/openai";
+import type { LanguageModelV3 } from "@ai-sdk/provider";
 import { endpointFromHref, type ValidatedEndpoint } from "./endpoint";
 import { ToolsUnsupportedError } from "./errors";
 import type { ResolvedLlmConfig } from "./provider-types";
@@ -9,7 +10,7 @@ export function assertAgentToolsAllowed(config: ResolvedLlmConfig): void {
 		throw new ToolsUnsupportedError(
 			config.capabilities.tools === "unsupported"
 				? undefined
-				: "This provider has not proven tool calling. Save settings after a successful connection check. BODHA will not fall back to a one-shot completion.",
+				: "This provider has not proven tool calling. Save settings after a successful connection check. BODHA will not fall back to a one-shot completion."
 		);
 	}
 }
@@ -17,8 +18,8 @@ export function assertAgentToolsAllowed(config: ResolvedLlmConfig): void {
 export function toProtectedLanguageModel(
 	config: ResolvedLlmConfig,
 	apiKey: string,
-	endpoint: ValidatedEndpoint,
-) {
+	endpoint: ValidatedEndpoint
+): LanguageModelV3 {
 	assertAgentToolsAllowed(config);
 	if (!apiKey) {
 		throw new Error("LLM API key is missing.");

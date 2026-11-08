@@ -5,7 +5,7 @@ import { getReference } from "../../../../lib/challenges";
 // It isn't secret: anyone who knows the URL can read it, which is fine for a practice tool.
 export async function GET(
 	_req: Request,
-	{ params }: { params: Promise<{ id: string }> },
+	{ params }: { params: Promise<{ id: string }> }
 ) {
 	const { id } = await params;
 	const files = getReference(id);

@@ -1,10 +1,19 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { insertOnce } from "../../../../../lib/db/insert-once";
+import { runtimeRunWithDb, withUserDb } from "../../../../../lib/db/client";
 import {
-	PersistenceError,
-	redactProviderError,
-} from "../../../../../lib/errors";
+	completeReport,
+	getReport,
+	getSnapshot,
+	insertReportOnce,
+	latestReport,
+	listEvidence,
+	listUsage,
+	updateReport,
+	updateSessionStatus,
+} from "../../../../../lib/db/queries";
+import { usageRow } from "../../../../../lib/db/rows";
+import { redactProviderError } from "../../../../../lib/errors";
 import { operationId } from "../../../../../lib/idempotency";
 import {
 	LlmConfigError,
@@ -26,10 +35,10 @@ const schema = z.object({
 
 export async function POST(
 	request: Request,
-	{ params }: { params: Promise<{ id: string }> },
+	{ params }: { params: Promise<{ id: string }> }
 ) {
 	const { id } = await params;
-	const { supabase, userId } = await requireUser();
+	const { userId } = await requireUser();
 	if (!userId) {
 		return NextResponse.json({ error: "Sign in required." }, { status: 401 });
 	}
@@ -38,43 +47,21 @@ export async function POST(
 		? parsed.data.clientRequestId
 		: crypto.randomUUID();
 
-	const { data: session, error: sessionError } = await supabase
-		.from("sessions")
-		.select("*")
-		.eq("id", id)
-		.eq("user_id", userId)
-		.maybeSingle();
-	if (sessionError) {
-		return NextResponse.json(
-			{ error: "Could not load session." },
-			{ status: 500 },
-		);
-	}
+	const session = await withUserDb(userId, (db) =>
+		db.session.findFirst({ where: { id } })
+	);
 	if (!session) {
 		return NextResponse.json({ error: "Not found." }, { status: 404 });
 	}
 
-	const { data: existing, error: existingError } = await supabase
-		.from("reports")
-		.select("*")
-		.eq("session_id", id)
-		.eq("user_id", userId)
-		.order("version", { ascending: false })
-		.limit(1)
-		.maybeSingle();
-	if (existingError) {
-		return NextResponse.json(
-			{ error: "Could not load reports." },
-			{ status: 500 },
-		);
-	}
+	const existing = await withUserDb(userId, (db) => latestReport(db, id));
 	const decision = reportClaimDecision(
 		existing
 			? {
 					status: String(existing.status),
 					created_at: String(existing.created_at),
 				}
-			: null,
+			: null
 	);
 	switch (decision.action) {
 		case "replay":
@@ -82,20 +69,17 @@ export async function POST(
 		case "in_flight":
 			return NextResponse.json(
 				{ error: "A report is already running.", report: existing },
-				{ status: 409 },
+				{ status: 409 }
 			);
 		case "expire_then_create":
 			if (existing) {
-				await supabase
-					.from("reports")
-					.update({
+				await withUserDb(userId, (db) =>
+					updateReport(db, existing.id, {
 						status: "failed",
 						error:
 							"Previous report claim went stale before completion. Evidence was kept. Retry to start a new version.",
 					})
-					.eq("id", existing.id)
-					.eq("user_id", userId)
-					.eq("status", "running");
+				);
 			}
 			break;
 		case "create":
@@ -106,18 +90,7 @@ export async function POST(
 		}
 	}
 
-	const { data: snapshot, error: snapshotError } = await supabase
-		.from("exercise_snapshots")
-		.select("id")
-		.eq("session_id", id)
-		.eq("user_id", userId)
-		.maybeSingle();
-	if (snapshotError) {
-		return NextResponse.json(
-			{ error: "Could not load snapshot." },
-			{ status: 500 },
-		);
-	}
+	const snapshot = await withUserDb(userId, (db) => getSnapshot(db, id));
 	if (!snapshot) {
 		return NextResponse.json({ error: "Snapshot missing." }, { status: 409 });
 	}
@@ -125,65 +98,61 @@ export async function POST(
 	const version = (existing?.version ?? 0) + 1;
 	let reportRow: { id: string };
 	try {
-		const inserted = await insertOnce<{ id: string; status: string }>(
-			supabase,
-			"reports",
-			{
-				session_id: id,
-				user_id: userId,
-				snapshot_id: snapshot.id,
+		const inserted = await withUserDb(userId, (db) =>
+			insertReportOnce(db, {
+				sessionId: id,
+				userId,
+				snapshotId: snapshot.id,
 				version,
 				status: "running",
-			},
-			{ session_id: id, version },
-			"id, status",
+			})
 		);
 		if (!inserted.created) {
 			if (inserted.data.status === "complete") {
-				const { data: complete } = await supabase
-					.from("reports")
-					.select("*")
-					.eq("id", inserted.data.id)
-					.maybeSingle();
+				const complete = await withUserDb(userId, (db) =>
+					getReport(db, inserted.data.id)
+				);
 				return NextResponse.json({ report: complete, replayed: true });
 			}
 			return NextResponse.json(
 				{ error: "A report is already running." },
-				{ status: 409 },
+				{ status: 409 }
 			);
 		}
 		reportRow = inserted.data;
 	} catch {
 		return NextResponse.json(
 			{ error: "Could not start report." },
-			{ status: 500 },
-		);
-	}
-
-	const { error: finalizeError } = await supabase
-		.from("sessions")
-		.update({ status: "finalizing", updated_at: new Date().toISOString() })
-		.eq("id", id)
-		.eq("user_id", userId);
-	if (finalizeError) {
-		await supabase
-			.from("reports")
-			.update({
-				status: "failed",
-				error: "Could not finalize session after claiming the report run.",
-			})
-			.eq("id", reportRow.id)
-			.eq("user_id", userId);
-		return NextResponse.json(
-			{ error: "Could not finalize session.", evidencePreserved: true },
-			{ status: 500 },
+			{ status: 500 }
 		);
 	}
 
 	try {
-		const { config, apiKey } = await resolveLlmForUser(supabase, userId);
+		await withUserDb(userId, (db) =>
+			updateSessionStatus(db, id, {
+				status: "finalizing",
+				updatedAt: new Date(),
+			})
+		);
+	} catch {
+		await withUserDb(userId, (db) =>
+			updateReport(db, reportRow.id, {
+				status: "failed",
+				error: "Could not finalize session after claiming the report run.",
+			})
+		);
+		return NextResponse.json(
+			{ error: "Could not finalize session.", evidencePreserved: true },
+			{ status: 500 }
+		);
+	}
+
+	try {
+		const { config, apiKey } = await withUserDb(userId, (db) =>
+			resolveLlmForUser(db, userId)
+		);
 		const result = await runReview({
-			supabase,
+			runWithDb: runtimeRunWithDb(),
 			userId,
 			sessionId: id,
 			role: "review",
@@ -198,76 +167,45 @@ export async function POST(
 			],
 		});
 
-		await insertUsageRecord(supabase, {
-			sessionId: id,
-			userId,
-			operationId: operationId(["review", id, clientRequestId]),
-			agentRole: "review",
-			usage: result.usage,
-		});
+		await withUserDb(userId, (db) =>
+			insertUsageRecord(db, {
+				sessionId: id,
+				userId,
+				operationId: operationId(["review", id, clientRequestId]),
+				agentRole: "review",
+				usage: result.usage,
+			})
+		);
 
-		const { data: evidence, error: evidenceError } = await supabase
-			.from("evidence_events")
-			.select("id, kind, session_id, payload")
-			.eq("session_id", id)
-			.eq("user_id", userId)
-			.order("seq", { ascending: true });
-		if (evidenceError) {
-			throw new PersistenceError("Could not load evidence for the report.");
-		}
-		const { data: usageRows, error: usageError } = await supabase
-			.from("usage_records")
-			.select(
-				"agent_role, input_tokens, output_tokens, cached_tokens, cached_included_in_input, coverage, native",
-			)
-			.eq("session_id", id)
-			.eq("user_id", userId);
-		if (usageError) {
-			throw new PersistenceError("Could not load usage records.");
-		}
+		const evidence = await withUserDb(userId, (db) => listEvidence(db, id));
+		const usageRows = await withUserDb(userId, (db) => listUsage(db, id));
 
 		const assembled = assembleLearningReport({
 			model: result.model,
-			evidence: (evidence ?? []).map((row) => ({
+			evidence: evidence.map((row) => ({
 				id: row.id,
 				kind: row.kind,
-				sessionId: row.session_id,
+				sessionId: row.sessionId,
 				payload: row.payload,
 			})),
-			usageRows: usageRows ?? [],
+			usageRows: usageRows.map(usageRow),
 			sessionId: id,
 		});
 		if (!assembled.ok) {
 			throw new Error(assembled.error);
 		}
 
-		const { data: complete, error: completeError } = await supabase
-			.from("reports")
-			.update({
-				status: "complete",
-				body: assembled.report,
-				error: null,
-			})
-			.eq("id", reportRow.id)
-			.eq("user_id", userId)
-			.select("*")
-			.single();
-		if (completeError || !complete) {
-			throw new PersistenceError("Could not store the completed report.");
-		}
+		const complete = await withUserDb(userId, (db) =>
+			completeReport(db, reportRow.id, assembled.report as never)
+		);
 
-		const { error: sessionCompleteError } = await supabase
-			.from("sessions")
-			.update({
+		await withUserDb(userId, (db) =>
+			updateSessionStatus(db, id, {
 				status: "complete",
-				finished_at: new Date().toISOString(),
-				updated_at: new Date().toISOString(),
+				finishedAt: new Date(),
+				updatedAt: new Date(),
 			})
-			.eq("id", id)
-			.eq("user_id", userId);
-		if (sessionCompleteError) {
-			throw new PersistenceError("Could not mark the session complete.");
-		}
+		);
 
 		return NextResponse.json({
 			report: complete,
@@ -278,31 +216,22 @@ export async function POST(
 		const message = redactProviderError(error);
 		const incomplete =
 			error instanceof MissingToolUseError || error instanceof AgentBudgetError;
-		await supabase
-			.from("reports")
-			.update({
+		await withUserDb(userId, (db) =>
+			updateReport(db, reportRow.id, {
 				status: incomplete ? "incomplete" : "failed",
 				error: message,
 			})
-			.eq("id", reportRow.id)
-			.eq("user_id", userId);
-		await supabase
-			.from("sessions")
-			.update({
+		);
+		await withUserDb(userId, (db) =>
+			updateSessionStatus(db, id, {
 				status: "failed",
-				updated_at: new Date().toISOString(),
+				updatedAt: new Date(),
 			})
-			.eq("id", id)
-			.eq("user_id", userId);
-		const status =
-			error instanceof LlmConfigError
-				? 400
-				: error instanceof PersistenceError
-					? 500
-					: 500;
+		);
+		const status = error instanceof LlmConfigError ? 400 : 500;
 		return NextResponse.json(
 			{ error: message, incomplete, evidencePreserved: true },
-			{ status },
+			{ status }
 		);
 	}
 }

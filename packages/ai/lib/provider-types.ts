@@ -50,7 +50,7 @@ function isCapabilityStatus(value: unknown): value is CapabilityStatus {
 }
 
 export function parseProviderCapabilities(
-	value: unknown,
+	value: unknown
 ): ProviderCapabilities | null {
 	if (!value || typeof value !== "object") {
 		return null;

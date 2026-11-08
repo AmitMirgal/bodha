@@ -2,7 +2,7 @@ const FALLBACK = "/";
 
 export function safeNextPath(
 	raw: string | null | undefined,
-	fallback = FALLBACK,
+	fallback = FALLBACK
 ): string {
 	if (!raw) {
 		return fallback;

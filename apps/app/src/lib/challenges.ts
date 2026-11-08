@@ -31,7 +31,7 @@ const idOk = (id: string) =>
 
 function meta(id: string): ChallengeMeta {
 	const raw = JSON.parse(
-		fs.readFileSync(path.join(ROOT, id, "meta.json"), "utf8"),
+		fs.readFileSync(path.join(ROOT, id, "meta.json"), "utf8")
 	) as Omit<ChallengeMeta, "id">;
 	return { id, ...raw };
 }

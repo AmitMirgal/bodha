@@ -12,11 +12,14 @@ import {
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { AppNav } from "../../../../components/AppNav";
+import { withUserDb } from "../../../../lib/db/client";
+import { getSession, listReports } from "../../../../lib/db/queries";
 import type { LearningReport } from "../../../../lib/reports/schema";
 import { requireUser } from "../../../../lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: report states (missing, incomplete, complete) share one page
 export default async function ReportPage({
 	params,
 }: {
@@ -28,22 +31,12 @@ export default async function ReportPage({
 		redirect(`/login?next=/session/${id}/report`);
 	}
 	const { data: user } = await supabase.auth.getUser();
-	const { data: session } = await supabase
-		.from("sessions")
-		.select("id, exercise_id, status")
-		.eq("id", id)
-		.eq("user_id", userId)
-		.maybeSingle();
+	const session = await withUserDb(userId, (db) => getSession(db, id));
 	if (!session) {
 		notFound();
 	}
-	const { data: reports } = await supabase
-		.from("reports")
-		.select("id, version, status, body, error, created_at")
-		.eq("session_id", id)
-		.eq("user_id", userId)
-		.order("version", { ascending: false });
-	const latest = reports?.[0];
+	const reports = await withUserDb(userId, (db) => listReports(db, id));
+	const latest = reports[0];
 	const body = (latest?.body ?? null) as LearningReport | null;
 
 	return (

@@ -8,6 +8,9 @@ export interface ProbeResult {
 	error?: string;
 }
 
+const REDIRECT_ERROR = /redirect/i;
+const PRIVATE_ERROR = /private/i;
+
 const timeoutSignal = (ms: number) => {
 	const controller = new AbortController();
 	const timer = setTimeout(() => controller.abort(), ms);
@@ -17,7 +20,7 @@ const timeoutSignal = (ms: number) => {
 export async function probeOpenAiCompatible(
 	endpoint: ValidatedEndpoint,
 	apiKey: string,
-	model: string,
+	model: string
 ): Promise<ProbeResult> {
 	const capabilities: ProviderCapabilities = { ...DEFAULT_CAPABILITIES };
 	const { controller, timer } = timeoutSignal(12_000);
@@ -43,7 +46,7 @@ export async function probeOpenAiCompatible(
 			data?: { id?: string }[];
 		};
 		const ids = new Set(
-			(body.data ?? []).map((item) => item.id).filter(Boolean),
+			(body.data ?? []).map((item) => item.id).filter(Boolean)
 		);
 		if (ids.size > 0 && !ids.has(model)) {
 			return {
@@ -59,7 +62,7 @@ export async function probeOpenAiCompatible(
 			endpoint,
 			apiKey,
 			model,
-			controller.signal,
+			controller.signal
 		);
 		if (capabilities.tools !== "supported") {
 			return {
@@ -74,7 +77,7 @@ export async function probeOpenAiCompatible(
 	} catch (error) {
 		const message =
 			error instanceof Error ? error.message : "Connection check failed.";
-		if (/redirect/i.test(message) || /private/i.test(message)) {
+		if (REDIRECT_ERROR.test(message) || PRIVATE_ERROR.test(message)) {
 			return { capabilities, error: message };
 		}
 		return {
@@ -90,7 +93,7 @@ async function probeToolSupport(
 	endpoint: ValidatedEndpoint,
 	apiKey: string,
 	model: string,
-	signal: AbortSignal,
+	signal: AbortSignal
 ): Promise<CapabilityStatus> {
 	try {
 		const response = await fetchApprovedEndpoint(
@@ -128,7 +131,7 @@ async function probeToolSupport(
 						},
 					],
 				}),
-			},
+			}
 		);
 		if (response.status === 404) {
 			return "unsupported";
@@ -140,7 +143,7 @@ async function probeToolSupport(
 				}[];
 			};
 			const names = (body.choices ?? []).flatMap((choice) =>
-				(choice.message?.tool_calls ?? []).map((call) => call.function?.name),
+				(choice.message?.tool_calls ?? []).map((call) => call.function?.name)
 			);
 			return names.includes("bodha_capability_ping") ? "supported" : "unknown";
 		}
@@ -159,23 +162,23 @@ async function probeToolSupport(
 }
 
 export function requireTools(
-	capabilities: ProviderCapabilities,
+	capabilities: ProviderCapabilities
 ): CapabilityStatus {
 	return capabilities.tools;
 }
 
 export function describeUnsupported(
-	capabilities: ProviderCapabilities,
+	capabilities: ProviderCapabilities
 ): string[] {
 	const issues: string[] = [];
 	if (capabilities.tools === "unsupported") {
 		issues.push(
-			"This endpoint does not support tool calling, which the trainer requires.",
+			"This endpoint does not support tool calling, which the trainer requires."
 		);
 	}
 	if (capabilities.structuredOutput === "unsupported") {
 		issues.push(
-			"Native structured output is unsupported; BODHA will validate JSON in the application instead.",
+			"Native structured output is unsupported; BODHA will validate JSON in the application instead."
 		);
 	}
 	if (capabilities.streaming === "unsupported") {

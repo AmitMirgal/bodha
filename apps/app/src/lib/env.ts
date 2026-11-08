@@ -13,7 +13,7 @@ export function getPublicSupabaseConfig() {
 	});
 	if (!parsed.success) {
 		throw new Error(
-			"Supabase public config is missing. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY.",
+			"Supabase public config is missing. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY."
 		);
 	}
 	return {
@@ -34,7 +34,7 @@ export function allowHttpLlm(): boolean {
 }
 
 function parseCapabilityStatus(
-	raw: string | undefined,
+	raw: string | undefined
 ): "supported" | "unsupported" | "unknown" {
 	const tools = raw?.trim() ?? "unknown";
 	switch (tools) {

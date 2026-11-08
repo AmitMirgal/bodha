@@ -1,4 +1,5 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
+import { findEvidencePayload } from "../db/queries";
+import type { BodhaDb } from "../db/rls";
 import { insertEvidence } from "./service";
 
 export type ChatClaim =
@@ -10,15 +11,15 @@ export type ChatClaim =
 	  };
 
 export async function claimChatTurn(
-	supabase: SupabaseClient,
+	db: BodhaDb,
 	input: {
 		sessionId: string;
 		userId: string;
 		message: string;
 		idempotencyKey: string;
-	},
+	}
 ): Promise<ChatClaim> {
-	const prompt = await insertEvidence(supabase, {
+	const prompt = await insertEvidence(db, {
 		sessionId: input.sessionId,
 		userId: input.userId,
 		kind: "prompt",
@@ -28,15 +29,13 @@ export async function claimChatTurn(
 		idempotencyKey: `${input.idempotencyKey}:prompt`,
 	});
 	if (!prompt.created) {
-		const { data: assistant } = await supabase
-			.from("evidence_events")
-			.select("payload")
-			.eq("session_id", input.sessionId)
-			.eq("user_id", input.userId)
-			.eq("idempotency_key", `${input.idempotencyKey}:assistant`)
-			.maybeSingle();
-		if (assistant?.payload && typeof assistant.payload === "object") {
-			const content = (assistant.payload as { content?: unknown }).content;
+		const payload = await findEvidencePayload(
+			db,
+			input.sessionId,
+			`${input.idempotencyKey}:assistant`
+		);
+		if (payload && typeof payload === "object") {
+			const content = (payload as { content?: unknown }).content;
 			if (typeof content === "string") {
 				return { kind: "replay", reply: content };
 			}

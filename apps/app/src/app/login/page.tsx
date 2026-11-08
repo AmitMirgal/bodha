@@ -56,7 +56,7 @@ function LoginForm() {
 			}
 			if (mode === "signup") {
 				setMessage(
-					"Check your email if confirmation is enabled, then sign in.",
+					"Check your email if confirmation is enabled, then sign in."
 				);
 				return;
 			}
@@ -88,7 +88,7 @@ function LoginForm() {
 			setMessage("Magic link sent if that address can receive mail.");
 		} catch (caught) {
 			setError(
-				caught instanceof Error ? caught.message : "Could not send magic link.",
+				caught instanceof Error ? caught.message : "Could not send magic link."
 			);
 		} finally {
 			setBusy(false);

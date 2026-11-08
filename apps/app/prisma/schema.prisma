@@ -1,0 +1,183 @@
+// Mapping of the BODHA product schema that already lives in
+// supabase/migrations/*.sql. This file is not an independent migration
+// source. Do not run `prisma migrate` against a BODHA database.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Profile {
+  id        String   @id @db.Uuid
+  createdAt DateTime @default(dbgenerated("now()")) @map("created_at") @db.Timestamptz(6)
+
+  @@map("profiles")
+}
+
+model LlmSettings {
+  userId          String   @id @map("user_id") @db.Uuid
+  provider        String
+  model           String
+  baseUrl         String   @map("base_url")
+  encryptedApiKey String   @map("encrypted_api_key")
+  encryptionIv    String   @map("encryption_iv")
+  encryptionTag   String   @map("encryption_tag")
+  keyFingerprint  String   @map("key_fingerprint")
+  capabilities    Json
+  createdAt       DateTime @default(dbgenerated("now()")) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime @default(dbgenerated("now()")) @map("updated_at") @db.Timestamptz(6)
+
+  @@map("llm_settings")
+}
+
+model Session {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId      String    @map("user_id") @db.Uuid
+  exerciseId  String    @map("exercise_id")
+  status      String
+  files       Json      @default("{}")
+  timezone    String    @default("UTC")
+  consentAt   DateTime? @map("consent_at") @db.Timestamptz(6)
+  startedAt   DateTime? @map("started_at") @db.Timestamptz(6)
+  finishedAt  DateTime? @map("finished_at") @db.Timestamptz(6)
+  saveError   String?   @map("save_error")
+  createdAt   DateTime  @default(dbgenerated("now()")) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime  @default(dbgenerated("now()")) @map("updated_at") @db.Timestamptz(6)
+
+  snapshots ExerciseSnapshot[]
+  evidence  EvidenceEvent[]
+  messages  Message[]
+  testRuns  TestRun[]
+  reports   Report[]
+  usage     UsageRecord[]
+
+  @@unique([id, userId], map: "sessions_id_user_id_key")
+  @@index([userId, createdAt(sort: Desc)], map: "sessions_user_created_idx")
+  @@index([userId, status], map: "sessions_user_status_idx")
+  @@map("sessions")
+}
+
+model ExerciseSnapshot {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  sessionId     String   @map("session_id") @db.Uuid
+  userId        String   @map("user_id") @db.Uuid
+  exerciseId    String   @map("exercise_id")
+  contentHash   String   @map("content_hash")
+  specMarkdown  String   @map("spec_markdown")
+  testsSource   String   @map("tests_source")
+  starter       Json
+  meta          Json
+  createdAt     DateTime @default(dbgenerated("now()")) @map("created_at") @db.Timestamptz(6)
+
+  session  Session   @relation(fields: [sessionId, userId], references: [id, userId], onDelete: Cascade)
+  testRuns TestRun[]
+  reports  Report[]
+
+  @@unique([sessionId])
+  @@unique([id, userId])
+  @@unique([id, sessionId])
+  @@map("exercise_snapshots")
+}
+
+model EvidenceEvent {
+  id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  sessionId        String   @map("session_id") @db.Uuid
+  userId           String   @map("user_id") @db.Uuid
+  seq              BigInt   @default(autoincrement())
+  kind             String
+  source           String
+  observationType  String   @map("observation_type")
+  payload          Json
+  idempotencyKey   String   @map("idempotency_key")
+  createdAt        DateTime @default(dbgenerated("now()")) @map("created_at") @db.Timestamptz(6)
+
+  session  Session   @relation(fields: [sessionId, userId], references: [id, userId], onDelete: Cascade)
+  messages Message[]
+  testRuns TestRun[]
+
+  @@unique([sessionId, idempotencyKey])
+  @@unique([sessionId, seq])
+  @@unique([id, sessionId])
+  @@unique([id, userId])
+  @@index([sessionId, seq], map: "evidence_session_seq_idx")
+  @@map("evidence_events")
+}
+
+model Message {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  sessionId  String   @map("session_id") @db.Uuid
+  userId     String   @map("user_id") @db.Uuid
+  evidenceId String?  @map("evidence_id") @db.Uuid
+  role       String
+  content    String
+  createdAt  DateTime @default(dbgenerated("now()")) @map("created_at") @db.Timestamptz(6)
+
+  session  Session        @relation(fields: [sessionId, userId], references: [id, userId], onDelete: Cascade)
+  evidence EvidenceEvent? @relation(fields: [evidenceId, sessionId], references: [id, sessionId], onDelete: SetNull)
+
+  @@index([sessionId, createdAt], map: "messages_session_created_idx")
+  @@map("messages")
+}
+
+model TestRun {
+  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  sessionId         String   @map("session_id") @db.Uuid
+  userId            String   @map("user_id") @db.Uuid
+  snapshotId        String   @map("snapshot_id") @db.Uuid
+  evidenceId        String?  @map("evidence_id") @db.Uuid
+  codeRevisionHash  String   @map("code_revision_hash")
+  results           Json
+  fatal             String?
+  provenance        String   @default("browser_harness")
+  createdAt         DateTime @default(dbgenerated("now()")) @map("created_at") @db.Timestamptz(6)
+
+  session  Session           @relation(fields: [sessionId, userId], references: [id, userId], onDelete: Cascade)
+  snapshot ExerciseSnapshot  @relation(fields: [snapshotId, sessionId], references: [id, sessionId])
+  evidence EvidenceEvent?    @relation(fields: [evidenceId, sessionId], references: [id, sessionId])
+
+  @@index([sessionId, createdAt], map: "test_runs_session_idx")
+  @@map("test_runs")
+}
+
+model Report {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  sessionId  String   @map("session_id") @db.Uuid
+  userId     String   @map("user_id") @db.Uuid
+  snapshotId String   @map("snapshot_id") @db.Uuid
+  version    Int      @default(1)
+  status     String
+  body       Json?
+  error      String?
+  createdAt  DateTime @default(dbgenerated("now()")) @map("created_at") @db.Timestamptz(6)
+
+  session  Session          @relation(fields: [sessionId, userId], references: [id, userId], onDelete: Cascade)
+  snapshot ExerciseSnapshot @relation(fields: [snapshotId, sessionId], references: [id, sessionId])
+
+  @@unique([sessionId, version])
+  @@index([sessionId, version], map: "reports_session_idx")
+  @@map("reports")
+}
+
+model UsageRecord {
+  id                    String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  sessionId             String   @map("session_id") @db.Uuid
+  userId                String   @map("user_id") @db.Uuid
+  operationId           String   @map("operation_id")
+  agentRole             String   @map("agent_role")
+  inputTokens           BigInt?  @map("input_tokens")
+  outputTokens          BigInt?  @map("output_tokens")
+  cachedTokens          BigInt?  @map("cached_tokens")
+  cachedIncludedInInput Boolean? @map("cached_included_in_input")
+  coverage              String
+  native                Json?
+  createdAt             DateTime @default(dbgenerated("now()")) @map("created_at") @db.Timestamptz(6)
+
+  session Session @relation(fields: [sessionId, userId], references: [id, userId], onDelete: Cascade)
+
+  @@unique([sessionId, operationId])
+  @@map("usage_records")
+}

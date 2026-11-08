@@ -4,7 +4,7 @@ import {
 	type ResolvedLlmConfig,
 	usageFromAgentOutput,
 } from "@repo/ai/provider";
-import type { SupabaseClient } from "@supabase/supabase-js";
+import type { RunWithDb } from "../lib/db/rls";
 import { parseModelReview } from "../lib/reports/assemble";
 import type { ModelReview } from "../lib/reports/schema";
 import type { AgentRole } from "./context";
@@ -55,8 +55,8 @@ interface RunInput {
 	config: ResolvedLlmConfig;
 	messages: ChatTurn[];
 	role: AgentRole;
+	runWithDb: RunWithDb;
 	sessionId: string;
-	supabase: SupabaseClient;
 	userId: string;
 }
 
@@ -64,7 +64,7 @@ function toMastraMessages(messages: ChatTurn[]) {
 	return messages.map((message) =>
 		message.role === "user"
 			? { role: "user" as const, content: message.content }
-			: { role: "assistant" as const, content: message.content },
+			: { role: "assistant" as const, content: message.content }
 	);
 }
 
@@ -86,17 +86,17 @@ function contextFor(input: RunInput) {
 	requestContext.set("apiKey", input.apiKey);
 	requestContext.set(
 		"capabilitiesJson",
-		JSON.stringify(input.config.capabilities),
+		JSON.stringify(input.config.capabilities)
 	);
-	requestContext.setRaw("supabase", input.supabase);
+	requestContext.setRaw("runWithDb", input.runWithDb);
 	return requestContext;
 }
 
-type ToolNameCarrier = {
+interface ToolNameCarrier {
 	name?: string;
 	payload?: { toolName?: string };
 	toolName?: string;
-};
+}
 
 export function collectToolNames(response: {
 	steps?: {
@@ -133,13 +133,13 @@ export function collectToolNames(response: {
 export function assertRequiredTools(
 	response: Parameters<typeof collectToolNames>[0],
 	requiredIds: string[],
-	label: string,
+	label: string
 ): string[] {
 	const names = collectToolNames(response);
 	const missing = requiredIds.filter((id) => !names.includes(id));
 	if (missing.length > 0) {
 		throw new MissingToolUseError(
-			`${label} did not use required tools (${missing.join(", ")}). Refusing a one-shot completion.`,
+			`${label} did not use required tools (${missing.join(", ")}). Refusing a one-shot completion.`
 		);
 	}
 	return names;
@@ -148,7 +148,7 @@ export function assertRequiredTools(
 export async function generateWithBudget<T>(
 	run: (signal: AbortSignal) => Promise<T>,
 	timeoutMs: number,
-	label: string,
+	label: string
 ): Promise<T> {
 	const controller = new AbortController();
 	const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -192,12 +192,12 @@ export async function runTrainer(input: RunInput) {
 				modelSettings: { maxOutputTokens: budget.maxTokens },
 			}),
 		budget.timeoutMs,
-		"Trainer",
+		"Trainer"
 	);
 	const tools = assertRequiredTools(
 		response,
 		TRAINER_REQUIRED_TOOLS,
-		"Trainer",
+		"Trainer"
 	);
 	return {
 		text: response.text ?? "",
@@ -220,7 +220,7 @@ export async function runReview(input: RunInput) {
 				modelSettings: { maxOutputTokens: budget.maxTokens },
 			}),
 		budget.timeoutMs,
-		"Review",
+		"Review"
 	);
 	const tools = assertRequiredTools(response, REVIEW_REQUIRED_TOOLS, "Review");
 	const parsed = parseModelReview(extractJson(response.text ?? ""));

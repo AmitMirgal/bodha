@@ -1,6 +1,7 @@
 import { createTool } from "@mastra/core/tools";
-import type { SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
+import type { RunWithDb } from "../lib/db/rls";
+import { evidenceRow, testRunRow } from "../lib/db/rows";
 
 const MAX_TOOL_CHARS = 12_000;
 
@@ -20,20 +21,20 @@ function requireScope(context: {
 }) {
 	const userId = context.requestContext?.get("userId");
 	const sessionId = context.requestContext?.get("sessionId");
-	const supabase =
-		context.requestContext?.getRaw?.("supabase") ??
-		context.requestContext?.get("supabase");
+	const runWithDb =
+		context.requestContext?.getRaw?.("runWithDb") ??
+		context.requestContext?.get("runWithDb");
 	if (
 		typeof userId !== "string" ||
 		typeof sessionId !== "string" ||
-		!supabase
+		typeof runWithDb !== "function"
 	) {
 		throw new Error("Tool authorization context is missing.");
 	}
 	return {
 		userId,
 		sessionId,
-		supabase: supabase as SupabaseClient,
+		runWithDb: runWithDb as RunWithDb,
 	};
 }
 
@@ -52,23 +53,20 @@ export const getExerciseSnapshotTool = createTool({
 		meta: z.unknown(),
 	}),
 	execute: async (inputData, context) => {
-		const { userId, sessionId, supabase } = requireScope(context);
-		const { data, error } = await supabase
-			.from("exercise_snapshots")
-			.select(
-				"exercise_id, content_hash, spec_markdown, tests_source, meta, session_id, user_id",
-			)
-			.eq("session_id", sessionId)
-			.eq("user_id", userId)
-			.maybeSingle();
-		if (error || !data) {
+		const { userId, sessionId, runWithDb } = requireScope(context);
+		const data = await runWithDb({ role: "authenticated", userId }, (db) =>
+			db.exerciseSnapshot.findFirst({
+				where: { sessionId, userId },
+			})
+		);
+		if (!data) {
 			throw new Error("Snapshot is not available for this session.");
 		}
 		return clip({
-			exerciseId: data.exercise_id,
-			contentHash: data.content_hash,
-			specMarkdown: data.spec_markdown,
-			testsSource: inputData.includeTests ? data.tests_source : undefined,
+			exerciseId: data.exerciseId,
+			contentHash: data.contentHash,
+			specMarkdown: data.specMarkdown,
+			testsSource: inputData.includeTests ? data.testsSource : undefined,
 			meta: data.meta,
 		});
 	},
@@ -92,37 +90,24 @@ export const getSessionEvidenceTool = createTool({
 				observationType: z.string(),
 				payload: z.unknown(),
 				createdAt: z.string(),
-			}),
+			})
 		),
 	}),
 	execute: async (inputData, context) => {
-		const { userId, sessionId, supabase } = requireScope(context);
-		let query = supabase
-			.from("evidence_events")
-			.select(
-				"id, seq, kind, source, observation_type, payload, created_at, session_id, user_id",
-			)
-			.eq("session_id", sessionId)
-			.eq("user_id", userId)
-			.order("seq", { ascending: true })
-			.limit(inputData.limit ?? 40);
-		if (inputData.kinds?.length) {
-			query = query.in("kind", inputData.kinds);
-		}
-		const { data, error } = await query;
-		if (error) {
-			throw new Error("Evidence could not be loaded.");
-		}
+		const { userId, sessionId, runWithDb } = requireScope(context);
+		const data = await runWithDb({ role: "authenticated", userId }, (db) =>
+			db.evidenceEvent.findMany({
+				where: {
+					sessionId,
+					userId,
+					...(inputData.kinds?.length ? { kind: { in: inputData.kinds } } : {}),
+				},
+				orderBy: { seq: "asc" },
+				take: inputData.limit ?? 40,
+			})
+		);
 		return clip({
-			events: (data ?? []).map((row) => ({
-				id: row.id,
-				seq: row.seq,
-				kind: row.kind,
-				source: row.source,
-				observationType: row.observation_type,
-				payload: row.payload,
-				createdAt: row.created_at,
-			})),
+			events: data.map(evidenceRow),
 		});
 	},
 });
@@ -137,33 +122,19 @@ export const getLatestTestRunTool = createTool({
 		run: z.unknown(),
 	}),
 	execute: async (_inputData, context) => {
-		const { userId, sessionId, supabase } = requireScope(context);
-		const { data, error } = await supabase
-			.from("test_runs")
-			.select(
-				"id, results, fatal, provenance, code_revision_hash, created_at, session_id, user_id",
-			)
-			.eq("session_id", sessionId)
-			.eq("user_id", userId)
-			.order("created_at", { ascending: false })
-			.limit(1)
-			.maybeSingle();
-		if (error) {
-			throw new Error("Test runs could not be loaded.");
-		}
+		const { userId, sessionId, runWithDb } = requireScope(context);
+		const data = await runWithDb({ role: "authenticated", userId }, (db) =>
+			db.testRun.findFirst({
+				where: { sessionId, userId },
+				orderBy: { createdAt: "desc" },
+			})
+		);
 		if (!data) {
 			return { found: false, run: null };
 		}
 		return clip({
 			found: true,
-			run: {
-				id: data.id,
-				results: data.results,
-				fatal: data.fatal,
-				provenance: data.provenance,
-				codeRevisionHash: data.code_revision_hash,
-				createdAt: data.created_at,
-			},
+			run: testRunRow(data),
 		});
 	},
 });

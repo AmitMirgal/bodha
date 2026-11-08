@@ -45,7 +45,7 @@ export const reportSchema = z.object({
 				whyItHelps: z.string().min(1).max(1000),
 				citations: z.array(reportCitationSchema).min(1),
 				illustrative: z.boolean(),
-			}),
+			})
 		)
 		.max(8),
 	usage: z.object({
@@ -85,7 +85,7 @@ export interface EvidenceRef {
 export function validateReportAgainstEvidence(
 	report: LearningReport,
 	evidence: EvidenceRef[],
-	sessionId: string,
+	sessionId: string
 ): { ok: true; report: LearningReport } | { ok: false; error: string } {
 	const allowed = new Map(evidence.map((item) => [item.id, item]));
 	for (const suggestion of report.suggestions) {

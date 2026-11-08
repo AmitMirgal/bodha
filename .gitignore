@@ -266,6 +266,7 @@ $RECYCLE.BIN/
 
 # Database
 packages/database/generated
+apps/app/src/generated
 
 # react.email
 .react-email

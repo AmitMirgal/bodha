@@ -19,7 +19,7 @@ The rest of this monorepo is a next-forge workspace template (unrelated apps and
 
 - **Auth:** Supabase Auth (cookie session). Server routes verify identity with `auth.getUser()`, not decode-only JWT claims.
 - **Database:** Supabase PostgreSQL. Versioned SQL in `supabase/migrations/` is the **authoritative schema and RLS**. Prisma maps those tables; it is not a second migration source.
-- **Runtime queries:** Prisma 7.4.2 + `@prisma/adapter-pg` on `DATABASE_URL` (transaction-mode pooler, port **6543**, `pgbouncer=true`). Each product operation runs in a short transaction that `SET LOCAL ROLE authenticated|anon` and sets `request.jwt.claims` / `request.jwt.claim.sub` from the verified user. Privileged `postgres` logins are not used for tenant reads/writes. If `SET LOCAL ROLE` does not drop superuser/bypass, the request fails closed.
+- **Runtime queries:** Prisma 7.4.2 + `@prisma/adapter-pg` on `DATABASE_URL` (transaction-mode pooler, port **6543**, `pgbouncer=true`). Each product operation runs in a short transaction that `SET LOCAL ROLE authenticated|anon` and sets `request.jwt.claims` / `request.jwt.claim.sub` from the verified user. Privileged `postgres` logins are not used for tenant reads/writes. After `SET LOCAL ROLE`, the request **fails closed** if `current_user` is not `authenticated`/`anon`, `is_superuser` is on, `pg_roles.rolsuper` is true, or **`pg_roles.rolbypassrls` is true**. `FORCE ROW LEVEL SECURITY` does not constrain `BYPASSRLS` roles.
 - **CLI / generate:** `DIRECT_URL` (session-mode pooler, port **5432**). Used by `prisma.config.ts` only. Never expose either URL to the browser (`NEXT_PUBLIC_*` is rejected).
 - **Unrelated packages:** `packages/database` remains the Neon Prisma client for `apps/api` and must not be mixed into BODHA.
 
@@ -75,7 +75,13 @@ pnpm check   # Ultracite/Biome at repo root (includes unrelated next-forge packa
 
 `lint:bodha` covers BODHA sources plus `packages/ai` transport/provider files, `supabase/migrations`, and `docs/bodha-mvp.md`. Biome treats `[id]` in a CLI path as a glob, so those routes are linted via parent directories. Root `pnpm check` is **not** a BODHA-clean signal; it reports thousands of findings in unused template packages.
 
-Known test/build limits: PGlite RLS is not Supabase PostgREST. Live `BODHA_LIVE_*` and `BODHA_LIVE_PRISMA_RLS=1` checks are skipped unless you set them against a project you already control. DNS re-check on LLM fetch is not full connection pinning. Report fact-grounding is schema/citation validation, not semantic proof. Retrying a stale report claim starts a **new billed** review version.
+### Tests that actually run vs tests that do not
+
+**Executed by default `pnpm --filter app test`:** Prisma request-path RLS against **PGlite** with a **stub** `auth.uid()` (JWT GUCs only; not Supabase Auth cookies or `auth.getUser()`). That local suite includes owner/cross-user/anon isolation and fail-closed when `authenticated` is a non-superuser `BYPASSRLS` role.
+
+**Not executed by default, and not claimed as evidence here:** PrismaPg against a real Supabase transaction-mode pooler; real Supabase Auth; PostgREST with live user access tokens. There is **no** executed live pooler/Auth suite in CI or in this PR. An opt-in PrismaPg path exists (`BODHA_LIVE_PRISMA_RLS=1` **and** `BODHA_LIVE_ISOLATED_TARGET=1` plus an isolated `:6543` `DATABASE_URL` and two user UUIDs). Setting only `BODHA_LIVE_PRISMA_RLS=1` refuses without connecting. Live PostgREST (`BODHA_LIVE_SUPABASE_*` + user access tokens) is a separate skip. PGlite is not PostgREST and not the Supabase pooler.
+
+Other limits: DNS re-check on LLM fetch is not full connection pinning. Report fact-grounding is schema/citation validation, not semantic proof. Retrying a stale report claim starts a **new billed** review version.
 
 ## Vercel (`apps/app` only)
 
@@ -94,7 +100,7 @@ This repo does not deploy itself. When you deploy:
 
 ## Privacy / RLS
 
-Every product table has RLS. Owner is `auth.uid()`. Snapshots, evidence, messages, test runs, and usage are insert-only (no owner UPDATE/DELETE). Composite foreign keys block forged cross-owner links. Anonymous roles have no table grants. `FORCE ROW LEVEL SECURITY` is an additive SQL file; table owners still must pass policies. Superuser/`postgres` connections bypass RLS, which is why runtime Prisma **must** `SET LOCAL ROLE` inside each transaction and refuse to continue if it cannot.
+Every product table has RLS. Owner is `auth.uid()`. Snapshots, evidence, messages, test runs, and usage are insert-only (no owner UPDATE/DELETE). Composite foreign keys block forged cross-owner links. Anonymous roles have no table grants. `FORCE ROW LEVEL SECURITY` is an additive SQL file; table owners still must pass policies. Superuser/`postgres` **and any `BYPASSRLS` role** skip RLS even when FORCE is on, which is why runtime Prisma **must** `SET LOCAL ROLE` inside each transaction and refuse to continue if `pg_roles.rolbypassrls` is still true.
 
 ## License
 

@@ -1,0 +1,27 @@
+{
+  "order": 2,
+  "title": "Cache",
+  "blurb": "An LRU cache with expiry. It passes the happy path and falls over everywhere else.",
+  "difficulty": "Medium",
+  "minutes": 60,
+  "tasks": [
+    {
+      "id": "bugs",
+      "kind": "bugs",
+      "title": "Find the bugs",
+      "brief": "Compare the code against the README. There is more than one problem, and some share a cause."
+    },
+    {
+      "id": "feature",
+      "kind": "feature",
+      "title": "Add stats() and delete()",
+      "brief": "Implement the two stubs so they match the existing hit and miss accounting."
+    },
+    {
+      "id": "perf",
+      "kind": "perf",
+      "title": "Make it scale",
+      "brief": "A cache holding 20,000 entries has to stay quick. Fix correctness first, then speed."
+    }
+  ]
+}

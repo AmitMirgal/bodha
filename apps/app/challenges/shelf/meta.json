@@ -1,0 +1,27 @@
+{
+  "order": 1,
+  "title": "Shelf",
+  "blurb": "A small shop's order system. Stock goes in, orders come out, and the numbers are quietly wrong.",
+  "difficulty": "Warm-up",
+  "minutes": 60,
+  "tasks": [
+    {
+      "id": "bugs",
+      "kind": "bugs",
+      "title": "Find the bugs",
+      "brief": "The code disagrees with the README in a few places. Read first, then fix what is actually broken."
+    },
+    {
+      "id": "feature",
+      "kind": "feature",
+      "title": "Add cancelOrder",
+      "brief": "Implement cancelOrder in src/orders.js so it fits how the rest of the module already works."
+    },
+    {
+      "id": "perf",
+      "kind": "perf",
+      "title": "Make the report fast",
+      "brief": "topSellers chokes on a busy month. Make it fast without changing what it returns."
+    }
+  ]
+}

@@ -7,7 +7,7 @@ describe("reportClaimDecision", () => {
 			reportClaimDecision({
 				status: "complete",
 				created_at: new Date().toISOString(),
-			}),
+			})
 		).toEqual({ action: "replay" });
 	});
 
@@ -16,7 +16,7 @@ describe("reportClaimDecision", () => {
 			reportClaimDecision({
 				status: "running",
 				created_at: new Date().toISOString(),
-			}),
+			})
 		).toEqual({ action: "in_flight" });
 	});
 
@@ -27,8 +27,8 @@ describe("reportClaimDecision", () => {
 					status: "running",
 					created_at: new Date(Date.now() - REPORT_STALE_MS - 1).toISOString(),
 				},
-				Date.now(),
-			),
+				Date.now()
+			)
 		).toEqual({ action: "expire_then_create" });
 	});
 
@@ -37,13 +37,13 @@ describe("reportClaimDecision", () => {
 			reportClaimDecision({
 				status: "failed",
 				created_at: new Date().toISOString(),
-			}),
+			})
 		).toEqual({ action: "create" });
 		expect(
 			reportClaimDecision({
 				status: "incomplete",
 				created_at: new Date().toISOString(),
-			}),
+			})
 		).toEqual({ action: "create" });
 	});
 });

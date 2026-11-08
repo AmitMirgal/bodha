@@ -7,7 +7,7 @@ export class PersistenceError extends Error {
 
 export class RevisionConflictError extends Error {
 	constructor(
-		message = "This session was updated elsewhere. Reload and retry.",
+		message = "This session was updated elsewhere. Reload and retry."
 	) {
 		super(message);
 		this.name = "RevisionConflictError";

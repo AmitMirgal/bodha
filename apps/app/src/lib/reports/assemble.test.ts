@@ -80,7 +80,7 @@ describe("assembleLearningReport", () => {
 			return;
 		}
 		expect(assembled.report.outcome.observed).toMatch(
-			/1 passing and 2 failing/,
+			/1 passing and 2 failing/
 		);
 		expect(assembled.report.outcome.observed).not.toMatch(/all tests passed/);
 		expect(assembled.report.usage.trainer.inputTokens).toBe(12);

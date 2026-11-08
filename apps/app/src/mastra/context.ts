@@ -1,11 +1,11 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
+import type { RunWithDb } from "../lib/db/rls";
 
 export type AgentRole = "trainer" | "review";
 
 export interface BodhaRequestContext {
 	role: AgentRole;
+	runWithDb: RunWithDb;
 	sessionId: string;
-	supabase: SupabaseClient;
 	userId: string;
 }
 

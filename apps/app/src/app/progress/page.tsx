@@ -7,6 +7,8 @@ import {
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AppNav } from "../../components/AppNav";
+import { withUserDb } from "../../lib/db/client";
+import { listSessions } from "../../lib/db/queries";
 import { PROGRESS_TIMEZONE } from "../../lib/env";
 import { dayBucket } from "../../lib/sessions/service";
 import { requireUser } from "../../lib/supabase/server";
@@ -19,14 +21,10 @@ export default async function ProgressPage() {
 		redirect("/login?next=/progress");
 	}
 	const { data: user } = await supabase.auth.getUser();
-	const { data: sessions } = await supabase
-		.from("sessions")
-		.select("id, exercise_id, status, started_at, finished_at, created_at")
-		.eq("user_id", userId)
-		.order("created_at", { ascending: false });
+	const sessions = await withUserDb(userId, (db) => listSessions(db, userId));
 
-	const days = new Map<string, NonNullable<typeof sessions>>();
-	for (const session of sessions ?? []) {
+	const days = new Map<string, typeof sessions>();
+	for (const session of sessions) {
 		const stamp =
 			session.finished_at ?? session.started_at ?? session.created_at;
 		const date = dayBucket(stamp, PROGRESS_TIMEZONE);

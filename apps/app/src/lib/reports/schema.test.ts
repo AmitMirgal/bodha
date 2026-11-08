@@ -75,7 +75,7 @@ describe("report validation", () => {
 	it("accepts a schema-valid evidence-linked report", () => {
 		const parsed = reportSchema.parse(valid());
 		expect(validateReportAgainstEvidence(parsed, evidence, "sess").ok).toBe(
-			true,
+			true
 		);
 	});
 
@@ -84,7 +84,7 @@ describe("report validation", () => {
 		const result = validateReportAgainstEvidence(
 			report,
 			evidence,
-			"other-session",
+			"other-session"
 		);
 		expect(result.ok).toBe(false);
 	});

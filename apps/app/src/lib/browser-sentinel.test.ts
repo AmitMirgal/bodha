@@ -10,14 +10,14 @@ describe("local fixture UI / secret sentinels (not live credentials)", () => {
 		expect(SENTINEL).not.toMatch(/^BODHA_LIVE_/);
 		expect(process.env.BODHA_LIVE_SUPABASE_URL ?? "").not.toContain(SENTINEL);
 		expect(process.env.BODHA_LIVE_USER_A_ACCESS_TOKEN ?? "").not.toContain(
-			SENTINEL,
+			SENTINEL
 		);
 	});
 
 	it("clears the API key field after save and never writes it to localStorage", () => {
 		const source = readFileSync(
 			new URL("../components/LlmSettingsForm.tsx", import.meta.url),
-			"utf8",
+			"utf8"
 		);
 		expect(source).toMatch(/type="password"/);
 		expect(source).toMatch(/setApiKey\(""\)/);

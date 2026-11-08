@@ -4,15 +4,15 @@ import { describe, expect, it } from "vitest";
 const migration = readFileSync(
 	new URL(
 		"../../../../../supabase/migrations/20251108120000_bodha_mvp.sql",
-		import.meta.url,
+		import.meta.url
 	),
-	"utf8",
+	"utf8"
 );
 
 describe("BODHA migration source constraints", () => {
 	it("does not revoke anon on unrelated public tables", () => {
 		expect(migration).not.toMatch(
-			/revoke all on all tables in schema public from anon/i,
+			/revoke all on all tables in schema public from anon/i
 		);
 	});
 
@@ -23,32 +23,44 @@ describe("BODHA migration source constraints", () => {
 
 	it("links messages and test evidence to the same session", () => {
 		expect(migration).toMatch(
-			/foreign key \(evidence_id, session_id\) references public\.evidence_events \(id, session_id\)/,
+			/foreign key \(evidence_id, session_id\) references public\.evidence_events \(id, session_id\)/
 		);
 		expect(migration).toMatch(
-			/foreign key \(snapshot_id, session_id\) references public\.exercise_snapshots \(id, session_id\)/,
+			/foreign key \(snapshot_id, session_id\) references public\.exercise_snapshots \(id, session_id\)/
 		);
 	});
 
 	it("persists probed LLM capabilities on llm_settings", () => {
 		expect(migration).toMatch(/capabilities jsonb not null/);
 		expect(migration).toMatch(
-			/create view public\.llm_settings_status[\s\S]*capabilities/,
+			/create view public\.llm_settings_status[\s\S]*capabilities/
 		);
 	});
 
 	it("grants insert-only on immutable evidence and snapshots", () => {
 		expect(migration).toMatch(
-			/grant select, insert on public\.evidence_events to authenticated/,
+			/grant select, insert on public\.evidence_events to authenticated/
 		);
 		expect(migration).not.toMatch(
-			/grant select, insert, update on public\.evidence_events/i,
+			/grant select, insert, update on public\.evidence_events/i
 		);
 		expect(migration).toMatch(
-			/grant select, insert on public\.exercise_snapshots to authenticated/,
+			/grant select, insert on public\.exercise_snapshots to authenticated/
 		);
 		expect(migration).toMatch(
-			/ON CONFLICT DO UPDATE is not granted and must not be used/,
+			/ON CONFLICT DO UPDATE is not granted and must not be used/
 		);
+	});
+
+	it("keeps FORCE RLS as an additive SQL file, not a Prisma migration", () => {
+		const force = readFileSync(
+			new URL(
+				"../../../../../supabase/migrations/20251108140000_force_rls.sql",
+				import.meta.url
+			),
+			"utf8"
+		);
+		expect(force).toMatch(/force row level security/i);
+		expect(force).not.toMatch(/prisma migrate/i);
 	});
 });

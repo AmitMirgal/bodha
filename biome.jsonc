@@ -1,8 +1,14 @@
 {
   "$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
   "extends": ["ultracite/core", "ultracite/react", "ultracite/next"],
+  "formatter": {
+    "indentStyle": "tab"
+  },
   "javascript": {
-    "globals": ["Liveblocks"]
+    "globals": ["Liveblocks"],
+    "formatter": {
+      "indentStyle": "tab"
+    }
   },
   "css": {
     "parser": {
@@ -27,7 +33,8 @@
       "!apps/docs/**/*.json",
       "!apps/email/.react-email",
       "!packages/cms/basehub-types.d.ts",
-      "!apps/app/src/app/globals.css"
+      "!apps/app/src/app/globals.css",
+      "!apps/app/src/generated"
     ]
   },
   "overrides": [
@@ -61,5 +68,5 @@
         }
       }
     }
-  }
+  ]
 }

@@ -26,9 +26,9 @@ export async function createUserSupabase() {
 
 export async function requireUser() {
 	const supabase = await createUserSupabase();
-	const { data, error } = await supabase.auth.getClaims();
-	if (error || !data?.claims?.sub) {
+	const { data, error } = await supabase.auth.getUser();
+	if (error || !data.user) {
 		return { supabase, userId: null as string | null };
 	}
-	return { supabase, userId: data.claims.sub as string };
+	return { supabase, userId: data.user.id };
 }

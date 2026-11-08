@@ -16,6 +16,7 @@ const BINDING = {
 
 describe("credential encryption", () => {
 	afterEach(() => {
+		// biome-ignore lint/performance/noDelete: restore missing env between tests
 		delete process.env.BODHA_CREDENTIALS_ENCRYPTION_KEY;
 	});
 
@@ -34,7 +35,7 @@ describe("credential encryption", () => {
 		process.env.BODHA_CREDENTIALS_ENCRYPTION_KEY = KEY;
 		const encrypted = encryptSecret("sk-test-sentinel", OWNER, BINDING);
 		expect(() =>
-			decryptSecret(encrypted, "22222222-2222-4222-8222-222222222222", BINDING),
+			decryptSecret(encrypted, "22222222-2222-4222-8222-222222222222", BINDING)
 		).toThrow();
 	});
 
@@ -42,16 +43,16 @@ describe("credential encryption", () => {
 		process.env.BODHA_CREDENTIALS_ENCRYPTION_KEY = KEY;
 		const encrypted = encryptSecret("sk-test-sentinel", OWNER, BINDING);
 		expect(() =>
-			decryptSecret(encrypted, OWNER, { ...BINDING, provider: "openrouter" }),
+			decryptSecret(encrypted, OWNER, { ...BINDING, provider: "openrouter" })
 		).toThrow();
 		expect(() =>
 			decryptSecret(encrypted, OWNER, {
 				...BINDING,
 				baseUrl: "https://openrouter.ai/api/v1",
-			}),
+			})
 		).toThrow();
 		expect(() =>
-			decryptSecret(encrypted, OWNER, { ...BINDING, model: "other-model" }),
+			decryptSecret(encrypted, OWNER, { ...BINDING, model: "other-model" })
 		).toThrow();
 	});
 });

@@ -35,7 +35,7 @@ export async function updateSession(request: NextRequest) {
 	const path = request.nextUrl.pathname;
 	const isPublic =
 		PUBLIC_PATHS.some(
-			(prefix) => path === prefix || path.startsWith(`${prefix}/`),
+			(prefix) => path === prefix || path.startsWith(`${prefix}/`)
 		) ||
 		path.startsWith("/_next") ||
 		path.startsWith("/harness.js");

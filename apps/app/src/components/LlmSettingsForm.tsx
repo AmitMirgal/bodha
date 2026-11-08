@@ -62,8 +62,8 @@ export function LlmSettingsForm() {
 						if (body.settings?.baseUrl) {
 							setBaseUrl(body.settings.baseUrl);
 						}
-					},
-				),
+					}
+				)
 		);
 	}, []);
 
@@ -102,7 +102,7 @@ export function LlmSettingsForm() {
 				return;
 			}
 			setMessage(
-				"Saved. The key is stored encrypted and will not be shown again.",
+				"Saved. The key is stored encrypted and will not be shown again."
 			);
 			await refresh();
 		} finally {
@@ -129,7 +129,7 @@ export function LlmSettingsForm() {
 			setMessage(
 				body.error
 					? body.error
-					: "Connection check succeeded. No exercise content was sent.",
+					: "Connection check succeeded. No exercise content was sent."
 			);
 		} finally {
 			setBusy(false);

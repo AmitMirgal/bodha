@@ -10,15 +10,15 @@ import {
 import { z } from "zod";
 import { reviewTools, trainerTools } from "./tools";
 
-type LlmRequestContext = {
-	userId: string;
-	sessionId: string;
-	provider: string;
-	model: string;
-	baseUrl: string;
+interface LlmRequestContext {
 	apiKey: string;
+	baseUrl: string;
 	capabilitiesJson: string;
-};
+	model: string;
+	provider: string;
+	sessionId: string;
+	userId: string;
+}
 
 const modelFromContext = ({
 	requestContext,

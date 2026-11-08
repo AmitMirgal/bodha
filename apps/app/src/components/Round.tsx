@@ -63,7 +63,7 @@ export default function Round({
 }: Props) {
 	const paths = Object.keys(files);
 	const [active, setActive] = useState(
-		paths.find((path) => path === "README.md") ?? paths[0],
+		paths.find((path) => path === "README.md") ?? paths[0]
 	);
 	const [running, setRunning] = useState(false);
 	const [fatal, setFatal] = useState("");
@@ -79,7 +79,7 @@ export default function Round({
 	filesRef.current = files;
 	const lastRunFiles = useRef<Record<string, string> | null>(null);
 	const lastRun = useRef<{ results: TestResult[]; fatal?: string } | null>(
-		null,
+		null
 	);
 	const finished = useRef(false);
 
@@ -89,7 +89,7 @@ export default function Round({
 	const persistTestRun = useCallback(
 		async (
 			runFiles: Record<string, string>,
-			out: { results: TestResult[]; fatal?: string },
+			out: { results: TestResult[]; fatal?: string }
 		) => {
 			const response = await fetch(`/api/sessions/${sessionId}/tests`, {
 				method: "POST",
@@ -112,7 +112,7 @@ export default function Round({
 			setTestPersistError("");
 			return true;
 		},
-		[expectedUpdatedAt, onSavedAt, sessionId],
+		[expectedUpdatedAt, onSavedAt, sessionId]
 	);
 
 	const run = useCallback(async (): Promise<TestResult[]> => {
@@ -180,8 +180,8 @@ export default function Round({
 		Math.round(
 			Math.min(
 				Math.max(width, 280),
-				Math.max(280, window.innerWidth - 290 - 300),
-			),
+				Math.max(280, window.innerWidth - 290 - 300)
+			)
 		);
 	const onDrag = (event: React.PointerEvent) => {
 		if (dragging.current) {

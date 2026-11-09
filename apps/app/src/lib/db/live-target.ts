@@ -1,4 +1,8 @@
-import { withTransactionPoolerOptions } from "./urls";
+import {
+	DatabaseUrlError,
+	parseBodhaPostgresUrl,
+	withTransactionPoolerOptions,
+} from "./urls";
 
 const UUID =
 	/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -54,9 +58,12 @@ export function inspectLivePrismaTarget(
 	}
 	let parsed: URL;
 	try {
-		parsed = new URL(raw);
-	} catch {
-		return refuse("Refusing live PrismaPg: DATABASE_URL is not a valid URL.");
+		parsed = parseBodhaPostgresUrl(raw, "DATABASE_URL");
+	} catch (error) {
+		if (error instanceof DatabaseUrlError) {
+			return refuse(`Refusing live PrismaPg: ${error.message}`);
+		}
+		throw error;
 	}
 	const haystack = `${parsed.hostname} ${parsed.username} ${parsed.pathname}`;
 	if (PROD_HINT.test(haystack)) {

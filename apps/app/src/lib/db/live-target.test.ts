@@ -94,4 +94,20 @@ describe("inspectLivePrismaTarget", () => {
 		expect(target.userAId).toBe(USER_A);
 		expect(target.userBId).toBe(USER_B);
 	});
+
+	it("refuses an unencoded password without echoing it or connecting", () => {
+		const target = inspectLivePrismaTarget(
+			env({
+				DATABASE_URL:
+					"postgresql://postgres.abcd1234:s3cret@xx@aws-0-us-east-1.pooler.supabase.com:6543/postgres",
+			})
+		);
+		expect(target.kind).toBe("refused");
+		if (target.kind !== "refused") {
+			throw new Error("expected refused");
+		}
+		expect(target.reason).toMatch(/unencoded reserved '@'/);
+		expect(target.reason).toMatch(/No connection was opened/);
+		expect(target.reason).not.toMatch(/s3cret/);
+	});
 });

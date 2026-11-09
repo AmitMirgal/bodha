@@ -20,7 +20,8 @@ The rest of this monorepo is a next-forge workspace template (unrelated apps and
 - **Auth:** Supabase Auth (cookie session). Server routes verify identity with `auth.getUser()`, not decode-only JWT claims.
 - **Database:** Supabase PostgreSQL. Versioned SQL in `supabase/migrations/` is the **authoritative schema and RLS**. Prisma maps those tables; it is not a second migration source.
 - **Runtime queries:** Prisma 7.4.2 + `@prisma/adapter-pg` on `DATABASE_URL` (transaction-mode pooler, port **6543**, `pgbouncer=true`). Each product operation runs in a short transaction that `SET LOCAL ROLE authenticated|anon` and sets `request.jwt.claims` / `request.jwt.claim.sub` from the verified user. Privileged `postgres` logins are not used for tenant reads/writes. After `SET LOCAL ROLE`, the request **fails closed** if `current_user` is not `authenticated`/`anon`, `is_superuser` is on, `pg_roles.rolsuper` is true, or **`pg_roles.rolbypassrls` is true**. `FORCE ROW LEVEL SECURITY` does not constrain `BYPASSRLS` roles.
-- **CLI / generate:** `DIRECT_URL` (session-mode pooler, port **5432**). Used by `prisma.config.ts` only. Never expose either URL to the browser (`NEXT_PUBLIC_*` is rejected).
+- **CLI / generate:** `DIRECT_URL` (session-mode pooler, port **5432**). `prisma.config.ts` uses this URL (placeholder only for `generate` if unset). Migrate / db pull fail without `DIRECT_URL`. Never expose either URL to the browser (`NEXT_PUBLIC_*` is rejected).
+- **Transactions:** Each `withUserDb` / `withAnonDb` call is still one interactive `$transaction` so `SET LOCAL ROLE` and JWT GUCs stay on the same pooler connection. Default wait is 15s (`BODHA_PRISMA_TX_MAX_WAIT_MS`); the pg pool connection timeout defaults to 10s (`BODHA_PG_CONNECTION_TIMEOUT_MS`). Prisma's stock 2s `maxWait` is too short for a first cross-region pooler connection and surfaces as P2028.
 - **Unrelated packages:** `packages/database` remains the Neon Prisma client for `apps/api` and must not be mixed into BODHA.
 
 ## Package manager
@@ -34,18 +35,20 @@ pnpm --filter app prisma:generate
 pnpm --filter app dev
 ```
 
-Migration SQL is **not** applied by install, generate, or `next dev`. Apply `supabase/migrations/*.sql` yourself against an isolated non-production project you control. Do not run `prisma migrate` / `prisma db push` against a BODHA database.
+Migration SQL is **not** applied by install, generate, or `next dev`. Apply `supabase/migrations/*.sql` yourself against an isolated non-production project you control. That directory is the **only** BODHA migration history. `apps/app/prisma.config.ts` has a Prisma 7 `migrations.path` of `prisma/migrations` so the CLI config is valid; that folder is not used and must not be created. Do not run `prisma migrate` / `prisma db push` against a BODHA database (that would add `_prisma_migrations` and a second history).
 
 ## Environment (placeholders only)
 
-Copy `apps/app/.env.example`. Never commit real values. Encode reserved password characters before they go in a URL (example: `p@ss` → `p%40ss` via `encodeURIComponent`).
+Copy `apps/app/.env.example`. Never commit real values. Encode reserved password characters before they go in a URL (example: `p@ss` → `p%40ss` via `encodeURIComponent`). A literal `@` in the password is rejected at startup with that hint; it is not an anonymous-auth setting.
 
 | Variable | Role |
 | --- | --- |
 | `NEXT_PUBLIC_SUPABASE_URL` | Public project URL |
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Public anon/publishable key (RLS still applies) |
-| `DATABASE_URL` | Server-only transaction-mode pooler (`…pooler.supabase.com:6543/postgres?pgbouncer=true`) |
-| `DIRECT_URL` | Server-only session-mode pooler (`…:5432/postgres`) for Prisma CLI |
+| `DATABASE_URL` | Server-only transaction-mode pooler (`…pooler.supabase.com:6543/postgres?pgbouncer=true`). Runtime `@prisma/adapter-pg`. |
+| `DIRECT_URL` | Server-only session-mode pooler (`…:5432/postgres`) for Prisma CLI via `prisma.config.ts` |
+| `BODHA_PRISMA_TX_MAX_WAIT_MS` | Optional. Interactive transaction acquire wait (default `15000`) |
+| `BODHA_PG_CONNECTION_TIMEOUT_MS` | Optional. pg Pool first-connection timeout (default `10000`) |
 | `BODHA_CREDENTIALS_ENCRYPTION_KEY` | 32-byte server key (64 hex chars). Required to store BYOK keys. Fail closed if missing. |
 | `BODHA_ALLOWED_LLM_HOSTS` | Comma-separated hosts allowed for OpenAI-compatible base URLs |
 | `BODHA_ALLOW_HTTP_LLM` | `"true"` only to allow HTTP for operator-approved public hosts |

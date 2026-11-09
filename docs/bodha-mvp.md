@@ -29,14 +29,19 @@ Copy `apps/app/.env.example` to `apps/app/.env.local`. Never commit real values.
 | --- | --- |
 | `NEXT_PUBLIC_SUPABASE_URL` | Public project URL |
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Public anon/publishable key (RLS still applies) |
-| `DATABASE_URL` | Server-only transaction-mode pooler, port 6543, `pgbouncer=true`. Prisma runtime. |
-| `DIRECT_URL` | Server-only session-mode pooler, port 5432. Prisma CLI / generate only. |
+| `DATABASE_URL` | Server-only transaction-mode pooler, port 6543, `pgbouncer=true`. Prisma runtime (`@prisma/adapter-pg`). |
+| `DIRECT_URL` | Server-only session-mode pooler, port 5432. Prisma CLI datasource in `prisma.config.ts`. |
+| `BODHA_PRISMA_TX_MAX_WAIT_MS` | Optional. Interactive `$transaction` acquire wait (default `15000`). |
+| `BODHA_PRISMA_TX_TIMEOUT_MS` | Optional. Interactive transaction body timeout (default `20000`). |
+| `BODHA_PG_CONNECTION_TIMEOUT_MS` | Optional. pg Pool connect timeout (default `10000`). |
 | `BODHA_CREDENTIALS_ENCRYPTION_KEY` | 32-byte server encryption key (64 hex chars). Required to store BYOK keys. Fail closed if missing. |
 | `BODHA_ALLOWED_LLM_HOSTS` | Comma-separated hosts allowed for OpenAI-compatible base URLs |
 | `BODHA_OPERATOR_LLM_*` | Optional operator default. Used only when the user has no saved key. Never silently replaces user BYOK. |
 | `BODHA_PROGRESS_TIMEZONE` | Day-bucket timezone (default `UTC`) |
 
-Encode reserved password characters in pooler URLs (example: `p@ss` → `p%40ss`). Never put database URLs in `NEXT_PUBLIC_*`.
+Encode reserved password characters in pooler URLs (example: `p@ss` → `p%40ss`). A literal `@` in the password is rejected at startup; it is not a reason to enable anonymous sign-ins. Never put database URLs in `NEXT_PUBLIC_*`.
+
+**Single migration workflow:** `supabase/migrations/*.sql` is authoritative. `apps/app/prisma.config.ts` sets `datasource.url` from `DIRECT_URL` (generate-only placeholder if unset) and includes Prisma 7's `migrations.path`. There is no `apps/app/prisma/migrations` directory. Do not `prisma migrate` / `prisma db push` on a BODHA database.
 
 Auth callback: `{APP_ORIGIN}/auth/callback`. Add it to the isolated Supabase project's redirect allowlist. Enable Email auth.
 
@@ -53,7 +58,7 @@ Every product table has RLS. Owner is `auth.uid()`. Snapshots have no UPDATE/DEL
 
 **Authoritative schema:** `supabase/migrations/*.sql`. Prisma (`apps/app/prisma/schema.prisma`, Prisma **7.4.2**, generator `prisma-client`) only maps those tables. Do **not** run `prisma migrate` / `prisma db push` on a BODHA database (that would add a competing history). Generate the client with `pnpm --filter app prisma:generate`. `packages/database` is Neon Prisma for `apps/api` and is unrelated.
 
-Runtime product queries use Prisma + `@prisma/adapter-pg` on `DATABASE_URL`. Each request opens a short transaction, sets `request.jwt.claims` / `request.jwt.claim.sub` from `auth.getUser()`, `SET LOCAL ROLE authenticated` (or `anon`), and **fails closed** if `current_user` is not that role, `is_superuser`/`pg_roles.rolsuper` is on, **`pg_roles.rolbypassrls` is true**, or `auth.uid()` does not match. `FORCE ROW LEVEL SECURITY` does not constrain `BYPASSRLS` roles. The privileged `postgres` pooler login is for the TCP connection only; tenant rows are not read or written as `postgres`. Supabase JS remains for Auth (cookies, `getUser`, sign-in/out).
+Runtime product queries use Prisma + `@prisma/adapter-pg` on `DATABASE_URL`. Each request opens a short transaction, sets `request.jwt.claims` / `request.jwt.claim.sub` from `auth.getUser()`, `SET LOCAL ROLE authenticated` (or `anon`), and **fails closed** if `current_user` is not that role, `is_superuser`/`pg_roles.rolsuper` is on, **`pg_roles.rolbypassrls` is true**, or `auth.uid()` does not match. `FORCE ROW LEVEL SECURITY` does not constrain `BYPASSRLS` roles. The privileged `postgres` pooler login is for the TCP connection only; tenant rows are not read or written as `postgres`. Supabase JS remains for Auth (cookies, `getUser`, sign-in/out). Interactive transactions wait 15s by default (Prisma's 2s `maxWait` otherwise surfaces as P2028 on a slow first pooler connection).
 
 Service role is not used for user operations.
 

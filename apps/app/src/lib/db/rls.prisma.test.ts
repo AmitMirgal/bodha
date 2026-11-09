@@ -12,6 +12,7 @@ import {
 	USER_A,
 	USER_B,
 } from "../rls/harness";
+import { readPgPoolConnectOptions } from "./connect-options";
 import { createPrismaClient } from "./factory";
 import { inspectLivePrismaTarget } from "./live-target";
 import { PrismaPglite } from "./pglite-adapter";
@@ -307,8 +308,14 @@ describe("opt-in live PrismaPg RLS (Supabase transaction pooler)", () => {
 			return;
 		}
 		const { PrismaPg } = await import("@prisma/adapter-pg");
+		const pool = readPgPoolConnectOptions();
 		const client = createPrismaClient(
-			new PrismaPg({ connectionString: liveTarget.connectionString })
+			new PrismaPg({
+				connectionString: liveTarget.connectionString,
+				connectionTimeoutMillis: pool.connectionTimeoutMillis,
+				idleTimeoutMillis: pool.idleTimeoutMillis,
+				max: pool.max,
+			})
 		);
 		try {
 			const marker = `live-prisma-${crypto.randomUUID()}`;

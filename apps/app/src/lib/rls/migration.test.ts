@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 const migration = readFileSync(
@@ -62,5 +62,25 @@ describe("BODHA migration source constraints", () => {
 		);
 		expect(force).toMatch(/force row level security/i);
 		expect(force).not.toMatch(/prisma migrate/i);
+	});
+
+	it("does not keep a second Prisma Migrate history under apps/app/prisma/migrations", () => {
+		const prismaMigrateDir = new URL(
+			"../../../prisma/migrations",
+			import.meta.url
+		);
+		expect(existsSync(prismaMigrateDir)).toBe(false);
+	});
+
+	it("points prisma.config.ts at DIRECT_URL and a Prisma 7 migrations.path", () => {
+		const config = readFileSync(
+			new URL("../../../prisma.config.ts", import.meta.url),
+			"utf8"
+		);
+		expect(config).toMatch(/migrations:\s*\{/);
+		expect(config).toMatch(/path:\s*"prisma\/migrations"/);
+		expect(config).toMatch(/DIRECT_URL/);
+		expect(config).not.toMatch(/process\.env\.DATABASE_URL/);
+		expect(config).toMatch(/supabase\/migrations/);
 	});
 });

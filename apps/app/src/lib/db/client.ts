@@ -50,13 +50,27 @@ export async function withAnonDb<T>(
 
 export async function withDeviceDb<T>(
 	deviceId: string,
-	fn: (db: MatiDb) => Promise<T>
+	fn: (db: MatiDb) => Promise<T>,
+	options?: { pairingCodeHash?: string }
 ): Promise<T> {
-	return await runtimeRunWithDb()({ role: "device", deviceId }, fn);
+	return await runtimeRunWithDb()(
+		{
+			role: "device",
+			deviceId,
+			pairingCodeHash: options?.pairingCodeHash,
+		},
+		fn
+	);
 }
 
 export async function withCaptureRegisterDb<T>(
 	fn: (db: MatiDb) => Promise<T>
 ): Promise<T> {
 	return await runtimeRunWithDb()({ role: "capture_register" }, fn);
+}
+
+export async function withCaptureJanitorDb<T>(
+	fn: (db: MatiDb) => Promise<T>
+): Promise<T> {
+	return await runtimeRunWithDb()({ role: "capture_janitor" }, fn);
 }

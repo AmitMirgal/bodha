@@ -196,6 +196,18 @@ model Device {
   @@map("devices")
 }
 
+model PairingCode {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId     String    @map("user_id") @db.Uuid
+  codeHash   String    @map("code_hash")
+  expiresAt  DateTime  @map("expires_at") @db.Timestamptz(6)
+  consumedAt DateTime? @map("consumed_at") @db.Timestamptz(6)
+  createdAt  DateTime  @default(dbgenerated("now()")) @map("created_at") @db.Timestamptz(6)
+
+  @@index([codeHash], map: "pairing_codes_hash_idx")
+  @@map("pairing_codes")
+}
+
 model CaptureTask {
   id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   deviceId      String    @map("device_id") @db.Uuid

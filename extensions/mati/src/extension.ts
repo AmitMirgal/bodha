@@ -157,6 +157,64 @@ export async function activate(context: ExtensionContext) {
 			await window.showInformationMessage(
 				"Stopped capturing. The device token is kept until you delete capture data."
 			);
+		}),
+		commands.registerCommand("mati.capture.claim", async () => {
+			const secret = await context.secrets.get(SECRET_TOKEN);
+			if (!secret) {
+				await window.showErrorMessage(
+					"Accept capture consent before claiming this device."
+				);
+				return;
+			}
+			const code = await window.showInputBox({
+				prompt: "Enter the pairing code from Mati Settings",
+				placeHolder: "ABCD2345",
+				ignoreFocusOut: true,
+			});
+			if (!code) {
+				return;
+			}
+			const response = await fetch(`${origin}/api/capture/v1/pair/claim`, {
+				method: "POST",
+				headers: {
+					Authorization: `Bearer ${secret}`,
+					"content-type": "application/json",
+				},
+				body: JSON.stringify({ code }),
+			});
+			if (!response.ok) {
+				await window.showErrorMessage(
+					"Could not claim this device. Check the code and try again."
+				);
+				return;
+			}
+			await window.showInformationMessage(
+				"This device is linked to your Mati account."
+			);
+		}),
+		commands.registerCommand("mati.capture.deleteData", async () => {
+			const secret = await context.secrets.get(SECRET_TOKEN);
+			const confirm = await window.showWarningMessage(
+				"Delete all captured editor data for this device? Trainer sessions are not touched.",
+				{ modal: true },
+				"Delete"
+			);
+			if (confirm !== "Delete") {
+				return;
+			}
+			if (secret) {
+				await fetch(`${origin}/api/capture/v1/device`, {
+					method: "DELETE",
+					headers: { Authorization: `Bearer ${secret}` },
+				});
+			}
+			stopCapture(context);
+			await context.secrets.delete(SECRET_ID);
+			await context.secrets.delete(SECRET_TOKEN);
+			await context.globalState.update(CONSENT_FLAG, false);
+			await window.showInformationMessage(
+				"Deleted capture data for this device."
+			);
 		})
 	);
 	const consented = context.globalState.get<boolean>(CONSENT_FLAG);

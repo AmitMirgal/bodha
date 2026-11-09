@@ -58,7 +58,15 @@ describe("capture viewer document", () => {
 		writeViewer("capture-viewer-seeded", seeded);
 	});
 
-	it("screenshots empty and seeded viewer HTML", () => {
+	it("screenshots empty and seeded viewer HTML when Chrome is installed", () => {
+		try {
+			execFileSync("google-chrome", ["--version"], {
+				timeout: 3000,
+				stdio: "pipe",
+			});
+		} catch {
+			return;
+		}
 		const emptyPath = `${ARTIFACTS}/capture-viewer-empty.html`;
 		const seededPath = `${ARTIFACTS}/capture-viewer-seeded.html`;
 		screenshot("capture-viewer-empty", emptyPath);

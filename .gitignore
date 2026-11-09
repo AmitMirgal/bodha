@@ -278,3 +278,7 @@ apps/app/src/generated
 .contentlayer
 .content-collections
 .source
+
+# Mati extension packaging
+*.vsix
+extensions/mati/dist/

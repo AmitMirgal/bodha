@@ -26,6 +26,10 @@ Claimed editor tasks get a learning report from captured events. `/progress` kee
 
 Signed-in users can store an optional Cursor team Admin API key on Settings. It is encrypted like BYOK (`MATI_CREDENTIALS_ENCRYPTION_KEY`) and is not stored in the extension. Without a key, capture usage stays estimated or missing.
 
+## Packaging
+
+CI builds a `.vsix` and runs tests; the publish jobs are disabled (`if: false`). Do not run `vsce publish` or `ovsx publish` from this repo until Amit approves.
+
 ## Install notes
 
 A Cursor plugin (`.cursor-plugin`) is not used in this phase. Cursor does not document an API for a VS Code-compatible extension to register Agent hooks, so the extension writes `~/.cursor/hooks.json` only after explicit consent and removes that block on stop/uninstall.

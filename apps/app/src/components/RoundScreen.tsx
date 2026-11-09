@@ -101,7 +101,7 @@ export default function RoundScreen({
 				files={files}
 				onExit={() => {
 					markNavigating();
-					router.push("/");
+					router.push("/exercises");
 				}}
 				onFiles={(next) => {
 					setFiles(next);

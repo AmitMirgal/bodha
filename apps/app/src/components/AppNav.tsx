@@ -39,7 +39,7 @@ export function AppNav({
 			</NavLink>
 			<nav aria-label="Main" className="flex flex-wrap items-center gap-2">
 				<Button asChild size="sm" variant="ghost">
-					<NavLink href="/">Exercises</NavLink>
+					<NavLink href="/exercises">Exercises</NavLink>
 				</Button>
 				<Button asChild size="sm" variant="ghost">
 					<NavLink href="/progress">Progress</NavLink>

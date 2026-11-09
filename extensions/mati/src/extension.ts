@@ -23,10 +23,9 @@ const CONSENT_FLAG = "mati.consent.v1";
 const CONSENT_HTML = `<!doctype html>
 <html><body style="font-family:sans-serif;padding:1.5rem;max-width:40rem">
 <h1>Capture Agent prompts on this device</h1>
-<p>Mati stores the prompts you send to Cursor Agent, the assistant text, and a device token on this machine. It does not create a Mati account. Token counts are omitted until a later measured source exists. Secrets in prompts are not redacted in this version.</p>
+<p>Mati stores the prompts you send to Cursor Agent, the assistant text, edited file names, and a device token on this machine. It does not create a Mati account. Cursor hooks have no vendor token counts; any estimate is labelled and undercounts. Known secret patterns are replaced with [redacted:class] on this device before upload. That is not a guarantee.</p>
 <p>Sample upload:</p>
-<pre>{"kind":"prompt","text":"Fix the flaky test","attachmentNames":["app.ts"]}</pre>
-<p>This is not a guarantee that every secret will be kept off the server.</p>
+<pre>{"kind":"prompt","text":"Fix the flaky test [redacted:aws_access_key]","attachmentNames":["app.ts"]}</pre>
 <button id="accept">Accept and start capturing</button>
 <script>
 const vscode = acquireVsCodeApi();

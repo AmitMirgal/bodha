@@ -38,4 +38,17 @@ describe("parseCursorHook", () => {
 		expect(cursorKind(parsed?.hookEventName ?? "")).toBe("response");
 		expect(cursorKind("afterAgentThought")).toBeNull();
 	});
+
+	it("maps afterFileEdit to a basename path", () => {
+		const parsed = parseCursorHook({
+			conversation_id: "conv-4",
+			hook_event_name: "afterFileEdit",
+			file_path: "/Users/amit/proj/src/app.ts",
+			edits: [{ old_string: "secret", new_string: "other" }],
+		});
+		expect(parsed?.filePath).toBe("app.ts");
+		expect(parsed?.editCount).toBe(1);
+		expect(cursorKind("afterFileEdit")).toBe("file_edit");
+		expect(cursorKind("preCompact")).toBe("context_compact");
+	});
 });

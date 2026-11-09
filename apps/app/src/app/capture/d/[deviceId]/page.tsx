@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { listDeviceTasks } from "../../../../lib/capture/ingest";
+import { preferredUsage, usageCopy } from "../../../../lib/capture/usage-copy";
 import {
 	captureViewerSecret,
 	verifyViewerToken,
@@ -33,9 +34,9 @@ export default async function CaptureViewerPage({
 		<main className="mx-auto grid max-w-3xl gap-4 px-4 py-8">
 			<h1 className="font-semibold text-2xl">Your editor tasks</h1>
 			<p className="text-muted-foreground text-sm">
-				This view is tied to this device. It is not a Mati account. Token counts
-				were not available from Cursor for these tasks. Totals are omitted, not
-				guessed.
+				This view is tied to this device. It is not a Mati account. Cursor hooks
+				do not report vendor token counts. Any number below is a labelled
+				text-length estimate and undercounts.
 			</p>
 			{tasks.length === 0 ? (
 				<p>No captured Agent prompts yet.</p>
@@ -51,6 +52,7 @@ export default async function CaptureViewerPage({
 						<p className="text-muted-foreground text-sm">
 							Conversation {task.editorTaskId}
 						</p>
+						<p className="text-sm">{usageCopy(preferredUsage(task.usage))}</p>
 						<h3 className="text-sm">Prompts</h3>
 						{task.prompts.length === 0 ? (
 							<p className="text-muted-foreground text-sm">
@@ -68,6 +70,11 @@ export default async function CaptureViewerPage({
 								))}
 							</ul>
 						)}
+						{task.filePaths.length > 0 ? (
+							<p className="text-muted-foreground text-sm">
+								Edited files: {task.filePaths.join(", ")}
+							</p>
+						) : null}
 					</section>
 				))
 			)}

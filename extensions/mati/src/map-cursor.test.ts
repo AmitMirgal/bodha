@@ -23,5 +23,23 @@ describe("mapCursorHook", () => {
 		}
 		const body = ingestBodyFromCursor(mapped, "abc");
 		expect(body.events[0]?.idempotencyKey).toBe("cursor:conv-1:prompt:gen-1");
+		expect(body.events[1]?.kind).toBe("usage");
+		expect(body.events[1]?.provenance).toBe("estimated");
+	});
+
+	it("maps afterFileEdit paths without snippets", () => {
+		const mapped = mapCursorHook({
+			conversation_id: "conv-1",
+			hook_event_name: "afterFileEdit",
+			file_path: "/Users/amit/proj/src/app.ts",
+			edits: [{ old_string: "a", new_string: "b" }],
+		});
+		if (!mapped) {
+			throw new Error("expected mapped hook");
+		}
+		expect(mapped.path).toBe("app.ts");
+		const body = ingestBodyFromCursor(mapped, "abc");
+		expect(body.events[0]?.path).toBe("app.ts");
+		expect(JSON.stringify(body)).not.toContain("old_string");
 	});
 });

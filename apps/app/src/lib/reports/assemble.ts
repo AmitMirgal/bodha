@@ -180,16 +180,40 @@ function packRole(rows: StoredUsageRow[]): LearningReport["usage"]["trainer"] {
 	};
 }
 
+export function emptyEditorUsage(): NonNullable<
+	LearningReport["usage"]["editor"]
+> {
+	return {
+		inputTokens: null,
+		outputTokens: null,
+		cachedTokens: null,
+		reasoningTokens: null,
+		coverage: "unknown",
+		provenance: "missing",
+		source: "none",
+	};
+}
+
 export function usageFromStoredRecords(
-	rows: StoredUsageRow[]
+	rows: StoredUsageRow[],
+	editor?: LearningReport["usage"]["editor"]
 ): LearningReport["usage"] {
 	const trainer = packRole(rows.filter((row) => row.agent_role === "trainer"));
 	const review = packRole(rows.filter((row) => row.agent_role === "review"));
+	const trainerIncomplete =
+		trainer.coverage !== "complete" || review.coverage !== "complete";
+	if (!editor) {
+		return {
+			trainer,
+			review,
+			incomplete: trainerIncomplete,
+		};
+	}
 	return {
 		trainer,
 		review,
-		incomplete:
-			trainer.coverage !== "complete" || review.coverage !== "complete",
+		editor,
+		incomplete: trainerIncomplete || editor.coverage !== "complete",
 	};
 }
 
@@ -198,6 +222,7 @@ export function parseModelReview(raw: unknown) {
 }
 
 export function assembleLearningReport(input: {
+	editorUsage?: LearningReport["usage"]["editor"];
 	evidence: StoredEvidence[];
 	model: unknown;
 	sessionId: string;
@@ -224,7 +249,7 @@ export function assembleLearningReport(input: {
 		insufficientEvidence: parsed.data.insufficientEvidence,
 		observations,
 		outcome: outcomeFromEvidence(input.evidence),
-		usage: usageFromStoredRecords(input.usageRows),
+		usage: usageFromStoredRecords(input.usageRows, input.editorUsage),
 	};
 	const schema = reportSchema.safeParse(assembled);
 	if (!schema.success) {

@@ -1,7 +1,7 @@
 import { RequestContext } from "@mastra/core/request-context";
 import { describe, expect, it } from "vitest";
 import type { RunWithDb } from "../lib/db/rls";
-import { getSessionEvidenceTool } from "./tools";
+import { getCaptureEvidenceTool, getSessionEvidenceTool } from "./tools";
 
 describe("mastra tools", () => {
 	it("refuses to run without authorized request context", async () => {
@@ -98,5 +98,34 @@ describe("mastra tools", () => {
 		expect(result.events[0]?.payload).toMatchObject({
 			content: expect.stringContaining("Ignore previous instructions"),
 		});
+	});
+
+	it("scopes capture evidence to request-context task id, not tool arguments", async () => {
+		const seen: string[] = [];
+		const runWithDb: RunWithDb = async (_identity, fn) => {
+			const db = {
+				captureEvent: {
+					findMany: async (args: { where: { taskId?: string } }) => {
+						if (args.where.taskId) {
+							seen.push(args.where.taskId);
+						}
+						return await Promise.resolve([]);
+					},
+				},
+			};
+			return await fn(db as never);
+		};
+		const requestContext = new RequestContext();
+		requestContext.setRaw("userId", "11111111-1111-1111-1111-111111111111");
+		requestContext.setRaw("sessionId", "22222222-2222-4222-8222-222222222222");
+		requestContext.setRaw("runWithDb", runWithDb);
+		await getCaptureEvidenceTool.execute?.(
+			{
+				limit: 2,
+				taskId: "33333333-3333-4333-8333-333333333333",
+			} as never,
+			{ requestContext }
+		);
+		expect(seen).toEqual(["22222222-2222-4222-8222-222222222222"]);
 	});
 });

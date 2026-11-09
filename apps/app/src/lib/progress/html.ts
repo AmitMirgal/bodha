@@ -1,4 +1,4 @@
-import type { ProgressTask, ProgressView } from "./types";
+import type { ProgressSection, ProgressTask, ProgressView } from "./types";
 import { usageCopy } from "./view";
 
 function escapeHtml(value: string): string {
@@ -75,7 +75,7 @@ ${
 					.join("")}`;
 	return `<li class="task">
 <p><a href="${escapeHtml(task.reportHref)}">${escapeHtml(task.exerciseId)}</a> · ${escapeHtml(task.status)}</p>
-<p>${escapeHtml(usageCopy(task.usage))}</p>
+<p>${escapeHtml(usageCopy(task.usage, task.source))}</p>
 <h3>Prompts</h3>
 ${prompts}
 ${report}
@@ -84,35 +84,39 @@ ${suggestions}
 </li>`;
 }
 
-export function progressDocument(view: ProgressView, title: string): string {
+function sectionHtml(
+	section: ProgressSection,
+	empty: string,
+	trendTitle: string
+): string {
 	const measuredMax = Math.max(
 		0,
-		...view.trend.map(
+		...section.trend.map(
 			(point) =>
 				(point.measuredInputTokens ?? 0) + (point.measuredOutputTokens ?? 0)
 		)
 	);
-	const body =
-		view.days.length === 0
-			? "<p>No trainer tasks yet. Finish an exercise to see prompts, tokens, and coaching here.</p>"
-			: `<section class="card">
-<h2>Measured trainer tokens over time</h2>
-<p class="muted">Bars use vendor-reported input plus output. Days with no measured counts show as a gap, not a zero.</p>
-<ul>${view.trend
-					.map((point) => {
-						const tokens =
-							point.measuredInputTokens == null
-								? "tokens not reported"
-								: `${point.measuredInputTokens} in / ${point.measuredOutputTokens} out`;
-						const bar =
-							point.measuredInputTokens == null
-								? ""
-								: `<div class="bar"><span style="width:${tokenBarWidth(point, measuredMax)}"></span></div>`;
-						return `<li><div class="row"><span>${escapeHtml(point.date)}</span><span>${point.taskCount} ${point.taskCount === 1 ? "task" : "tasks"} · ${escapeHtml(tokens)}</span></div>${bar}</li>`;
-					})
-					.join("")}</ul>
+	if (section.days.length === 0) {
+		return `<p>${escapeHtml(empty)}</p>`;
+	}
+	return `<section class="card">
+<h2>${escapeHtml(trendTitle)}</h2>
+<p class="muted">Bars use vendor-reported input plus output. Estimated and missing counts stay out of the bar. Days with no measured counts show as a gap, not a zero.</p>
+<ul>${section.trend
+		.map((point) => {
+			const tokens =
+				point.measuredInputTokens == null
+					? "tokens not reported"
+					: `${point.measuredInputTokens} in / ${point.measuredOutputTokens} out`;
+			const bar =
+				point.measuredInputTokens == null
+					? ""
+					: `<div class="bar"><span style="width:${tokenBarWidth(point, measuredMax)}"></span></div>`;
+			return `<li><div class="row"><span>${escapeHtml(point.date)}</span><span>${point.taskCount} ${point.taskCount === 1 ? "task" : "tasks"} · ${escapeHtml(tokens)}</span></div>${bar}</li>`;
+		})
+		.join("")}</ul>
 </section>
-${view.days
+${section.days
 	.map(
 		(day) => `<section class="card">
 <h2>${escapeHtml(day.date)}</h2>
@@ -120,6 +124,19 @@ ${view.days
 </section>`
 	)
 	.join("")}`;
+}
+
+export function progressDocument(view: ProgressView, title: string): string {
+	const trainer = sectionHtml(
+		{ days: view.days, trend: view.trend },
+		"No trainer tasks yet. Finish an exercise to see prompts, tokens, and coaching here.",
+		"Measured trainer tokens over time"
+	);
+	const editor = sectionHtml(
+		view.editor,
+		"No claimed editor tasks yet. Claim a device from Settings to see editor prompts and token labels here.",
+		"Measured editor tokens over time"
+	);
 	return `<!doctype html>
 <html lang="en">
 <head>
@@ -146,8 +163,11 @@ a { color: inherit; }
 <body>
 <main>
 <h1>Progress</h1>
-<p class="muted">Days are bucketed in ${escapeHtml(view.timezone)}. Token totals include only vendor-reported trainer usage. Missing counts are labeled, not guessed. This page is not a skill score.</p>
-${body}
+<p class="muted">Days are bucketed in ${escapeHtml(view.timezone)}. Trainer and editor tasks are listed separately. Token totals include only vendor-reported usage. Missing and estimated counts are labeled, not guessed. This page is not a skill score.</p>
+<h2>Trainer</h2>
+${trainer}
+<h2>Editor</h2>
+${editor}
 </main>
 </body>
 </html>`;

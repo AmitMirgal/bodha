@@ -21,6 +21,7 @@ const REVIEW_REQUIRED_TOOLS = [
 	"get-session-evidence",
 	"get-latest-test-run",
 ];
+const CAPTURE_REVIEW_REQUIRED_TOOLS = ["get-capture-evidence"];
 
 export class AgentBudgetError extends Error {
 	constructor(message: string) {
@@ -233,6 +234,38 @@ export async function runReview(input: RunInput) {
 	};
 }
 
+export async function runCaptureReview(input: RunInput) {
+	assertAgentToolsAllowed(input.config);
+	const agent = mastra.getAgentById("mati-capture-review");
+	const budget = BUDGETS.review;
+	const response = await generateWithBudget(
+		(abortSignal) =>
+			agent.generate(toMastraMessages(input.messages), {
+				requestContext: contextFor(input),
+				maxSteps: budget.maxSteps,
+				abortSignal,
+				modelSettings: { maxOutputTokens: budget.maxTokens },
+			}),
+		budget.timeoutMs,
+		"Capture review"
+	);
+	const tools = assertRequiredTools(
+		response,
+		CAPTURE_REVIEW_REQUIRED_TOOLS,
+		"Capture review"
+	);
+	const parsed = parseModelReview(extractJson(response.text ?? ""));
+	if (!parsed.success) {
+		throw new Error("Review output was not a valid learning report.");
+	}
+	return {
+		model: parsed.data as ModelReview,
+		toolCount: tools.length,
+		tools,
+		usage: usageFromAgentOutput(response),
+	};
+}
+
 const JSON_FENCE = /```(?:json)?\s*([\s\S]*?)```/;
 
 function extractJson(text: string): unknown {
@@ -246,6 +279,7 @@ export const mastraBudgets = BUDGETS;
 export const mastraRequiredTools = {
 	trainer: TRAINER_REQUIRED_TOOLS,
 	review: REVIEW_REQUIRED_TOOLS,
+	captureReview: CAPTURE_REVIEW_REQUIRED_TOOLS,
 };
 export const mastraDocs = {
 	agents: "https://mastra.ai/docs/agents/overview",

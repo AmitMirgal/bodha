@@ -180,4 +180,58 @@ describe("assembleProgressView", () => {
 			cachedTokens: null,
 		});
 	});
+
+	it("lists claimed editor tasks in a separate section and keeps estimates off the bar", () => {
+		const view = assembleProgressView([session({})], "UTC", [
+			{
+				id: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+				deviceId: "dddddddd-dddd-4ddd-8ddd-dddddddddddd",
+				editor: "cursor",
+				editorTaskId: "conv-editor-1",
+				status: "closed",
+				startedAt: "2026-11-09T11:00:00.000Z",
+				finishedAt: "2026-11-09T11:10:00.000Z",
+				prompts: ["Fix the flaky test"],
+				events: [
+					{
+						id: "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee",
+						kind: "prompt",
+						occurredAt: "2026-11-09T11:00:00.000Z",
+						payload: { text: "Fix the flaky test" },
+					},
+					{
+						id: "ffffffff-ffff-4fff-8fff-ffffffffffff",
+						kind: "session_end",
+						occurredAt: "2026-11-09T11:10:00.000Z",
+						payload: { reason: "stop" },
+					},
+				],
+				usage: [
+					{
+						cachedTokens: null,
+						inputTokens: 20,
+						outputTokens: 5,
+						provenance: "estimated",
+						source: "text_estimate",
+					},
+				],
+			},
+		]);
+		expect(view.days[0]?.tasks[0]?.source).toBe("trainer");
+		const editorTask = view.editor.days[0]?.tasks[0];
+		expect(editorTask?.source).toBe("editor");
+		expect(editorTask?.prompts).toEqual(["Fix the flaky test"]);
+		expect(editorTask?.usage.label).toBe("estimated");
+		expect(view.editor.trend[0]?.measuredInputTokens).toBeNull();
+		expect(view.editor.trend[0]?.taskCount).toBe(1);
+		if (!editorTask) {
+			throw new Error("expected an editor task");
+		}
+		expect(usageCopy(editorTask.usage, "editor")).toMatch(
+			/Estimated from text length/
+		);
+		expect(editorTask.outcome?.verificationProvenance).toBe(
+			"insufficient_evidence"
+		);
+	});
 });

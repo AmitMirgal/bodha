@@ -414,6 +414,8 @@ Phase 4 implementation notes (2026-11-09): pairing consume is `mati_consume_pair
 **Phase 5 — learning report + Progress.** Wire `assembleLearningReport` to `capture_events`; Mastra review tools read only that task; `/progress` lists claimed editor tasks separately from trainer sessions.  
 Check: report suggestions cite prompt evidence ids; token card uses the four copy states above; Progress day bucket shows the claimed task.
 
+Phase 5 implementation notes (2026-11-09): `assembleEditorLearningReport` maps capture events into the existing report schema, adds optional `usage.editor`, and forces `observations.tests.found: false`. Progress keeps trainer `days`/`trend` and adds `editor` with its own day buckets and measured-only bars. Mastra `mati-capture-review` can only call `get-capture-evidence` and `get-capture-usage` scoped to the request-context task id. Unclaimed devices still use the device viewer, not `/progress`.
+
 **Phase 6 — optional Cursor Admin API.** Operator-configured team key; join `conversationId`; upgrade provenance to `measured` when a match exists.  
 Check: without the key, behavior is unchanged; with a recorded API fixture, usage becomes measured.
 

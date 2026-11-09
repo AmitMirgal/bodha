@@ -139,6 +139,88 @@ export const getLatestTestRunTool = createTool({
 	},
 });
 
+export const getCaptureEvidenceTool = createTool({
+	id: "get-capture-evidence",
+	description:
+		"Read ordered capture events for the current authorized editor task only. Ignores any model-supplied task or owner IDs.",
+	inputSchema: z.object({
+		kinds: z.array(z.string()).optional(),
+		limit: z.number().int().min(1).max(50).optional(),
+	}),
+	outputSchema: z.object({
+		events: z.array(
+			z.object({
+				id: z.string(),
+				kind: z.string(),
+				occurredAt: z.string(),
+				payload: z.unknown(),
+			})
+		),
+	}),
+	execute: async (inputData, context) => {
+		const { userId, sessionId, runWithDb } = requireScope(context);
+		const data = await runWithDb({ role: "authenticated", userId }, (db) =>
+			db.captureEvent.findMany({
+				orderBy: { occurredAt: "asc" },
+				take: inputData.limit ?? 40,
+				where: {
+					taskId: sessionId,
+					userId,
+					...(inputData.kinds?.length ? { kind: { in: inputData.kinds } } : {}),
+				},
+			})
+		);
+		return clip({
+			events: data.map((event) => ({
+				id: event.id,
+				kind: event.kind,
+				occurredAt: event.occurredAt.toISOString(),
+				payload: event.payload,
+			})),
+		});
+	},
+});
+
+export const getCaptureUsageTool = createTool({
+	id: "get-capture-usage",
+	description:
+		"Read stored capture usage rows for the current authorized editor task only. Do not invent token counts.",
+	inputSchema: z.object({}),
+	outputSchema: z.object({
+		rows: z.array(
+			z.object({
+				cachedTokens: z.number().nullable(),
+				inputTokens: z.number().nullable(),
+				outputTokens: z.number().nullable(),
+				provenance: z.string(),
+				reasoningTokens: z.number().nullable(),
+				source: z.string(),
+			})
+		),
+	}),
+	execute: async (_inputData, context) => {
+		const { userId, sessionId, runWithDb } = requireScope(context);
+		const data = await runWithDb({ role: "authenticated", userId }, (db) =>
+			db.captureUsage.findMany({
+				where: { taskId: sessionId, userId },
+			})
+		);
+		return clip({
+			rows: data.map((row) => ({
+				cachedTokens:
+					row.cachedTokens === null ? null : Number(row.cachedTokens),
+				inputTokens: row.inputTokens === null ? null : Number(row.inputTokens),
+				outputTokens:
+					row.outputTokens === null ? null : Number(row.outputTokens),
+				provenance: row.provenance,
+				reasoningTokens:
+					row.reasoningTokens === null ? null : Number(row.reasoningTokens),
+				source: row.source,
+			})),
+		});
+	},
+});
+
 export const trainerTools = {
 	"get-exercise-snapshot": getExerciseSnapshotTool,
 	"get-latest-test-run": getLatestTestRunTool,
@@ -148,4 +230,9 @@ export const reviewTools = {
 	"get-exercise-snapshot": getExerciseSnapshotTool,
 	"get-session-evidence": getSessionEvidenceTool,
 	"get-latest-test-run": getLatestTestRunTool,
+};
+
+export const captureReviewTools = {
+	"get-capture-evidence": getCaptureEvidenceTool,
+	"get-capture-usage": getCaptureUsageTool,
 };

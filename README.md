@@ -91,4 +91,6 @@ Cursor **Build Live Apps** is not used: it provisions Cursor Postgres and Cursor
 
 ## License
 
-The product is developed in the open. No separate license file has been chosen yet; do not assume one.
+Copyright 2026 AmitMirgal. Licensed under the Apache License, Version 2.0. See `LICENSE.md`.
+
+This repository started from [next-forge](https://github.com/vercel/next-forge) (MIT, Copyright (c) 2025 Vercel). That template's MIT notice still applies to the unmodified next-forge material. Third-party and vendored code keeps its own license.

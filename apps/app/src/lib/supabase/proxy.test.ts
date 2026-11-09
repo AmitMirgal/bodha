@@ -6,5 +6,6 @@ describe("capture routes stay public", () => {
 		const source = readFileSync(new URL("./proxy.ts", import.meta.url), "utf8");
 		expect(source).toMatch(/"\/capture"/);
 		expect(source).toMatch(/"\/api\/capture"/);
+		expect(source).toMatch(/"\/dev"/);
 	});
 });

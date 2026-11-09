@@ -3,26 +3,63 @@ import {
 	AlertDescription,
 	AlertTitle,
 } from "@repo/design-system/components/ui/alert";
-import {
-	Card,
-	CardContent,
-	CardHeader,
-	CardTitle,
-} from "@repo/design-system/components/ui/card";
 import { notFound, redirect } from "next/navigation";
-import { NavLink } from "../../../../components/NavLink";
+import { ProgressTaskDetail } from "../../../../components/ProgressTaskDetail";
 import { withUserDb } from "../../../../lib/db/client";
 import {
 	getSession,
 	listMessages,
 	listReports,
 } from "../../../../lib/db/queries";
+import type {
+	ProgressTask,
+	ProgressUsage,
+} from "../../../../lib/progress/types";
 import type { LearningReport } from "../../../../lib/reports/schema";
 import { requireUser } from "../../../../lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
-// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: report states (missing, incomplete, complete) share one page
+function trainerUsage(body: LearningReport | null): ProgressUsage {
+	const packed = body?.usage.trainer;
+	const hasNumber =
+		packed != null &&
+		(packed.inputTokens != null ||
+			packed.outputTokens != null ||
+			packed.cachedTokens != null);
+	if (!packed || packed.coverage === "unknown" || !hasNumber) {
+		return {
+			cachedTokens: null,
+			coverage: "unknown",
+			inputTokens: null,
+			label: "missing",
+			outputTokens: null,
+		};
+	}
+	return {
+		cachedTokens: packed.cachedTokens,
+		coverage: packed.coverage,
+		inputTokens: packed.inputTokens,
+		label: "measured",
+		outputTokens: packed.outputTokens,
+	};
+}
+
+function reportStatus(
+	status: string | undefined
+): ProgressTask["reportStatus"] {
+	if (!status) {
+		return "none";
+	}
+	if (status === "complete") {
+		return "complete";
+	}
+	if (status === "error" || status === "failed") {
+		return "error";
+	}
+	return "pending";
+}
+
 export default async function ReportPage({
 	params,
 }: {
@@ -42,146 +79,78 @@ export default async function ReportPage({
 	const prompts = messages.filter((message) => message.role === "user");
 	const latest = reports[0];
 	const body = (latest?.body ?? null) as LearningReport | null;
-
+	const usage = trainerUsage(body);
+	const missingTurnUsage: ProgressUsage = {
+		cachedTokens: null,
+		coverage: "unknown",
+		inputTokens: null,
+		label: "missing",
+		outputTokens: null,
+	};
+	const task: ProgressTask = {
+		exerciseId: session.exercise_id,
+		occurredAt: session.finished_at ?? session.started_at ?? session.created_at,
+		origin: "trainer",
+		outcome: body
+			? {
+					observed: body.outcome.observed,
+					verification: body.outcome.verification,
+					verificationProvenance: body.outcome.verificationProvenance,
+				}
+			: null,
+		prompts: prompts.map((prompt) => prompt.content),
+		promptTurns: prompts.map((prompt) => ({
+			occurredAt: prompt.created_at,
+			text: prompt.content,
+			usage: missingTurnUsage,
+		})),
+		reportHref: `/session/${id}/report`,
+		reportStatus: reportStatus(latest?.status),
+		sessionId: session.id,
+		source: "trainer",
+		status: session.status,
+		suggestions: body
+			? body.suggestions.map((suggestion) => ({
+					illustrative: suggestion.illustrative,
+					improvedExample: suggestion.improvedExample,
+					title: suggestion.title,
+					whyItHelps: suggestion.whyItHelps,
+				}))
+			: [],
+		tests: body
+			? {
+					failed: body.observations.tests.failed,
+					found: body.observations.tests.found,
+					passed: body.observations.tests.passed,
+					total: body.observations.tests.total,
+				}
+			: null,
+		usage,
+	};
 	return (
-		<main className="mx-auto grid max-w-3xl gap-4 px-4 py-8">
-			<p className="text-muted-foreground text-sm">
-				<NavLink className="underline" href="/">
-					Exercises
-				</NavLink>{" "}
-				· {session.exercise_id} · session {session.status}
-			</p>
-			<h1 className="font-semibold text-2xl">Learning report</h1>
-			<Card>
-				<CardHeader>
-					<CardTitle>Prompt timeline</CardTitle>
-				</CardHeader>
-				<CardContent className="grid gap-3">
-					{prompts.length === 0 ? (
-						<p className="text-muted-foreground text-sm">
-							No prompts were stored for this task.
-						</p>
-					) : (
-						<ol className="grid gap-3">
-							{prompts.map((prompt) => (
-								<li
-									className="grid gap-1 rounded-xl border bg-card p-4"
-									key={prompt.id}
-								>
-									<p className="text-muted-foreground text-xs">
-										{prompt.created_at}
-									</p>
-									<pre className="whitespace-pre-wrap font-mono text-sm">
-										{prompt.content}
-									</pre>
-									<p className="text-muted-foreground text-sm">
-										Per-prompt vendor tokens were not stored. Task totals are in
-										Usage below when the provider reported them.
-									</p>
-								</li>
-							))}
-						</ol>
-					)}
-				</CardContent>
-			</Card>
+		<>
 			{latest ? null : (
-				<Alert>
-					<AlertTitle>No report yet</AlertTitle>
-					<AlertDescription>
-						Finish a running session to generate a review.
-					</AlertDescription>
-				</Alert>
+				<div className="mx-auto max-w-4xl px-4 pt-8">
+					<Alert>
+						<AlertTitle>No report yet</AlertTitle>
+						<AlertDescription>
+							Finish a running session to generate a review.
+						</AlertDescription>
+					</Alert>
+				</div>
 			)}
 			{latest && latest.status !== "complete" ? (
-				<Alert variant="destructive">
-					<AlertTitle>{latest.status}</AlertTitle>
-					<AlertDescription>
-						{latest.error ??
-							"Report is not complete. Session evidence was kept."}
-					</AlertDescription>
-				</Alert>
+				<div className="mx-auto max-w-4xl px-4 pt-8">
+					<Alert variant="destructive">
+						<AlertTitle>{latest.status}</AlertTitle>
+						<AlertDescription>
+							{latest.error ??
+								"Report is not complete. Session evidence was kept."}
+						</AlertDescription>
+					</Alert>
+				</div>
 			) : null}
-			{body ? (
-				<>
-					<Card>
-						<CardHeader>
-							<CardTitle>Summary</CardTitle>
-						</CardHeader>
-						<CardContent className="grid gap-2">
-							<p className="text-muted-foreground text-sm">
-								Coaching summary is not a measured result. Outcome, usage, and
-								test counts come from stored observations.
-							</p>
-							<p>{body.summary}</p>
-							<p>
-								<strong>Observed outcome:</strong> {body.outcome.observed}
-							</p>
-							<p>
-								<strong>Verification:</strong> {body.outcome.verification} (
-								{body.outcome.verificationProvenance})
-							</p>
-							{body.observations ? (
-								<p>
-									<strong>Stored test observations:</strong>{" "}
-									{body.observations.tests.found
-										? `${body.observations.tests.passed} passed, ${body.observations.tests.failed} failed of ${body.observations.tests.total}`
-										: "no browser harness run recorded"}
-								</p>
-							) : null}
-						</CardContent>
-					</Card>
-					{body.suggestions.map((suggestion) => (
-						<Card key={suggestion.title}>
-							<CardHeader>
-								<CardTitle>{suggestion.title}</CardTitle>
-							</CardHeader>
-							<CardContent className="grid gap-2">
-								<p>{suggestion.detail}</p>
-								<p>
-									<strong>Improved example:</strong>{" "}
-									{suggestion.improvedExample}
-								</p>
-								<p>
-									<strong>Why it helps:</strong> {suggestion.whyItHelps}
-								</p>
-								<p className="text-muted-foreground text-sm">
-									{suggestion.illustrative
-										? "Illustrative recommendation"
-										: "Recommendation (not a measured result)"}{" "}
-									· cites{" "}
-									{suggestion.citations
-										.map((citation) => citation.evidenceId)
-										.join(", ")}
-								</p>
-							</CardContent>
-						</Card>
-					))}
-					<Card>
-						<CardHeader>
-							<CardTitle>Usage</CardTitle>
-						</CardHeader>
-						<CardContent>
-							<p>
-								Trainer: input {body.usage.trainer.inputTokens ?? "unknown"},
-								output {body.usage.trainer.outputTokens ?? "unknown"}, cached{" "}
-								{body.usage.trainer.cachedTokens ?? "unknown"} (
-								{body.usage.trainer.coverage})
-							</p>
-							<p>
-								Review: input {body.usage.review.inputTokens ?? "unknown"},
-								output {body.usage.review.outputTokens ?? "unknown"}, cached{" "}
-								{body.usage.review.cachedTokens ?? "unknown"} (
-								{body.usage.review.coverage})
-							</p>
-							{body.usage.incomplete ? (
-								<p className="text-muted-foreground text-sm">
-									Coverage is incomplete.
-								</p>
-							) : null}
-						</CardContent>
-					</Card>
-				</>
-			) : null}
-		</main>
+			<ProgressTaskDetail task={task} />
+		</>
 	);
 }

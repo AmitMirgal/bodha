@@ -8,6 +8,7 @@ const PUBLIC_PATHS = [
 	"/auth/confirm",
 	"/capture",
 	"/api/capture",
+	"/dev",
 ];
 
 export async function updateSession(request: NextRequest) {

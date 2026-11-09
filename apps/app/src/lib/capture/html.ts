@@ -12,11 +12,18 @@ export interface CaptureViewerTask {
 		inputTokens: number | null;
 		outputTokens: number | null;
 		provenance: string;
+		reasoningTokens?: number | null;
 		source: string;
 	}>;
 }
 
 export function captureViewerDocument(tasks: CaptureViewerTask[]): string {
+	const hasMeasured = tasks.some(
+		(task) => preferredUsage(task.usage)?.provenance === "measured"
+	);
+	const intro = hasMeasured
+		? "Copilot Chat token counts below are vendor-reported from OpenTelemetry chat spans. Cursor hooks still have no vendor counts; any Cursor estimate is labelled and undercounts."
+		: "This view is tied to this device. It is not a Mati account. Cursor hooks do not report vendor token counts. Any number below is a labelled text-length estimate and undercounts.";
 	const body =
 		tasks.length === 0
 			? "<p>No captured Agent prompts yet.</p>"
@@ -38,7 +45,7 @@ export function captureViewerDocument(tasks: CaptureViewerTask[]): string {
 						return `<section class="task">
 <h2>${escapeHtml(task.editor)} · ${escapeHtml(task.status)}</h2>
 <p class="muted">Conversation ${escapeHtml(task.editorTaskId)}</p>
-<p>${escapeHtml(usageCopy(preferredUsage(task.usage)))}</p>
+<p>${escapeHtml(usageCopy(preferredUsage(task.usage), task.editor))}</p>
 <h3>Prompts</h3>
 ${prompts}
 ${files}
@@ -64,7 +71,7 @@ ul{list-style:none;padding:0;margin:0;display:grid;gap:.5rem}
 <body>
 <main>
 <h1>Your editor tasks</h1>
-<p class="muted">This view is tied to this device. It is not a Mati account. Cursor hooks do not report vendor token counts. Any number below is a labelled text-length estimate and undercounts.</p>
+<p class="muted">${escapeHtml(intro)}</p>
 ${body}
 </main>
 </body>

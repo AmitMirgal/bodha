@@ -4,7 +4,7 @@ Open-source individual learning trainer (renamed from BODHA). Learners sign in, 
 
 This is **not** a Google interview replica and does not claim feature parity with any other product. Runtime is **browser JavaScript** via `public/harness.js`. There is no Node, Python, or ML execution sandbox.
 
-Product code lives in `apps/app`. Longer setup notes: [`docs/mati-mvp.md`](docs/mati-mvp.md). Editor capture (Cursor / VS Code extension) is design-only: [`docs/extension-design.md`](docs/extension-design.md).
+Product code lives in `apps/app`. Longer setup notes: [`docs/mati-mvp.md`](docs/mati-mvp.md). Editor capture lives in [`extensions/mati`](extensions/mati/README.md). Design notes: [`docs/extension-design.md`](docs/extension-design.md). Later capture PRs should edit only their own section in those files, not this paragraph.
 
 The rest of this monorepo is a next-forge workspace template (unrelated apps and packages). Mati auth is **Supabase Auth**. Mati data is **Supabase PostgreSQL** accessed at runtime through **Prisma 7** with per-request RLS. Do not use Clerk, Neon, Cursor-hosted Postgres, or `packages/database` for Mati.
 

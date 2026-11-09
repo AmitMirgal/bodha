@@ -2,7 +2,7 @@
 
 Captures Cursor Agent prompts on this device so you can see which prompts you used and later how to improve them. There is no sign-in. Token counts from Cursor hooks are omitted in this version, not guessed.
 
-This package is not published to the VS Code Marketplace or Open VSX.
+This package is not published to the VS Code Marketplace or Open VSX. CI builds a `.vsix` and runs tests; the publish jobs are disabled (`if: false`). Do not run `vsce publish` or `ovsx publish` from this repo until Amit approves.
 
 ## Use
 

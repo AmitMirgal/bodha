@@ -6,13 +6,16 @@
 	"private": true,
 	"publisher": "mati",
 	"license": "Apache-2.0",
-	"type": "module",
 	"engines": {
 		"vscode": "^1.90.0"
 	},
-	"categories": ["Other"],
-	"activationEvents": ["onStartupFinished"],
-	"main": "./src/extension.ts",
+	"categories": [
+		"Other"
+	],
+	"activationEvents": [
+		"onStartupFinished"
+	],
+	"main": "./dist/extension.js",
 	"contributes": {
 		"commands": [
 			{
@@ -32,10 +35,13 @@
 	"scripts": {
 		"typecheck": "tsc --noEmit --emitDeclarationOnly false",
 		"test": "vitest run",
-		"build": "tsc --noEmit --emitDeclarationOnly false"
+		"compile": "tsc -p tsconfig.build.json",
+		"build": "tsc --noEmit --emitDeclarationOnly false",
+		"package": "pnpm compile && vsce package --allow-missing-repository --no-dependencies --no-rewrite-relative-links"
 	},
 	"devDependencies": {
 		"@types/node": "^24.19.2",
+		"@vscode/vsce": "^4.1.0",
 		"typescript": "^5.9.3",
 		"vitest": "^4.0.18"
 	}

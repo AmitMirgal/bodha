@@ -418,6 +418,8 @@ Check: without the key, behavior is unchanged; with a recorded API fixture, usag
 **Phase 7 — packaging.** `extensions/mati` build, vsce/ovsx dry-run, uninstall removes Mati hook entries.  
 Check: `vsce package` produces a `.vsix` that installs in VS Code and Cursor; after uninstall, `~/.cursor/hooks.json` has no Mati command.
 
+Phase 7 implementation notes (2026-11-09): `pnpm --filter mati package` compiles `src` to CommonJS `dist` and runs `vsce package --no-dependencies`. GitHub Actions workflow `mati-extension.yml` typechecks, tests, and uploads the `.vsix`. Jobs `publish-vscode-marketplace` and `publish-open-vsx` are `if: false`. Uninstall already removes only the Mati `hooks.json` block (see `removeMatiHooks` tests). This agent does not publish.
+
 ## 8. Open questions (Amit)
 
 1. Device viewer (signed URL, no Mati account) vs forcing claim before any dashboard — **viewer**. “No sign-in” is a complete loop.

@@ -196,6 +196,18 @@ model Device {
   @@map("devices")
 }
 
+model CursorAdminSettings {
+  userId          String   @id @map("user_id") @db.Uuid
+  encryptedApiKey String   @map("encrypted_api_key")
+  encryptionIv    String   @map("encryption_iv")
+  encryptionTag   String   @map("encryption_tag")
+  keyFingerprint  String   @map("key_fingerprint")
+  createdAt       DateTime @default(dbgenerated("now()")) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime @default(dbgenerated("now()")) @map("updated_at") @db.Timestamptz(6)
+
+  @@map("cursor_admin_settings")
+}
+
 model PairingCode {
   id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   userId     String    @map("user_id") @db.Uuid

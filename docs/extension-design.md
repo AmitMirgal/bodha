@@ -419,6 +419,8 @@ Phase 5 implementation notes (2026-11-09): `assembleEditorLearningReport` maps c
 **Phase 6 — optional Cursor Admin API.** Operator-configured team key; join `conversationId`; upgrade provenance to `measured` when a match exists.  
 Check: without the key, behavior is unchanged; with a recorded API fixture, usage becomes measured.
 
+Phase 6 implementation notes (2026-11-09): the team key is stored per signed-in user in `cursor_admin_settings`, encrypted with `MATI_CREDENTIALS_ENCRYPTION_KEY` and AAD bound to `cursor_admin` / `filtered-usage-events` (same `encryptSecret` path as BYOK). It is not an env var and is not written to the extension. Join is `conversationId` → `EditorTaskId` against a recorded `filtered-usage-events` fixture. Without a stored key, capture usage is unchanged.
+
 **Phase 7 — packaging.** `extensions/mati` build, vsce/ovsx dry-run, uninstall removes Mati hook entries.  
 Check: `vsce package` produces a `.vsix` that installs in VS Code and Cursor; after uninstall, `~/.cursor/hooks.json` has no Mati command.
 

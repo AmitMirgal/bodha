@@ -130,4 +130,79 @@ describe("capture ingest RLS", () => {
 		);
 		expect(asBEvents).toEqual([]);
 	});
+
+	it("stores measured Copilot OTel usage and rejects text_estimate as measured", async ({
+		skip: skipTest,
+	}) => {
+		if (!prisma) {
+			skipTest(skip);
+			return;
+		}
+		const device = await withCaptureRegisterDb(prisma, (db) =>
+			db.device.create({
+				data: {
+					tokenHash: tokenHash(),
+					consent: {
+						version: 1,
+						grantedAt: "2026-11-09T00:00:00.000Z",
+						scopes: ["usage"],
+					},
+				},
+			})
+		);
+		const accepted = await withDeviceDb(prisma, device.id, (db) =>
+			ingestBatch(db, device.id, {
+				editor: "vscode",
+				editorTaskId: "sess-1",
+				workspaceHash: "abc",
+				events: [
+					{
+						idempotencyKey: `${device.id}:vscode:sess-1:usage:otel:span-1`,
+						kind: "usage",
+						occurredAt: "2026-11-09T12:00:01.000Z",
+						operationId: "otel:span-1",
+						inputTokens: 12,
+						outputTokens: 4,
+						cachedTokens: 3,
+						reasoningTokens: 3,
+						model: "gpt-4.1",
+						provenance: "measured",
+						source: "copilot_otel_chat_span",
+					},
+				],
+			})
+		);
+		expect(accepted.accepted).toBe(1);
+		const tasks = await withDeviceDb(prisma, device.id, (db) =>
+			listDeviceTasks(db, device.id)
+		);
+		expect(tasks[0]?.usage[0]).toMatchObject({
+			inputTokens: 12,
+			outputTokens: 4,
+			cachedTokens: 3,
+			reasoningTokens: 3,
+			provenance: "measured",
+			source: "copilot_otel_chat_span",
+		});
+		await expect(
+			withDeviceDb(prisma, device.id, (db) =>
+				ingestBatch(db, device.id, {
+					editor: "vscode",
+					editorTaskId: "sess-1",
+					workspaceHash: "abc",
+					events: [
+						{
+							idempotencyKey: `${device.id}:vscode:sess-1:usage:bad`,
+							kind: "usage",
+							occurredAt: "2026-11-09T12:00:02.000Z",
+							operationId: "bad",
+							inputTokens: 1,
+							provenance: "measured",
+							source: "text_estimate",
+						},
+					],
+				})
+			)
+		).rejects.toThrow("text_estimate cannot be stored as measured");
+	});
 });

@@ -70,6 +70,35 @@ describe("capture viewer document", () => {
 		writeViewer("capture-viewer-estimate", seeded);
 	});
 
+	it("renders measured Copilot OTel copy without inventing missing fields", () => {
+		const measured = captureViewerDocument([
+			{
+				editor: "vscode",
+				editorTaskId: "sess-1",
+				filePaths: [],
+				id: "task-2",
+				prompts: ["Fix the flaky test"],
+				status: "open",
+				usage: [
+					{
+						cachedTokens: 3,
+						inputTokens: 12,
+						outputTokens: 4,
+						provenance: "measured",
+						reasoningTokens: 3,
+						source: "copilot_otel_chat_span",
+					},
+				],
+			},
+		]);
+		expect(measured).toContain("Reported by copilot_otel_chat_span");
+		expect(measured).toContain("input 12");
+		expect(measured).toContain("reasoning 3");
+		expect(measured).toContain("vendor-reported from OpenTelemetry");
+		expect(measured).not.toContain("null");
+		writeViewer("capture-viewer-measured", measured);
+	});
+
 	it("screenshots estimated viewer HTML when Chrome is installed", () => {
 		try {
 			execFileSync("google-chrome", ["--version"], {
@@ -82,5 +111,19 @@ describe("capture viewer document", () => {
 		const seededPath = `${ARTIFACTS}/capture-viewer-estimate.html`;
 		screenshot("capture-viewer-estimate", seededPath);
 		expect(existsSync(`${ARTIFACTS}/capture-viewer-estimate.png`)).toBe(true);
+	}, 30_000);
+
+	it("screenshots measured viewer HTML when Chrome is installed", () => {
+		try {
+			execFileSync("google-chrome", ["--version"], {
+				timeout: 3000,
+				stdio: "pipe",
+			});
+		} catch {
+			return;
+		}
+		const seededPath = `${ARTIFACTS}/capture-viewer-measured.html`;
+		screenshot("capture-viewer-measured", seededPath);
+		expect(existsSync(`${ARTIFACTS}/capture-viewer-measured.png`)).toBe(true);
 	}, 30_000);
 });

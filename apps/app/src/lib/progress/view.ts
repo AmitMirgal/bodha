@@ -1,10 +1,12 @@
 import { assembleEditorLearningReport } from "../capture/report";
-import { usageCopy as captureUsageCopy } from "../capture/usage-copy";
 import { usageFromStoredRecords } from "../reports/assemble";
 import { type LearningReport, reportSchema } from "../reports/schema";
 import { dayBucket } from "../sessions/service";
+import { chartFromTasks, summaryFromTasks } from "./aggregate";
 import type {
 	ProgressEditorInput,
+	ProgressOrigin,
+	ProgressPromptTurn,
 	ProgressSection,
 	ProgressSessionInput,
 	ProgressTask,
@@ -13,6 +15,8 @@ import type {
 	ProgressView,
 	TokenCoverage,
 } from "./types";
+
+export { chartFromTasks, summaryFromTasks, usageCopy } from "./aggregate";
 
 function coverageOf(value: string): TokenCoverage {
 	switch (value) {
@@ -76,14 +80,23 @@ function taskFromSession(
 			? null
 			: reportSchema.safeParse(session.report.body);
 	const body = parsed?.success ? parsed.data : null;
+	const prompts = session.prompts.filter((prompt) => prompt.trim().length > 0);
 	return {
 		source: "trainer",
+		origin: "trainer",
 		sessionId: session.id,
 		exerciseId: session.exerciseId,
 		status: session.status,
 		occurredAt,
 		reportHref: `/session/${session.id}/report`,
-		prompts: session.prompts.filter((prompt) => prompt.trim().length > 0),
+		prompts,
+		promptTurns: promptTurnsFromTexts(prompts, {
+			inputTokens: null,
+			outputTokens: null,
+			cachedTokens: null,
+			coverage: "unknown",
+			label: "missing",
+		}),
 		usage,
 		reportStatus: status,
 		outcome: body
@@ -162,15 +175,19 @@ function taskFromEditor(
 		usage: task.usage,
 	});
 	const body = assembled.ok ? assembled.report : null;
+	const prompts = task.prompts.filter((prompt) => prompt.trim().length > 0);
+	const usage = progressUsageFromEditor(body?.usage.editor);
 	return {
 		source: "editor",
+		origin: originFromEditor(task.editor),
 		sessionId: task.id,
 		exerciseId: `${task.editor} · ${task.editorTaskId}`,
 		status: task.status,
 		occurredAt: occurredAtStamp,
 		reportHref: `/capture/tasks/${task.id}`,
-		prompts: task.prompts.filter((prompt) => prompt.trim().length > 0),
-		usage: progressUsageFromEditor(body?.usage.editor),
+		prompts,
+		promptTurns: promptTurnsFromEvents(task, usage),
+		usage,
 		reportStatus: body ? "complete" : "none",
 		outcome: body
 			? {
@@ -255,48 +272,77 @@ export function assembleProgressView(
 		editorBuilt.push(taskFromEditor(task, stamp));
 	}
 	const editor = sectionFromTasks(editorBuilt, timezone, editorOccurred);
+	const tasks = [...trainerTasks, ...editorBuilt].sort((left, right) =>
+		right.occurredAt.localeCompare(left.occurredAt)
+	);
 	return {
 		timezone,
 		days: trainer.days,
 		trend: trainer.trend,
 		editor,
+		tasks,
+		summary: summaryFromTasks(tasks),
+		chart: chartFromTasks(tasks, timezone),
 	};
 }
 
-export function usageCopy(
-	usage: ProgressUsage,
-	source: ProgressTask["source"] = "trainer"
-): string {
-	if (source === "editor") {
-		return captureUsageCopy(
-			{
-				cachedTokens: usage.cachedTokens,
-				inputTokens: usage.inputTokens,
-				outputTokens: usage.outputTokens,
-				provenance: usage.label,
-				reasoningTokens: usage.reasoningTokens ?? null,
-				source: usage.source ?? "none",
-			},
-			"this editor"
-		);
+function originFromEditor(editor: string): ProgressOrigin {
+	const value = editor.toLowerCase();
+	if (value.includes("copilot") || value.includes("vscode")) {
+		return "copilot";
 	}
-	if (usage.label === "missing") {
-		return "Token counts were not reported by the provider for this task. Totals are omitted, not guessed.";
+	return "cursor";
+}
+
+function promptTurnsFromTexts(
+	prompts: string[],
+	usage: ProgressUsage
+): ProgressPromptTurn[] {
+	return prompts.map((text) => ({
+		text,
+		occurredAt: null,
+		usage,
+	}));
+}
+
+function promptTurnsFromEvents(
+	task: ProgressEditorInput,
+	fallback: ProgressUsage
+): ProgressPromptTurn[] {
+	const turns = task.events
+		.filter((event) => event.kind === "prompt")
+		.map((event) => {
+			const payload = event.payload;
+			const text =
+				payload &&
+				typeof payload === "object" &&
+				"text" in payload &&
+				typeof payload.text === "string"
+					? payload.text
+					: "";
+			return {
+				text,
+				occurredAt: event.occurredAt,
+				usage: {
+					inputTokens: null,
+					outputTokens: null,
+					cachedTokens: null,
+					coverage: "unknown" as const,
+					label: "missing" as const,
+					source: fallback.source,
+				},
+			};
+		})
+		.filter((turn) => turn.text.trim().length > 0);
+	if (turns.length > 0) {
+		return turns;
 	}
-	const cached =
-		usage.cachedTokens == null
-			? "cached not reported"
-			: `${usage.cachedTokens} cached`;
-	const input =
-		usage.inputTokens == null
-			? "input not reported"
-			: `${usage.inputTokens} input`;
-	const output =
-		usage.outputTokens == null
-			? "output not reported"
-			: `${usage.outputTokens} output`;
-	if (usage.coverage === "partial") {
-		return `${input}, ${output}, ${cached}. Partial vendor report.`;
-	}
-	return `${input}, ${output}, ${cached}. Reported by the trainer provider.`;
+	return promptTurnsFromTexts(task.prompts, {
+		inputTokens: null,
+		outputTokens: null,
+		cachedTokens: null,
+		coverage: "unknown",
+		label: "missing",
+		source: fallback.source,
+	});
 }

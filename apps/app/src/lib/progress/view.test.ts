@@ -75,6 +75,17 @@ describe("assembleProgressView", () => {
 		const view = assembleProgressView([], "UTC");
 		expect(view.days).toEqual([]);
 		expect(view.trend).toEqual([]);
+		expect(view.tasks).toEqual([]);
+		expect(view.chart).toEqual([]);
+		expect(view.summary).toMatchObject({
+			completedCount: 0,
+			estimated: null,
+			measured: null,
+			missingTaskCount: 0,
+			promptCount: 0,
+			taskCount: 0,
+			tests: null,
+		});
 		expect(view.timezone).toBe("UTC");
 	});
 
@@ -233,5 +244,34 @@ describe("assembleProgressView", () => {
 		expect(editorTask.outcome?.verificationProvenance).toBe(
 			"insufficient_evidence"
 		);
+		expect(editorTask.origin).toBe("cursor");
+		expect(view.summary.measured).toBeNull();
+		expect(view.summary.estimated).toMatchObject({
+			inputTokens: 20,
+			outputTokens: 5,
+			taskCount: 1,
+		});
+		expect(view.summary.missingTaskCount).toBe(1);
+		expect(view.chart.some((point) => point.estimatedInputTokens === 20)).toBe(
+			true
+		);
+		expect(
+			view.chart.find((point) => point.date === "2026-11-09")
+				?.measuredInputTokens
+		).toBeNull();
+	});
+
+	it("does not put missing token tasks into summary totals as zero", () => {
+		const view = assembleProgressView(
+			[session({ usageRows: [], prompts: ["Hello"] })],
+			"UTC"
+		);
+		expect(view.summary.measured).toBeNull();
+		expect(view.summary.estimated).toBeNull();
+		expect(view.summary.missingTaskCount).toBe(1);
+		expect(view.summary.promptCount).toBe(1);
+		expect(view.summary.tests).toBeNull();
+		expect(view.chart[0]?.measuredInputTokens).toBeNull();
+		expect(view.chart[0]?.promptCount).toBe(1);
 	});
 });

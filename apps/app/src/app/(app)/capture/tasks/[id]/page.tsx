@@ -52,33 +52,81 @@ export default async function CaptureTaskPage({
 			events,
 			usage,
 		});
-		return { assembled, editor: task.editor, editorTaskId: task.editorTaskId };
+		return {
+			assembled,
+			editor: task.editor,
+			editorTaskId: task.editorTaskId,
+			events,
+		};
 	});
 	if (!loaded) {
 		notFound();
 	}
 	const report = loaded.assembled.ok ? loaded.assembled.report : null;
 	const editorUsage = report?.usage.editor;
+	const prompts = loaded.events.filter((event) => event.kind === "prompt");
 	return (
-		<main className="mx-auto grid max-w-3xl gap-4 px-4 py-8">
-			<h1 className="font-semibold text-2xl">
-				{loaded.editor} · {loaded.editorTaskId}
-			</h1>
-			<p className="text-sm">
-				{usageCopy(
-					editorUsage
-						? {
-								cachedTokens: editorUsage.cachedTokens,
-								inputTokens: editorUsage.inputTokens,
-								outputTokens: editorUsage.outputTokens,
-								provenance: editorUsage.provenance,
-								reasoningTokens: editorUsage.reasoningTokens ?? null,
-								source: editorUsage.source,
-							}
-						: null,
-					loaded.editor
+		<main className="mx-auto grid max-w-3xl gap-6 px-4 py-8">
+			<header className="grid gap-2">
+				<h1 className="font-semibold text-3xl tracking-tight">
+					{loaded.editor} · {loaded.editorTaskId}
+				</h1>
+				<p className="text-sm">
+					{usageCopy(
+						editorUsage
+							? {
+									cachedTokens: editorUsage.cachedTokens,
+									inputTokens: editorUsage.inputTokens,
+									outputTokens: editorUsage.outputTokens,
+									provenance: editorUsage.provenance,
+									reasoningTokens: editorUsage.reasoningTokens ?? null,
+									source: editorUsage.source,
+								}
+							: null,
+						loaded.editor
+					)}
+				</p>
+			</header>
+			<section aria-labelledby="prompt-timeline" className="grid gap-3">
+				<h2 className="font-medium" id="prompt-timeline">
+					Prompt timeline
+				</h2>
+				{prompts.length === 0 ? (
+					<p className="text-muted-foreground text-sm">
+						No prompts were stored for this task.
+					</p>
+				) : (
+					<ol className="grid gap-3">
+						{prompts.map((event) => {
+							const payload = event.payload;
+							const text =
+								payload &&
+								typeof payload === "object" &&
+								"text" in payload &&
+								typeof payload.text === "string"
+									? payload.text
+									: "";
+							return (
+								<li
+									className="grid gap-1 rounded-xl border bg-card p-4"
+									key={event.id}
+								>
+									<p className="text-muted-foreground text-xs">
+										{event.occurredAt}
+									</p>
+									<pre className="whitespace-pre-wrap font-mono text-sm">
+										{text || "(empty prompt)"}
+									</pre>
+									<p className="text-muted-foreground text-sm">
+										Per-prompt vendor tokens were not stored. Task totals are
+										labelled above.
+									</p>
+								</li>
+							);
+						})}
+					</ol>
 				)}
-			</p>
+			</section>
 			{report ? (
 				<>
 					<p>{report.summary}</p>
@@ -97,6 +145,11 @@ export default async function CaptureTaskPage({
 							</p>
 							<p>
 								<strong>Why it helps:</strong> {suggestion.whyItHelps}
+							</p>
+							<p className="text-muted-foreground text-sm">
+								{suggestion.illustrative
+									? "Illustrative recommendation"
+									: "Grounded in stored prompt evidence"}
 							</p>
 						</section>
 					))}

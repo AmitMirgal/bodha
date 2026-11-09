@@ -172,6 +172,9 @@ importers:
       react-markdown:
         specifier: ^10.1.0
         version: 10.1.0(@types/react@19.2.14)(react@19.2.4)
+      recharts:
+        specifier: ^3.10.1
+        version: 3.10.1(@types/react@19.2.14)(react-dom@19.2.4(react@19.2.4))(react-is@17.0.2)(react@19.2.4)(redux@5.0.1)
       remark-gfm:
         specifier: ^4.0.1
         version: 4.0.1
@@ -263,7 +266,7 @@ importers:
     dependencies:
       '@hookform/resolvers':
         specifier: ^5.2.2
-        version: 5.9.2(@standard-schema/spec@1.1.0)(ajv@6.15.0)(effect@3.18.4)(fp-ts@2.16.11)(io-ts@2.2.22(fp-ts@2.16.11))(react-hook-form@7.91.0(@types/react@19.2.14)(react@19.2.4))(valibot@1.2.0(typescript@5.9.3))(zod@4.6.7)
+        version: 5.9.2(@standard-schema/spec@1.1.0)(ajv@8.20.0)(effect@3.18.4)(fp-ts@2.16.11)(io-ts@2.2.22(fp-ts@2.16.11))(react-hook-form@7.91.0(@types/react@19.2.14)(react@19.2.4))(valibot@1.2.0(typescript@5.9.3))(zod@4.6.7)
       '@repo/design-system':
         specifier: workspace:*
         version: link:../../packages/design-system
@@ -13306,19 +13309,6 @@ snapshots:
       '@standard-schema/spec': 1.1.0
       hono: 4.13.17
 
-  '@hookform/resolvers@5.9.2(@standard-schema/spec@1.1.0)(ajv@6.15.0)(effect@3.18.4)(fp-ts@2.16.11)(io-ts@2.2.22(fp-ts@2.16.11))(react-hook-form@7.91.0(@types/react@19.2.14)(react@19.2.4))(valibot@1.2.0(typescript@5.9.3))(zod@4.6.7)':
-    dependencies:
-      '@standard-schema/utils': 0.3.0
-      react-hook-form: 7.91.0(@types/react@19.2.14)(react@19.2.4)
-    optionalDependencies:
-      '@standard-schema/spec': 1.1.0
-      ajv: 6.15.0
-      effect: 3.18.4
-      fp-ts: 2.16.11
-      io-ts: 2.2.22(fp-ts@2.16.11)
-      valibot: 1.2.0(typescript@5.9.3)
-      zod: 4.6.7
-
   '@hookform/resolvers@5.9.2(@standard-schema/spec@1.1.0)(ajv@8.20.0)(effect@3.18.4)(fp-ts@2.16.11)(io-ts@2.2.22(fp-ts@2.16.11))(react-hook-form@7.91.0(@types/react@19.2.14)(react@19.2.4))(valibot@1.2.0(typescript@5.9.3))(zod@4.6.7)':
     dependencies:
       '@standard-schema/utils': 0.3.0
@@ -15266,7 +15256,7 @@ snapshots:
       immer: 11.2.9
       redux: 5.0.1
       redux-thunk: 3.1.0(redux@5.0.1)
-      reselect: 5.2.0
+      reselect: 5.3.0
     optionalDependencies:
       '@types/react': 19.2.14
       react: 19.2.4

@@ -104,6 +104,15 @@ ${colorConfig
 
 const ChartTooltip = RechartsPrimitive.Tooltip
 
+type ChartPayloadItem = {
+  color?: string
+  dataKey?: string | number
+  name?: string
+  payload?: { fill?: string }
+  type?: string
+  value?: number | string
+}
+
 function ChartTooltipContent({
   active,
   payload,
@@ -118,14 +127,29 @@ function ChartTooltipContent({
   color,
   nameKey,
   labelKey,
-}: React.ComponentProps<typeof RechartsPrimitive.Tooltip> &
-  React.ComponentProps<"div"> & {
-    hideLabel?: boolean
-    hideIndicator?: boolean
-    indicator?: "line" | "dot" | "dashed"
-    nameKey?: string
-    labelKey?: string
-  }) {
+}: React.ComponentProps<"div"> & {
+  active?: boolean
+  color?: string
+  formatter?: (
+    value: number | string,
+    name: string,
+    item: ChartPayloadItem,
+    index: number,
+    payload: unknown
+  ) => React.ReactNode
+  hideIndicator?: boolean
+  hideLabel?: boolean
+  indicator?: "line" | "dot" | "dashed"
+  label?: React.ReactNode
+  labelClassName?: string
+  labelFormatter?: (
+    value: unknown,
+    payload: ChartPayloadItem[]
+  ) => React.ReactNode
+  labelKey?: string
+  nameKey?: string
+  payload?: ChartPayloadItem[]
+}) {
   const { config } = useChart()
 
   const tooltipLabel = React.useMemo(() => {
@@ -184,7 +208,7 @@ function ChartTooltipContent({
           .map((item, index) => {
             const key = `${nameKey || item.name || item.dataKey || "value"}`
             const itemConfig = getPayloadConfigFromPayload(config, item, key)
-            const indicatorColor = color || item.payload.fill || item.color
+            const indicatorColor = color || item.payload?.fill || item.color
 
             return (
               <div
@@ -258,11 +282,12 @@ function ChartLegendContent({
   payload,
   verticalAlign = "bottom",
   nameKey,
-}: React.ComponentProps<"div"> &
-  Pick<RechartsPrimitive.LegendProps, "payload" | "verticalAlign"> & {
-    hideIcon?: boolean
-    nameKey?: string
-  }) {
+}: React.ComponentProps<"div"> & {
+  hideIcon?: boolean
+  nameKey?: string
+  payload?: ChartPayloadItem[]
+  verticalAlign?: "top" | "bottom" | "middle"
+}) {
   const { config } = useChart()
 
   if (!payload?.length) {

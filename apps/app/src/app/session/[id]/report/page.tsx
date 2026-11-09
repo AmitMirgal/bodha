@@ -12,7 +12,11 @@ import {
 import { notFound, redirect } from "next/navigation";
 import { NavLink } from "../../../../components/NavLink";
 import { withUserDb } from "../../../../lib/db/client";
-import { getSession, listReports } from "../../../../lib/db/queries";
+import {
+	getSession,
+	listMessages,
+	listReports,
+} from "../../../../lib/db/queries";
 import type { LearningReport } from "../../../../lib/reports/schema";
 import { requireUser } from "../../../../lib/supabase/server";
 
@@ -34,6 +38,8 @@ export default async function ReportPage({
 		notFound();
 	}
 	const reports = await withUserDb(userId, (db) => listReports(db, id));
+	const messages = await withUserDb(userId, (db) => listMessages(db, id));
+	const prompts = messages.filter((message) => message.role === "user");
 	const latest = reports[0];
 	const body = (latest?.body ?? null) as LearningReport | null;
 
@@ -46,6 +52,38 @@ export default async function ReportPage({
 				· {session.exercise_id} · session {session.status}
 			</p>
 			<h1 className="font-semibold text-2xl">Learning report</h1>
+			<Card>
+				<CardHeader>
+					<CardTitle>Prompt timeline</CardTitle>
+				</CardHeader>
+				<CardContent className="grid gap-3">
+					{prompts.length === 0 ? (
+						<p className="text-muted-foreground text-sm">
+							No prompts were stored for this task.
+						</p>
+					) : (
+						<ol className="grid gap-3">
+							{prompts.map((prompt) => (
+								<li
+									className="grid gap-1 rounded-xl border bg-card p-4"
+									key={prompt.id}
+								>
+									<p className="text-muted-foreground text-xs">
+										{prompt.created_at}
+									</p>
+									<pre className="whitespace-pre-wrap font-mono text-sm">
+										{prompt.content}
+									</pre>
+									<p className="text-muted-foreground text-sm">
+										Per-prompt vendor tokens were not stored. Task totals are in
+										Usage below when the provider reported them.
+									</p>
+								</li>
+							))}
+						</ol>
+					)}
+				</CardContent>
+			</Card>
 			{latest ? null : (
 				<Alert>
 					<AlertTitle>No report yet</AlertTitle>

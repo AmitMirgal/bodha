@@ -19,15 +19,25 @@ export interface ProgressSuggestion {
 	whyItHelps: string;
 }
 
+export type ProgressOrigin = "trainer" | "cursor" | "copilot";
+
+export interface ProgressPromptTurn {
+	occurredAt: string | null;
+	text: string;
+	usage: ProgressUsage;
+}
+
 export interface ProgressTask {
 	exerciseId: string;
 	occurredAt: string;
+	origin: ProgressOrigin;
 	outcome: {
 		observed: string;
 		verification: string;
 		verificationProvenance: string;
 	} | null;
 	prompts: string[];
+	promptTurns: ProgressPromptTurn[];
 	reportHref: string;
 	reportStatus: "none" | "complete" | "pending" | "error";
 	sessionId: string;
@@ -61,9 +71,45 @@ export interface ProgressSection {
 	trend: ProgressTrendPoint[];
 }
 
+export interface ProgressTokenTotals {
+	cachedTokens: number;
+	inputTokens: number;
+	outputTokens: number;
+	taskCount: number;
+}
+
+export interface ProgressSummary {
+	completedCount: number;
+	estimated: ProgressTokenTotals | null;
+	measured: ProgressTokenTotals | null;
+	missingTaskCount: number;
+	promptCount: number;
+	taskCount: number;
+	tests: {
+		failed: number;
+		passed: number;
+		taskCount: number;
+		total: number;
+	} | null;
+}
+
+export interface ProgressChartPoint {
+	date: string;
+	estimatedInputTokens: number | null;
+	estimatedOutputTokens: number | null;
+	measuredCachedTokens: number | null;
+	measuredInputTokens: number | null;
+	measuredOutputTokens: number | null;
+	promptCount: number;
+	taskCount: number;
+}
+
 export interface ProgressView {
+	chart: ProgressChartPoint[];
 	days: ProgressDay[];
 	editor: ProgressSection;
+	summary: ProgressSummary;
+	tasks: ProgressTask[];
 	timezone: string;
 	trend: ProgressTrendPoint[];
 }

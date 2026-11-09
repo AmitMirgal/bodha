@@ -116,7 +116,7 @@ function assertHostAllowed(host: string, allowedHosts: string[]) {
 	const allowed = new Set(allowedHosts.map((value) => value.toLowerCase()));
 	if (allowed.size === 0) {
 		throw new EndpointValidationError(
-			"No allowed LLM hosts are configured. Set BODHA_ALLOWED_LLM_HOSTS."
+			"No allowed LLM hosts are configured. Set MATI_ALLOWED_LLM_HOSTS."
 		);
 	}
 	const hostAllowed =

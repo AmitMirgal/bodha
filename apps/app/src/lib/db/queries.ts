@@ -1,7 +1,7 @@
 import type { Prisma } from "../../generated/prisma/client";
 import { PersistenceError, RevisionConflictError } from "../errors";
 import { insertOnce } from "./insert-once";
-import type { BodhaDb } from "./rls";
+import type { MatiDb } from "./rls";
 import {
 	isoRequired,
 	messageRow,
@@ -11,7 +11,7 @@ import {
 	snapshotSummary,
 } from "./rows";
 
-export async function listSessions(db: BodhaDb, userId: string) {
+export async function listSessions(db: MatiDb, userId: string) {
 	const rows = await db.session.findMany({
 		where: { userId },
 		orderBy: { createdAt: "desc" },
@@ -19,13 +19,13 @@ export async function listSessions(db: BodhaDb, userId: string) {
 	return rows.map(sessionRow);
 }
 
-export async function getSession(db: BodhaDb, sessionId: string) {
+export async function getSession(db: MatiDb, sessionId: string) {
 	const session = await db.session.findFirst({ where: { id: sessionId } });
 	return session ? sessionRow(session) : null;
 }
 
 export async function createSessionRow(
-	db: BodhaDb,
+	db: MatiDb,
 	userId: string,
 	exerciseId: string,
 	files: Record<string, string>,
@@ -44,7 +44,7 @@ export async function createSessionRow(
 }
 
 export async function insertSnapshotOnce(
-	db: BodhaDb,
+	db: MatiDb,
 	input: {
 		sessionId: string;
 		userId: string;
@@ -71,25 +71,25 @@ export async function insertSnapshotOnce(
 	);
 }
 
-export async function getSnapshot(db: BodhaDb, sessionId: string) {
+export async function getSnapshot(db: MatiDb, sessionId: string) {
 	const snapshot = await db.exerciseSnapshot.findFirst({
 		where: { sessionId },
 	});
 	return snapshot;
 }
 
-export async function getSnapshotSummary(db: BodhaDb, sessionId: string) {
+export async function getSnapshotSummary(db: MatiDb, sessionId: string) {
 	const snapshot = await getSnapshot(db, sessionId);
 	return snapshot ? snapshotSummary(snapshot) : null;
 }
 
-export async function getSnapshotRound(db: BodhaDb, sessionId: string) {
+export async function getSnapshotRound(db: MatiDb, sessionId: string) {
 	const snapshot = await getSnapshot(db, sessionId);
 	return snapshot ? snapshotRound(snapshot) : null;
 }
 
 export async function insertEvidenceOnce(
-	db: BodhaDb,
+	db: MatiDb,
 	input: {
 		sessionId: string;
 		userId: string;
@@ -124,7 +124,7 @@ export async function insertEvidenceOnce(
 }
 
 export async function findEvidencePayload(
-	db: BodhaDb,
+	db: MatiDb,
 	sessionId: string,
 	idempotencyKey: string
 ) {
@@ -135,7 +135,7 @@ export async function findEvidencePayload(
 	return row?.payload ?? null;
 }
 
-export async function listEvidence(db: BodhaDb, sessionId: string) {
+export async function listEvidence(db: MatiDb, sessionId: string) {
 	return await db.evidenceEvent.findMany({
 		where: { sessionId },
 		orderBy: { seq: "asc" },
@@ -143,7 +143,7 @@ export async function listEvidence(db: BodhaDb, sessionId: string) {
 }
 
 export async function insertMessage(
-	db: BodhaDb,
+	db: MatiDb,
 	input: {
 		sessionId: string;
 		userId: string;
@@ -155,7 +155,7 @@ export async function insertMessage(
 	await db.message.create({ data: input });
 }
 
-export async function listMessages(db: BodhaDb, sessionId: string) {
+export async function listMessages(db: MatiDb, sessionId: string) {
 	const rows = await db.message.findMany({
 		where: { sessionId },
 		orderBy: { createdAt: "asc" },
@@ -163,7 +163,7 @@ export async function listMessages(db: BodhaDb, sessionId: string) {
 	return rows.map(messageRow);
 }
 
-export async function listRecentChatTurns(db: BodhaDb, sessionId: string) {
+export async function listRecentChatTurns(db: MatiDb, sessionId: string) {
 	return await db.message.findMany({
 		where: {
 			sessionId,
@@ -176,7 +176,7 @@ export async function listRecentChatTurns(db: BodhaDb, sessionId: string) {
 }
 
 export async function updateRunningSession(
-	db: BodhaDb,
+	db: MatiDb,
 	sessionId: string,
 	data: Prisma.SessionUpdateManyMutationInput,
 	expectedUpdatedAt?: string
@@ -209,7 +209,7 @@ export async function updateRunningSession(
 }
 
 export async function saveSessionFiles(
-	db: BodhaDb,
+	db: MatiDb,
 	sessionId: string,
 	files: Record<string, string>,
 	expectedUpdatedAt?: string
@@ -227,7 +227,7 @@ export async function saveSessionFiles(
 }
 
 export async function startRunningSession(
-	db: BodhaDb,
+	db: MatiDb,
 	sessionId: string,
 	consentAt: Date,
 	startedAt: Date
@@ -245,7 +245,7 @@ export async function startRunningSession(
 }
 
 export async function insertTestRun(
-	db: BodhaDb,
+	db: MatiDb,
 	input: {
 		sessionId: string;
 		userId: string;
@@ -265,14 +265,14 @@ export async function insertTestRun(
 	return run;
 }
 
-export async function latestTestRun(db: BodhaDb, sessionId: string) {
+export async function latestTestRun(db: MatiDb, sessionId: string) {
 	return await db.testRun.findFirst({
 		where: { sessionId },
 		orderBy: { createdAt: "desc" },
 	});
 }
 
-export async function latestReport(db: BodhaDb, sessionId: string) {
+export async function latestReport(db: MatiDb, sessionId: string) {
 	const report = await db.report.findFirst({
 		where: { sessionId },
 		orderBy: { version: "desc" },
@@ -280,7 +280,7 @@ export async function latestReport(db: BodhaDb, sessionId: string) {
 	return report ? reportRow(report) : null;
 }
 
-export async function listReports(db: BodhaDb, sessionId: string) {
+export async function listReports(db: MatiDb, sessionId: string) {
 	const rows = await db.report.findMany({
 		where: { sessionId },
 		orderBy: { version: "desc" },
@@ -289,7 +289,7 @@ export async function listReports(db: BodhaDb, sessionId: string) {
 }
 
 export async function insertReportOnce(
-	db: BodhaDb,
+	db: MatiDb,
 	input: {
 		sessionId: string;
 		userId: string;
@@ -313,13 +313,13 @@ export async function insertReportOnce(
 	);
 }
 
-export async function getReport(db: BodhaDb, id: string) {
+export async function getReport(db: MatiDb, id: string) {
 	const report = await db.report.findFirst({ where: { id } });
 	return report ? reportRow(report) : null;
 }
 
 export async function updateReport(
-	db: BodhaDb,
+	db: MatiDb,
 	id: string,
 	data: Prisma.ReportUpdateManyMutationInput
 ) {
@@ -327,7 +327,7 @@ export async function updateReport(
 }
 
 export async function completeReport(
-	db: BodhaDb,
+	db: MatiDb,
 	id: string,
 	body: Prisma.InputJsonValue
 ) {
@@ -339,7 +339,7 @@ export async function completeReport(
 }
 
 export async function updateSessionStatus(
-	db: BodhaDb,
+	db: MatiDb,
 	sessionId: string,
 	data: Prisma.SessionUpdateManyMutationInput
 ) {
@@ -347,7 +347,7 @@ export async function updateSessionStatus(
 }
 
 export async function insertUsageOnce(
-	db: BodhaDb,
+	db: MatiDb,
 	input: {
 		sessionId: string;
 		userId: string;
@@ -379,11 +379,11 @@ export async function insertUsageOnce(
 	);
 }
 
-export async function listUsage(db: BodhaDb, sessionId: string) {
+export async function listUsage(db: MatiDb, sessionId: string) {
 	return await db.usageRecord.findMany({ where: { sessionId } });
 }
 
-export async function getMaskedLlmRow(db: BodhaDb, userId: string) {
+export async function getMaskedLlmRow(db: MatiDb, userId: string) {
 	return await db.llmSettings.findUnique({
 		where: { userId },
 		select: {
@@ -396,7 +396,7 @@ export async function getMaskedLlmRow(db: BodhaDb, userId: string) {
 	});
 }
 
-export async function getLlmSecrets(db: BodhaDb, userId: string) {
+export async function getLlmSecrets(db: MatiDb, userId: string) {
 	return await db.llmSettings.findUnique({
 		where: { userId },
 		select: {
@@ -417,7 +417,7 @@ export function toInputJson(value: unknown): Prisma.InputJsonValue {
 }
 
 export async function upsertLlmSettings(
-	db: BodhaDb,
+	db: MatiDb,
 	input: {
 		userId: string;
 		provider: string;
@@ -448,11 +448,11 @@ export async function upsertLlmSettings(
 	});
 }
 
-export async function deleteLlmSettings(db: BodhaDb, userId: string) {
+export async function deleteLlmSettings(db: MatiDb, userId: string) {
 	await db.llmSettings.deleteMany({ where: { userId } });
 }
 
-export async function hasLlmSettings(db: BodhaDb, userId: string) {
+export async function hasLlmSettings(db: MatiDb, userId: string) {
 	const row = await db.llmSettings.findUnique({
 		where: { userId },
 		select: { userId: true },

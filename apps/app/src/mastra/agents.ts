@@ -71,13 +71,13 @@ const requestContextSchema = z.object({
 });
 
 export const trainerAgent = new Agent({
-	id: "bodha-trainer",
-	name: "BODHA trainer",
+	id: "mati-trainer",
+	name: "Mati trainer",
 	requestContextSchema,
 	instructions: ({ requestContext }) => {
 		const sessionId = requestContext.get("sessionId");
 		return [
-			"You are the BODHA trainer assistant for a code-comprehension exercise.",
+			"You are the Mati trainer assistant for a code-comprehension exercise.",
 			"The learner leads. Help them reason. Do not hand over a finished solution unless they ask.",
 			"You MUST call get-exercise-snapshot before answering about the exercise. Use get-latest-test-run when tests matter.",
 			"Never request or echo API keys. Never claim you executed code; the browser harness does that.",
@@ -91,13 +91,13 @@ export const trainerAgent = new Agent({
 });
 
 export const reviewAgent = new Agent({
-	id: "bodha-review",
-	name: "BODHA learning review",
+	id: "mati-review",
+	name: "Mati learning review",
 	requestContextSchema,
 	instructions: ({ requestContext }) => {
 		const sessionId = requestContext.get("sessionId");
 		return [
-			"You write an evidence-grounded learning review for one BODHA session.",
+			"You write an evidence-grounded learning review for one Mati session.",
 			"You MUST call get-exercise-snapshot, get-session-evidence, and get-latest-test-run before writing the report.",
 			"Return ONLY a JSON object with summary, suggestions, and insufficientEvidence.",
 			"summary is coaching only. Do not invent passing tests, token counts, or independent verification.",

@@ -1,4 +1,5 @@
 import type { Prisma, PrismaClient } from "../../generated/prisma/client";
+import { readPrismaTransactionOptions } from "./connect-options";
 
 const UUID =
 	/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -9,11 +10,11 @@ export type VerifiedIdentity =
 	| { role: "authenticated"; userId: string }
 	| { role: "anon" };
 
-export type BodhaDb = Prisma.TransactionClient;
+export type MatiDb = Prisma.TransactionClient;
 
 export type RunWithDb = <T>(
 	identity: VerifiedIdentity,
-	fn: (db: BodhaDb) => Promise<T>
+	fn: (db: MatiDb) => Promise<T>
 ) => Promise<T>;
 
 const ROLES: Record<RlsRole, RlsRole> = {
@@ -30,6 +31,50 @@ export class RlsContextError extends Error {
 		super(message);
 		this.name = "RlsContextError";
 	}
+}
+
+export class DatabaseTransactionError extends Error {
+	constructor(message: string, options?: { cause?: unknown }) {
+		super(message, options);
+		this.name = "DatabaseTransactionError";
+	}
+}
+
+export const TRANSACTION_START_HINT =
+	"Could not start a database transaction in time. Percent-encode reserved password characters (example: p@ss → p%40ss) in DATABASE_URL and DIRECT_URL, then restart. If the database is far from this machine, raise MATI_PRISMA_TX_MAX_WAIT_MS and MATI_PG_CONNECTION_TIMEOUT_MS. This is not an anonymous-auth setting.";
+
+function prismaErrorCode(error: unknown): string | undefined {
+	if (!(error && typeof error === "object" && "code" in error)) {
+		return undefined;
+	}
+	const { code } = error;
+	return typeof code === "string" ? code : undefined;
+}
+
+const CONNECT_TIMEOUT =
+	/timeout expired|connection terminated due to connection timeout|timeout exceeded when trying to connect|connect etimedout/i;
+
+function errorMessage(error: unknown): string {
+	return error instanceof Error ? error.message : String(error);
+}
+
+function isConnectTimeout(error: unknown): boolean {
+	return CONNECT_TIMEOUT.test(errorMessage(error));
+}
+
+export function mapPrismaTransactionError(error: unknown): never {
+	if (error instanceof RlsContextError) {
+		throw error;
+	}
+	if (error instanceof DatabaseTransactionError) {
+		throw error;
+	}
+	if (prismaErrorCode(error) === "P2028" || isConnectTimeout(error)) {
+		throw new DatabaseTransactionError(TRANSACTION_START_HINT, {
+			cause: error,
+		});
+	}
+	throw error;
 }
 
 function assertIdentity(identity: VerifiedIdentity): VerifiedIdentity {
@@ -51,7 +96,7 @@ function assertIdentity(identity: VerifiedIdentity): VerifiedIdentity {
 }
 
 export async function applyRlsContext(
-	db: BodhaDb,
+	db: MatiDb,
 	identity: VerifiedIdentity
 ): Promise<void> {
 	const safe = assertIdentity(identity);
@@ -107,24 +152,28 @@ export async function applyRlsContext(
 
 export function createRunWithDb(prisma: PrismaClient): RunWithDb {
 	return async (identity, fn) => {
-		return await prisma.$transaction(async (tx) => {
-			await applyRlsContext(tx, identity);
-			return fn(tx);
-		});
+		try {
+			return await prisma.$transaction(async (tx) => {
+				await applyRlsContext(tx, identity);
+				return fn(tx);
+			}, readPrismaTransactionOptions());
+		} catch (error) {
+			mapPrismaTransactionError(error);
+		}
 	};
 }
 
 export async function withUserDb<T>(
 	prisma: PrismaClient,
 	userId: string,
-	fn: (db: BodhaDb) => Promise<T>
+	fn: (db: MatiDb) => Promise<T>
 ): Promise<T> {
 	return await createRunWithDb(prisma)({ role: "authenticated", userId }, fn);
 }
 
 export async function withAnonDb<T>(
 	prisma: PrismaClient,
-	fn: (db: BodhaDb) => Promise<T>
+	fn: (db: MatiDb) => Promise<T>
 ): Promise<T> {
 	return await createRunWithDb(prisma)({ role: "anon" }, fn);
 }

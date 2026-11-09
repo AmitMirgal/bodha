@@ -12,7 +12,7 @@ import {
 
 const info = {
 	provider: "postgres" as const,
-	adapterName: "bodha-pglite",
+	adapterName: "mati-pglite",
 };
 
 function mapColumnType(

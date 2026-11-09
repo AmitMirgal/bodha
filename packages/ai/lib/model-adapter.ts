@@ -10,7 +10,7 @@ export function assertAgentToolsAllowed(config: ResolvedLlmConfig): void {
 		throw new ToolsUnsupportedError(
 			config.capabilities.tools === "unsupported"
 				? undefined
-				: "This provider has not proven tool calling. Save settings after a successful connection check. BODHA will not fall back to a one-shot completion."
+				: "This provider has not proven tool calling. Save settings after a successful connection check. Mati will not fall back to a one-shot completion."
 		);
 	}
 }

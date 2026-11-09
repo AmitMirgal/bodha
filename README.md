@@ -1,31 +1,41 @@
-# BODHA
+# Mati
 
-Open-source individual learning trainer. Learners sign in, run two manually maintained browser-JavaScript exercises, chat with a server-side Mastra coach, and revisit evidence-grounded reports plus personal daily progress.
+Open-source individual learning trainer (renamed from BODHA). Learners sign in, run two manually maintained browser-JavaScript exercises, chat with a server-side Mastra coach, and revisit evidence-grounded reports plus personal daily progress.
 
 This is **not** a Google interview replica and does not claim feature parity with any other product. Runtime is **browser JavaScript** via `public/harness.js`. There is no Node, Python, or ML execution sandbox.
 
-Product code lives in `apps/app`. Longer setup notes: [`docs/bodha-mvp.md`](docs/bodha-mvp.md).
+Product code lives in `apps/app`. Longer setup notes: [`docs/mati-mvp.md`](docs/mati-mvp.md).
 
-The rest of this monorepo is a next-forge workspace template (unrelated apps and packages). BODHA auth is **Supabase Auth**. BODHA data is **Supabase PostgreSQL** accessed at runtime through **Prisma 7** with per-request RLS. Do not use Clerk, Neon, or `packages/database` for BODHA.
+The rest of this monorepo is a next-forge workspace template (unrelated apps and packages). Mati auth is **Supabase Auth**. Mati data is **Supabase PostgreSQL** accessed at runtime through **Prisma 7** with per-request RLS. Do not use Clerk, Neon, Cursor-hosted Postgres, or `packages/database` for Mati.
 
-## Current trainer
+There is no `@bodha/*` or `@mati/*` workspace scope. Product packages stay `@repo/*` (for example `@repo/ai`, `@repo/design-system`).
 
-- Two exercises, authored in source: `apps/app/challenges/shelf/` and `apps/app/challenges/cache/`.
-- Server-side Mastra trainer and review agents. Provider-agnostic OpenAI-compatible protocol. BYOK (encrypted at rest) or an optional operator default.
-- Tool calling is required. Settings are not saved, and chat/report generation will not run, until a connection check proves `tool_calls`.
-- Reports assemble outcome and usage from stored evidence. Model text is coaching, not a measured score.
+## What this MVP does
+
+1. Supabase email/password accounts (no anonymous sign-ins, no auto-confirm in this repo).
+2. Two manually authored exercises (shelf, cache) with Monaco and a browser test runner.
+3. Trainer chat using the learner's own model settings.
+4. Capture of prompts, replies, provider-reported usage, test runs, and verification outcome.
+5. A post-task learning report from a Mastra agent that only reads that learner's evidence.
+6. A day-by-day progress view of that learner's stored sessions.
+7. Bring-your-own-key: provider, model, API key, and base URL, encrypted server-side. The key is never returned after save.
+
+## What it does not do
+
+Corporate/team/manager views, org dashboards, employee comparisons, billing, analytics, AI-generated exercises, a CMS, autonomous agent actions, and extra integrations.
 
 ## Architecture
 
 - **Auth:** Supabase Auth (cookie session). Server routes verify identity with `auth.getUser()`, not decode-only JWT claims.
-- **Database:** Supabase PostgreSQL. Versioned SQL in `supabase/migrations/` is the **authoritative schema and RLS**. Prisma maps those tables; it is not a second migration source.
-- **Runtime queries:** Prisma 7.4.2 + `@prisma/adapter-pg` on `DATABASE_URL` (transaction-mode pooler, port **6543**, `pgbouncer=true`). Each product operation runs in a short transaction that `SET LOCAL ROLE authenticated|anon` and sets `request.jwt.claims` / `request.jwt.claim.sub` from the verified user. Privileged `postgres` logins are not used for tenant reads/writes. After `SET LOCAL ROLE`, the request **fails closed** if `current_user` is not `authenticated`/`anon`, `is_superuser` is on, `pg_roles.rolsuper` is true, or **`pg_roles.rolbypassrls` is true**. `FORCE ROW LEVEL SECURITY` does not constrain `BYPASSRLS` roles.
-- **CLI / generate:** `DIRECT_URL` (session-mode pooler, port **5432**). Used by `prisma.config.ts` only. Never expose either URL to the browser (`NEXT_PUBLIC_*` is rejected).
-- **Unrelated packages:** `packages/database` remains the Neon Prisma client for `apps/api` and must not be mixed into BODHA.
+- **Database:** Supabase PostgreSQL. Versioned SQL in `supabase/migrations/` is the **authoritative schema and RLS**. Prisma maps those tables; it is not a second migration source. Existing SQL filenames that still say `bodha` are historical and must not be renamed.
+- **Runtime queries:** Prisma 7.4.2 + `@prisma/adapter-pg` on `DATABASE_URL` (transaction-mode pooler, port **6543**, `pgbouncer=true`). Each product operation runs in a short transaction that `SET LOCAL ROLE authenticated|anon` and sets `request.jwt.claims` / `request.jwt.claim.sub` from the verified user. After `SET LOCAL ROLE`, the request **fails closed** if `current_user` is not `authenticated`/`anon`, `is_superuser` is on, `pg_roles.rolsuper` is true, or **`pg_roles.rolbypassrls` is true**.
+- **CLI / generate:** `DIRECT_URL` (session-mode pooler, port **5432**). `prisma.config.ts` uses this URL (placeholder only for `generate` if unset). Migrate / db pull fail without `DIRECT_URL`.
+- **Transactions:** Default wait is 15s (`MATI_PRISMA_TX_MAX_WAIT_MS`); the pg pool connection timeout defaults to 10s (`MATI_PG_CONNECTION_TIMEOUT_MS`). Prisma's stock 2s `maxWait` is too short for a first cross-region pooler connection and surfaces as P2028.
+- **Models:** One OpenAI-compatible adapter in `@repo/ai`. Product code does not import provider SDKs. Capabilities (tools, usage, streaming, structured output) are probed and stored. Missing capabilities fail closed with a visible message; usage is never invented.
 
 ## Package manager
 
-pnpm workspaces (`packageManager`: `pnpm@10.33.4`, `pnpm-workspace.yaml`). Install from the **repository root**. The npm `package-lock.json` is not used. Root `.npmrc` sets `strict-peer-dependencies=false` because `streamdown` (via `@repo/ai`) requests `react-dom@^19.3.1` while this workspace pins React 19.2.4.
+pnpm workspaces (`packageManager`: `pnpm@10.33.4`). Install from the **repository root**.
 
 ```bash
 pnpm install --frozen-lockfile
@@ -34,29 +44,27 @@ pnpm --filter app prisma:generate
 pnpm --filter app dev
 ```
 
-Migration SQL is **not** applied by install, generate, or `next dev`. Apply `supabase/migrations/*.sql` yourself against an isolated non-production project you control. Do not run `prisma migrate` / `prisma db push` against a BODHA database.
+Apply `supabase/migrations/*.sql` yourself against an isolated non-production project. Do not run `prisma migrate` / `prisma db push`. Local stack: `pnpm dlx supabase start` (uses `supabase/config.toml`; `project_id` remains `bodha-dev` so existing volumes keep working).
 
-## Environment (placeholders only)
+## Environment
 
-Copy `apps/app/.env.example`. Never commit real values. Encode reserved password characters before they go in a URL (example: `p@ss` → `p%40ss` via `encodeURIComponent`).
+Copy `apps/app/.env.example`. Never commit real values. Canonical names are `MATI_*`. Matching `BODHA_*` values are still read if the `MATI_*` value is unset. Encode reserved password characters (`p@ss` → `p%40ss`).
 
-| Variable | Role |
-| --- | --- |
-| `NEXT_PUBLIC_SUPABASE_URL` | Public project URL |
-| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Public anon/publishable key (RLS still applies) |
-| `DATABASE_URL` | Server-only transaction-mode pooler (`…pooler.supabase.com:6543/postgres?pgbouncer=true`) |
-| `DIRECT_URL` | Server-only session-mode pooler (`…:5432/postgres`) for Prisma CLI |
-| `BODHA_CREDENTIALS_ENCRYPTION_KEY` | 32-byte server key (64 hex chars). Required to store BYOK keys. Fail closed if missing. |
-| `BODHA_ALLOWED_LLM_HOSTS` | Comma-separated hosts allowed for OpenAI-compatible base URLs |
-| `BODHA_ALLOW_HTTP_LLM` | `"true"` only to allow HTTP for operator-approved public hosts |
-| `BODHA_OPERATOR_LLM_PROVIDER` | Optional operator default provider |
-| `BODHA_OPERATOR_LLM_MODEL` | Optional operator default model |
-| `BODHA_OPERATOR_LLM_BASE_URL` | Optional operator default base URL |
-| `BODHA_OPERATOR_LLM_API_KEY` | Optional operator default key (server-only) |
-| `BODHA_OPERATOR_LLM_TOOLS` | Operator tool capability (`supported` / `unsupported` / `unknown`) |
-| `BODHA_PROGRESS_TIMEZONE` | Day-bucket timezone (default `UTC`) |
+| Variable | Required | Where | Role |
+| --- | --- | --- | --- |
+| `NEXT_PUBLIC_SUPABASE_URL` | yes | browser | Public project URL |
+| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | yes | browser | Public anon/publishable key |
+| `DATABASE_URL` | yes (runtime) | server | Transaction-mode pooler `:6543` |
+| `DIRECT_URL` | CLI migrate/db pull | server | Session-mode pooler `:5432` |
+| `MATI_CREDENTIALS_ENCRYPTION_KEY` | to store BYOK | server | 32-byte key (64 hex chars) |
+| `MATI_ALLOWED_LLM_HOSTS` | for BYOK | server | Comma-separated LLM hosts |
+| `MATI_ALLOW_HTTP_LLM` | no | server | `"true"` to allow HTTP for approved public hosts |
+| `MATI_OPERATOR_LLM_*` | no | server | Optional operator default |
+| `MATI_PROGRESS_TIMEZONE` | no | server | Day-bucket timezone (default `UTC`) |
+| `MATI_PRISMA_TX_MAX_WAIT_MS` | no | server | Interactive transaction acquire wait |
+| `MATI_PG_CONNECTION_TIMEOUT_MS` | no | server | pg Pool first-connection timeout |
 
-Auth callback: `{APP_ORIGIN}/auth/callback`. Add it to the isolated Supabase project's redirect allowlist. Enable Email auth. No provider-specific cloud account is mandatory beyond the database/auth project and whichever OpenAI-compatible endpoint the operator or learner chooses.
+Preview and production must use **separate** Supabase projects, pooler URLs, and encryption keys.
 
 ## Commands
 
@@ -66,42 +74,21 @@ pnpm --filter app prisma:generate
 pnpm --filter app test
 pnpm --filter app typecheck
 pnpm --filter app build
-pnpm --filter app lint:bodha
+pnpm --filter app lint:mati
 pnpm --filter app validate
 pnpm --filter @repo/ai test
 pnpm --filter @repo/ai typecheck
-pnpm check   # Ultracite/Biome at repo root (includes unrelated next-forge packages)
+pnpm check   # Ultracite/Biome at repo root (includes unused next-forge packages)
 ```
 
-`lint:bodha` covers BODHA sources plus `packages/ai` transport/provider files, `supabase/migrations`, and `docs/bodha-mvp.md`. Biome treats `[id]` in a CLI path as a glob, so those routes are linted via parent directories. Root `pnpm check` is **not** a BODHA-clean signal; it reports thousands of findings in unused template packages.
+`lint:mati` is the product lint. Root `pnpm check` is **not** a Mati-clean signal; the unused template packages report thousands of findings.
 
-### Tests that actually run vs tests that do not
+Default tests run Prisma request-path RLS against **PGlite** with stub `auth.uid()`. They do not open a remote pooler. Opt-in live PrismaPg: `MATI_LIVE_PRISMA_RLS=1` and `MATI_LIVE_ISOLATED_TARGET=1` plus an isolated `:6543` URL. Live PostgREST still needs `MATI_LIVE_SUPABASE_*` plus two user access tokens.
 
-**Executed by default `pnpm --filter app test`:** Prisma request-path RLS against **PGlite** with a **stub** `auth.uid()` (JWT GUCs only; not Supabase Auth cookies or `auth.getUser()`). That local suite includes owner/cross-user/anon isolation and fail-closed when `authenticated` is a non-superuser `BYPASSRLS` role.
+## Preview and production
 
-**Not executed by default, and not claimed as evidence here:** PrismaPg against a real Supabase transaction-mode pooler; real Supabase Auth; PostgREST with live user access tokens. There is **no** executed live pooler/Auth suite in CI or in this PR. An opt-in PrismaPg path exists (`BODHA_LIVE_PRISMA_RLS=1` **and** `BODHA_LIVE_ISOLATED_TARGET=1` plus an isolated `:6543` `DATABASE_URL` and two user UUIDs). Setting only `BODHA_LIVE_PRISMA_RLS=1` refuses without connecting. Live PostgREST (`BODHA_LIVE_SUPABASE_*` + user access tokens) is a separate skip. PGlite is not PostgREST and not the Supabase pooler.
-
-Other limits: DNS re-check on LLM fetch is not full connection pinning. Report fact-grounding is schema/citation validation, not semantic proof. Retrying a stale report claim starts a **new billed** review version.
-
-## Vercel (`apps/app` only)
-
-This repo does not deploy itself. When you deploy:
-
-1. Isolated **preview** and **production** Supabase projects. Separate `DATABASE_URL`, `DIRECT_URL`, `NEXT_PUBLIC_SUPABASE_*`, and `BODHA_CREDENTIALS_ENCRYPTION_KEY`. Do not reuse encryption keys or pooler URLs across environments.
-2. Apply `supabase/migrations/*.sql` yourself (SQL editor or `pnpm dlx supabase db push`) on that project. Do not reset a baseline that already has data.
-3. Vercel project linked to this git repo:
-   - Framework: Next.js
-   - Enable Corepack so `packageManager` (`pnpm@10.33.4`) is used
-   - Root Directory: repo root with Install `pnpm install --frozen-lockfile`, Build `pnpm --filter app build`, Output `apps/app/.next`
-   - Or Root Directory `apps/app` with a repo-root workspace install so `@repo/ai` and `@repo/design-system` resolve
-   - App `build` already runs `prisma generate` then `next build`
-4. Set the env names above on Preview and Production separately. Add `{VERCEL_URL or custom domain}/auth/callback` to Supabase Auth redirects.
-5. Production is a later step with its own project, key, and DNS.
-
-## Privacy / RLS
-
-Every product table has RLS. Owner is `auth.uid()`. Snapshots, evidence, messages, test runs, and usage are insert-only (no owner UPDATE/DELETE). Composite foreign keys block forged cross-owner links. Anonymous roles have no table grants. `FORCE ROW LEVEL SECURITY` is an additive SQL file; table owners still must pass policies. Superuser/`postgres` **and any `BYPASSRLS` role** skip RLS even when FORCE is on, which is why runtime Prisma **must** `SET LOCAL ROLE` inside each transaction and refuse to continue if `pg_roles.rolbypassrls` is still true.
+Cursor **Build Live Apps** is not used: it provisions Cursor Postgres and Cursor SSO, which would replace Supabase Auth/Postgres. Use a Vercel **preview** with a non-production Supabase project. Do not run remote migrations from this agent. **Production, custom domains, and package publish need Amit's explicit approval.**
 
 ## License
 
-The product is developed in the open. No separate license file has been chosen for BODHA yet; do not assume one.
+The product is developed in the open. No separate license file has been chosen yet; do not assume one.

@@ -17,6 +17,8 @@ const BINDING = {
 describe("credential encryption", () => {
 	afterEach(() => {
 		// biome-ignore lint/performance/noDelete: restore missing env between tests
+		delete process.env.MATI_CREDENTIALS_ENCRYPTION_KEY;
+		// biome-ignore lint/performance/noDelete: restore missing env between tests
 		delete process.env.BODHA_CREDENTIALS_ENCRYPTION_KEY;
 	});
 
@@ -25,7 +27,7 @@ describe("credential encryption", () => {
 	});
 
 	it("round-trips a secret bound to owner and provider config", () => {
-		process.env.BODHA_CREDENTIALS_ENCRYPTION_KEY = KEY;
+		process.env.MATI_CREDENTIALS_ENCRYPTION_KEY = KEY;
 		const encrypted = encryptSecret("sk-test-sentinel", OWNER, BINDING);
 		expect(encrypted.ciphertext).not.toContain("sk-test-sentinel");
 		expect(decryptSecret(encrypted, OWNER, BINDING)).toBe("sk-test-sentinel");

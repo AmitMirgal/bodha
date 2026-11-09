@@ -44,13 +44,13 @@ export async function insertOnce<T>(
 	create: () => Promise<T>,
 	findExisting: () => Promise<T | null>
 ): Promise<{ created: boolean; data: T }> {
-	await db.$executeRawUnsafe("SAVEPOINT bodha_insert_once");
+	await db.$executeRawUnsafe("SAVEPOINT mati_insert_once");
 	try {
 		const data = await create();
-		await db.$executeRawUnsafe("RELEASE SAVEPOINT bodha_insert_once");
+		await db.$executeRawUnsafe("RELEASE SAVEPOINT mati_insert_once");
 		return { created: true, data };
 	} catch (error) {
-		await db.$executeRawUnsafe("ROLLBACK TO SAVEPOINT bodha_insert_once");
+		await db.$executeRawUnsafe("ROLLBACK TO SAVEPOINT mati_insert_once");
 		if (!isPrismaUnique(error)) {
 			throw error instanceof PersistenceError ? error : new PersistenceError();
 		}

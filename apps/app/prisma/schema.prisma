@@ -1,6 +1,6 @@
-// Mapping of the BODHA product schema that already lives in
+// Mapping of the Mati product schema that already lives in
 // supabase/migrations/*.sql. This file is not an independent migration
-// source. Do not run `prisma migrate` against a BODHA database.
+// source. Do not run `prisma migrate` against a Mati database.
 
 generator client {
   provider = "prisma-client"

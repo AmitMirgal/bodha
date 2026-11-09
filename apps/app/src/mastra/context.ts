@@ -2,7 +2,7 @@ import type { RunWithDb } from "../lib/db/rls";
 
 export type AgentRole = "trainer" | "review";
 
-export interface BodhaRequestContext {
+export interface MatiRequestContext {
 	role: AgentRole;
 	runWithDb: RunWithDb;
 	sessionId: string;

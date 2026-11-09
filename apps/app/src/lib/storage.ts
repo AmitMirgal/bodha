@@ -1,4 +1,4 @@
-const WIDTH_KEY = "bodha.ui.aiWidth";
+const WIDTH_KEY = "mati.ui.aiWidth";
 
 export function loadAiWidth(): number {
 	try {

@@ -170,8 +170,8 @@ export function LlmSettingsForm() {
 						<Alert variant="destructive">
 							<AlertTitle>Encryption is not configured</AlertTitle>
 							<AlertDescription>
-								Set BODHA_CREDENTIALS_ENCRYPTION_KEY on the server. BODHA will
-								not store plaintext keys.
+								Set MATI_CREDENTIALS_ENCRYPTION_KEY on the server. Mati will not
+								store plaintext keys.
 							</AlertDescription>
 						</Alert>
 					)}

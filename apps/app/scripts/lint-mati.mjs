@@ -10,13 +10,16 @@ const targets = [
 	"apps/app/src/lib",
 	"apps/app/src/mastra",
 	"packages/ai/lib/capabilities.ts",
+	"packages/ai/lib/capabilities.test.ts",
 	"packages/ai/lib/model-adapter.ts",
 	"packages/ai/lib/provider-types.ts",
 	"packages/ai/lib/transport.ts",
+	"packages/ai/lib/transport.test.ts",
 	"packages/ai/lib/endpoint.ts",
+	"packages/ai/lib/errors.ts",
 	"packages/ai/provider.ts",
 	"supabase/migrations",
-	"docs/bodha-mvp.md",
+	"docs/mati-mvp.md",
 ];
 
 const result = spawnSync("pnpm", ["exec", "ultracite", "check", ...targets], {

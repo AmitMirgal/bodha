@@ -1,5 +1,6 @@
-# Isolated local/nonproduction Supabase for BODHA.
+# Isolated local/nonproduction Supabase for Mati.
 # Never point this at a production project.
+# project_id stays bodha-dev so existing local volumes keep working.
 
 project_id = "bodha-dev"
 

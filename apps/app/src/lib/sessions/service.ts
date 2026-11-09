@@ -10,7 +10,7 @@ import {
 	saveSessionFiles,
 	startRunningSession,
 } from "../db/queries";
-import type { BodhaDb } from "../db/rls";
+import type { MatiDb } from "../db/rls";
 import { PROGRESS_TIMEZONE } from "../env";
 import { PersistenceError } from "../errors";
 import { newIdempotencyKey, operationId } from "../idempotency";
@@ -44,7 +44,7 @@ export function assertStatus(status: string): SessionStatus {
 }
 
 export async function insertEvidence(
-	db: BodhaDb,
+	db: MatiDb,
 	input: {
 		sessionId: string;
 		userId: string;
@@ -67,7 +67,7 @@ export async function insertEvidence(
 }
 
 export async function insertUsageRecord(
-	db: BodhaDb,
+	db: MatiDb,
 	input: {
 		sessionId: string;
 		userId: string;
@@ -105,7 +105,7 @@ export async function insertUsageRecord(
 }
 
 export async function createSession(
-	db: BodhaDb,
+	db: MatiDb,
 	userId: string,
 	exerciseId: string
 ) {
@@ -127,7 +127,7 @@ export async function createSession(
 }
 
 export async function startSession(
-	db: BodhaDb,
+	db: MatiDb,
 	userId: string,
 	sessionId: string
 ) {
@@ -182,7 +182,7 @@ export async function startSession(
 }
 
 export async function saveFiles(
-	db: BodhaDb,
+	db: MatiDb,
 	_userId: string,
 	sessionId: string,
 	files: Record<string, string>,
@@ -192,7 +192,7 @@ export async function saveFiles(
 }
 
 export async function recordTestRun(
-	db: BodhaDb,
+	db: MatiDb,
 	input: {
 		userId: string;
 		sessionId: string;

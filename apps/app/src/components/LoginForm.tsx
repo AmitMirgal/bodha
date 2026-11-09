@@ -39,7 +39,7 @@ function heading(mode: AuthIntent): string {
 		case "signup":
 			return "Create your account";
 		case "signin":
-			return "Sign in to BODHA";
+			return "Sign in to Mati";
 		case "magic":
 			return "Email me a sign-in link";
 		default: {
@@ -129,7 +129,7 @@ export function LoginForm() {
 			<Card className="w-full border-border shadow-lg">
 				<CardHeader className="gap-3">
 					<p className="font-mono text-muted-foreground text-xs tracking-wide">
-						bodha
+						mati
 					</p>
 					<CardTitle className="text-2xl tracking-tight">
 						{heading(mode)}

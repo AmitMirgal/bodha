@@ -181,7 +181,7 @@ export async function generateWithBudget<T>(
 
 export async function runTrainer(input: RunInput) {
 	assertAgentToolsAllowed(input.config);
-	const agent = mastra.getAgentById("bodha-trainer");
+	const agent = mastra.getAgentById("mati-trainer");
 	const budget = BUDGETS.trainer;
 	const response = await generateWithBudget(
 		(abortSignal) =>
@@ -209,7 +209,7 @@ export async function runTrainer(input: RunInput) {
 
 export async function runReview(input: RunInput) {
 	assertAgentToolsAllowed(input.config);
-	const agent = mastra.getAgentById("bodha-review");
+	const agent = mastra.getAgentById("mati-review");
 	const budget = BUDGETS.review;
 	const response = await generateWithBudget(
 		(abortSignal) =>

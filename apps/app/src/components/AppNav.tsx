@@ -17,7 +17,7 @@ export function AppNav({ email }: { email?: string | null }) {
 	return (
 		<header className="flex flex-wrap items-center justify-between gap-3 border-b px-4 py-3">
 			<Link className="font-semibold tracking-tight" href="/">
-				BODHA
+				Mati
 			</Link>
 			<nav aria-label="Main" className="flex flex-wrap items-center gap-2">
 				<Button asChild size="sm" variant="ghost">

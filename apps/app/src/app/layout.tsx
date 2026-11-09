@@ -5,7 +5,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-	title: "BODHA",
+	title: "Mati",
 	description:
 		"Learn from how you use AI on coding tasks. Individual reports grounded in captured prompts, actions, and verification.",
 };

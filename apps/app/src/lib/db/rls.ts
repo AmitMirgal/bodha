@@ -4,11 +4,13 @@ import { readPrismaTransactionOptions } from "./connect-options";
 const UUID =
 	/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-export type RlsRole = "authenticated" | "anon";
+export type RlsRole = "authenticated" | "anon" | "device" | "capture_register";
 
 export type VerifiedIdentity =
 	| { role: "authenticated"; userId: string }
-	| { role: "anon" };
+	| { role: "anon" }
+	| { role: "device"; deviceId: string }
+	| { role: "capture_register" };
 
 export type MatiDb = Prisma.TransactionClient;
 
@@ -20,6 +22,8 @@ export type RunWithDb = <T>(
 const ROLES: Record<RlsRole, RlsRole> = {
 	authenticated: "authenticated",
 	anon: "anon",
+	device: "device",
+	capture_register: "capture_register",
 };
 
 function pgBool(value: unknown): boolean {
@@ -77,6 +81,25 @@ export function mapPrismaTransactionError(error: unknown): never {
 	throw error;
 }
 
+function claimsFor(identity: VerifiedIdentity): string {
+	switch (identity.role) {
+		case "authenticated":
+			return JSON.stringify({ sub: identity.userId, role: "authenticated" });
+		case "anon":
+			return JSON.stringify({ role: "anon" });
+		case "device":
+			return JSON.stringify({ role: "device", device_id: identity.deviceId });
+		case "capture_register":
+			return JSON.stringify({ role: "capture_register" });
+		default: {
+			const exhaustive: never = identity;
+			throw new RlsContextError(
+				`Unhandled RLS identity: ${JSON.stringify(exhaustive)}`
+			);
+		}
+	}
+}
+
 function assertIdentity(identity: VerifiedIdentity): VerifiedIdentity {
 	if (identity.role === "authenticated") {
 		if (!UUID.test(identity.userId)) {
@@ -87,6 +110,17 @@ function assertIdentity(identity: VerifiedIdentity): VerifiedIdentity {
 		return identity;
 	}
 	if (identity.role === "anon") {
+		return identity;
+	}
+	if (identity.role === "device") {
+		if (!UUID.test(identity.deviceId)) {
+			throw new RlsContextError(
+				"Verified device id is required for device Prisma access."
+			);
+		}
+		return identity;
+	}
+	if (identity.role === "capture_register") {
 		return identity;
 	}
 	const exhaustive: never = identity;
@@ -100,10 +134,7 @@ export async function applyRlsContext(
 	identity: VerifiedIdentity
 ): Promise<void> {
 	const safe = assertIdentity(identity);
-	const claims =
-		safe.role === "authenticated"
-			? JSON.stringify({ sub: safe.userId, role: "authenticated" })
-			: JSON.stringify({ role: "anon" });
+	const claims = claimsFor(safe);
 	const sub = safe.role === "authenticated" ? safe.userId : "";
 	await db.$executeRaw`SELECT set_config('request.jwt.claims', ${claims}, true)`;
 	await db.$executeRaw`SELECT set_config('request.jwt.claim.sub', ${sub}, true)`;
@@ -148,6 +179,20 @@ export async function applyRlsContext(
 			"Refusing anonymous Prisma access while auth.uid() is set."
 		);
 	}
+	if ((safe.role === "device" || safe.role === "capture_register") && row.uid) {
+		throw new RlsContextError(
+			"Refusing device Prisma access while auth.uid() is set."
+		);
+	}
+	if (safe.role === "device") {
+		const deviceRows = await db.$queryRaw<Array<{ device_id: string | null }>>`
+      SELECT public.mati_device_id()::text AS device_id`;
+		if (deviceRows[0]?.device_id !== safe.deviceId) {
+			throw new RlsContextError(
+				"Refusing to run product queries: mati_device_id() does not match the verified device."
+			);
+		}
+	}
 }
 
 export function createRunWithDb(prisma: PrismaClient): RunWithDb {
@@ -176,4 +221,19 @@ export async function withAnonDb<T>(
 	fn: (db: MatiDb) => Promise<T>
 ): Promise<T> {
 	return await createRunWithDb(prisma)({ role: "anon" }, fn);
+}
+
+export async function withDeviceDb<T>(
+	prisma: PrismaClient,
+	deviceId: string,
+	fn: (db: MatiDb) => Promise<T>
+): Promise<T> {
+	return await createRunWithDb(prisma)({ role: "device", deviceId }, fn);
+}
+
+export async function withCaptureRegisterDb<T>(
+	prisma: PrismaClient,
+	fn: (db: MatiDb) => Promise<T>
+): Promise<T> {
+	return await createRunWithDb(prisma)({ role: "capture_register" }, fn);
 }

@@ -78,6 +78,24 @@ describe("Mati migration source constraints", () => {
 		expect(fixed).not.toMatch(/drop column base_url/i);
 	});
 
+	it("adds capture tables with device RLS and no anon grants", () => {
+		const capture = readFileSync(
+			new URL(
+				"../../../../../supabase/migrations/20251109160000_capture_devices.sql",
+				import.meta.url
+			),
+			"utf8"
+		);
+		expect(capture).toMatch(/create role device /);
+		expect(capture).toMatch(/create table public.capture_tasks/);
+		expect(capture).toMatch(/force row level security/);
+		expect(capture).toMatch(
+			/grant insert, select on public.devices to capture_register/
+		);
+		expect(capture).not.toMatch(/grant .* on public.devices to anon/);
+		expect(capture).not.toMatch(/with anon db/i);
+	});
+
 	it("does not keep a second Prisma Migrate history under apps/app/prisma/migrations", () => {
 		const prismaMigrateDir = new URL(
 			"../../../prisma/migrations",

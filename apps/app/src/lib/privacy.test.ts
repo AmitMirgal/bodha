@@ -60,6 +60,21 @@ describe("privacy regressions", () => {
 		expect(upsert).not.toMatch(/base_url/);
 	});
 
+	it("does not use anonymous Auth for capture ingest", () => {
+		const auth = readFileSync(
+			new URL("./capture/auth.ts", import.meta.url),
+			"utf8"
+		);
+		const ingest = readFileSync(
+			new URL("./capture/ingest.ts", import.meta.url),
+			"utf8"
+		);
+		expect(auth).toMatch(/withDeviceDb/);
+		expect(auth).toMatch(/withCaptureRegisterDb/);
+		expect(auth).not.toMatch(/withAnonDb/);
+		expect(ingest).not.toMatch(/withAnonDb/);
+	});
+
 	it("keeps llm-settings GET on the ciphertext-free status path", () => {
 		const source = readFileSync(
 			new URL("../app/api/llm-settings/route.ts", import.meta.url),

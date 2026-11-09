@@ -263,7 +263,7 @@ importers:
     dependencies:
       '@hookform/resolvers':
         specifier: ^5.2.2
-        version: 5.9.2(@standard-schema/spec@1.1.0)(ajv@6.15.0)(effect@3.18.4)(fp-ts@2.16.11)(io-ts@2.2.22(fp-ts@2.16.11))(react-hook-form@7.91.0(@types/react@19.2.14)(react@19.2.4))(valibot@1.2.0(typescript@5.9.3))(zod@4.6.7)
+        version: 5.9.2(@standard-schema/spec@1.1.0)(ajv@8.20.0)(effect@3.18.4)(fp-ts@2.16.11)(io-ts@2.2.22(fp-ts@2.16.11))(react-hook-form@7.91.0(@types/react@19.2.14)(react@19.2.4))(valibot@1.2.0(typescript@5.9.3))(zod@4.6.7)
       '@repo/design-system':
         specifier: workspace:*
         version: link:../../packages/design-system
@@ -349,6 +349,18 @@ importers:
       prisma:
         specifier: 7.4.2
         version: 7.4.2(@types/react@19.2.14)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(typescript@5.9.3)
+
+  extensions/mati:
+    devDependencies:
+      '@types/node':
+        specifier: ^24.19.2
+        version: 24.19.2
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+      vitest:
+        specifier: ^4.0.18
+        version: 4.1.12(@opentelemetry/api@1.10.0)(@types/node@24.19.2)(vite@8.3.6(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(yaml@2.9.1))
 
   packages/ai:
     dependencies:
@@ -12829,19 +12841,6 @@ snapshots:
     dependencies:
       '@standard-schema/spec': 1.1.0
       hono: 4.13.17
-
-  '@hookform/resolvers@5.9.2(@standard-schema/spec@1.1.0)(ajv@6.15.0)(effect@3.18.4)(fp-ts@2.16.11)(io-ts@2.2.22(fp-ts@2.16.11))(react-hook-form@7.91.0(@types/react@19.2.14)(react@19.2.4))(valibot@1.2.0(typescript@5.9.3))(zod@4.6.7)':
-    dependencies:
-      '@standard-schema/utils': 0.3.0
-      react-hook-form: 7.91.0(@types/react@19.2.14)(react@19.2.4)
-    optionalDependencies:
-      '@standard-schema/spec': 1.1.0
-      ajv: 6.15.0
-      effect: 3.18.4
-      fp-ts: 2.16.11
-      io-ts: 2.2.22(fp-ts@2.16.11)
-      valibot: 1.2.0(typescript@5.9.3)
-      zod: 4.6.7
 
   '@hookform/resolvers@5.9.2(@standard-schema/spec@1.1.0)(ajv@8.20.0)(effect@3.18.4)(fp-ts@2.16.11)(io-ts@2.2.22(fp-ts@2.16.11))(react-hook-form@7.91.0(@types/react@19.2.14)(react@19.2.4))(valibot@1.2.0(typescript@5.9.3))(zod@4.6.7)':
     dependencies:

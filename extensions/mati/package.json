@@ -1,0 +1,42 @@
+{
+	"name": "mati",
+	"displayName": "Mati",
+	"description": "Capture Cursor Agent prompts for a per-task learning report. No sign-in.",
+	"version": "0.0.1",
+	"private": true,
+	"publisher": "mati",
+	"license": "Apache-2.0",
+	"type": "module",
+	"engines": {
+		"vscode": "^1.90.0"
+	},
+	"categories": ["Other"],
+	"activationEvents": ["onStartupFinished"],
+	"main": "./src/extension.ts",
+	"contributes": {
+		"commands": [
+			{
+				"command": "mati.capture.consent",
+				"title": "Mati: Start capturing"
+			},
+			{
+				"command": "mati.capture.openReport",
+				"title": "Mati: Open report"
+			},
+			{
+				"command": "mati.capture.stop",
+				"title": "Mati: Stop capturing"
+			}
+		]
+	},
+	"scripts": {
+		"typecheck": "tsc --noEmit --emitDeclarationOnly false",
+		"test": "vitest run",
+		"build": "tsc --noEmit --emitDeclarationOnly false"
+	},
+	"devDependencies": {
+		"@types/node": "^24.19.2",
+		"typescript": "^5.9.3",
+		"vitest": "^4.0.18"
+	}
+}

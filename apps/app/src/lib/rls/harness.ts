@@ -54,6 +54,10 @@ alter table public.messages force row level security;
 alter table public.test_runs force row level security;
 alter table public.reports force row level security;
 alter table public.usage_records force row level security;
+alter table public.devices force row level security;
+alter table public.capture_tasks force row level security;
+alter table public.capture_events force row level security;
+alter table public.capture_usage force row level security;
 `;
 
 export const CREATE_ROLES = `
@@ -73,7 +77,7 @@ grant anon to current_user;
 `;
 
 export const GRANT_SEQUENCES = `
-grant usage, select on all sequences in schema public to authenticated;
+grant usage, select on all sequences in schema public to authenticated, device, capture_register;
 `;
 
 export function asUser(id: string): string {

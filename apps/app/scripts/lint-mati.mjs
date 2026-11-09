@@ -23,6 +23,9 @@ const targets = [
 	"packages/ai/provider.ts",
 	"supabase/migrations",
 	"docs/mati-mvp.md",
+	"docs/extension-design.md",
+	"extensions/mati/src",
+	"extensions/mati/hooks",
 ];
 
 const result = spawnSync("pnpm", ["exec", "ultracite", "check", ...targets], {

@@ -1,6 +1,7 @@
 {
   "name": "next-forge",
   "version": "6.0.2",
+  "license": "Apache-2.0",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/vercel/next-forge.git"

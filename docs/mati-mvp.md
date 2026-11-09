@@ -8,7 +8,7 @@ This is not a Google interview replica. The product was renamed from BODHA; user
 
 **Does:** email/password accounts, two authored exercises, trainer chat, capture of prompts/replies/usage/tests/outcome, evidence-grounded learning report, progress, encrypted BYOK for five providers.
 
-**Does not:** team/manager views, billing, analytics, generated exercises, a CMS, autonomous tools, extra integrations, arbitrary LLM hosts, user-supplied base URLs.
+**Does not:** team/manager views, billing, analytics, generated exercises, a CMS, autonomous tools, extra integrations, arbitrary LLM hosts, user-supplied base URLs. Editor capture (Cursor / VS Code) is not in this MVP; see [`extension-design.md`](extension-design.md).
 
 ## Package manager
 

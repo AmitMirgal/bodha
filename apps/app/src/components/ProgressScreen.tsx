@@ -105,6 +105,10 @@ function tokenBadge(summary: ProgressSummary): string {
 	return "Not reported";
 }
 
+function tokenAmount(value: number | null): string {
+	return value == null ? "—" : String(value);
+}
+
 function tokenCell(usage: ProgressUsage): string {
 	if (usage.label === "missing") {
 		return "Not reported";
@@ -210,20 +214,20 @@ function summaryCards(summary: ProgressSummary) {
 	let tokenDetail = "No tasks yet, so there is no token total to show.";
 	let tokenSplit: Array<{ label: string; value: string }> | undefined;
 	if (summary.measured) {
-		tokenValue = `${summary.measured.inputTokens} / ${summary.measured.outputTokens} / ${summary.measured.cachedTokens}`;
-		tokenDetail = `Input / output / cached on ${summary.measured.taskCount} measured tasks. Estimated stays out of this total.`;
+		tokenValue = `${tokenAmount(summary.measured.inputTokens)} / ${tokenAmount(summary.measured.outputTokens)} / ${tokenAmount(summary.measured.cachedTokens)}`;
+		tokenDetail = `Input / output / cached on ${summary.measured.taskCount} measured tasks. Estimated stays out of this total. A dash means that field was not reported.`;
 		tokenSplit = [
-			{ label: "Input", value: String(summary.measured.inputTokens) },
-			{ label: "Output", value: String(summary.measured.outputTokens) },
-			{ label: "Cached", value: String(summary.measured.cachedTokens) },
+			{ label: "Input", value: tokenAmount(summary.measured.inputTokens) },
+			{ label: "Output", value: tokenAmount(summary.measured.outputTokens) },
+			{ label: "Cached", value: tokenAmount(summary.measured.cachedTokens) },
 		];
 	} else if (summary.estimated) {
-		tokenValue = `${summary.estimated.inputTokens} / ${summary.estimated.outputTokens}`;
+		tokenValue = `${tokenAmount(summary.estimated.inputTokens)} / ${tokenAmount(summary.estimated.outputTokens)}`;
 		tokenDetail = `Estimated only, from ${summary.estimated.taskCount} tasks. Not mixed into measured.`;
 		tokenSplit = [
-			{ label: "Input", value: String(summary.estimated.inputTokens) },
-			{ label: "Output", value: String(summary.estimated.outputTokens) },
-			{ label: "Cached", value: "—" },
+			{ label: "Input", value: tokenAmount(summary.estimated.inputTokens) },
+			{ label: "Output", value: tokenAmount(summary.estimated.outputTokens) },
+			{ label: "Cached", value: tokenAmount(summary.estimated.cachedTokens) },
 		];
 	} else if (summary.missingTaskCount > 0) {
 		tokenDetail = `${summary.missingTaskCount} tasks had no vendor token count. Totals are omitted, not guessed.`;

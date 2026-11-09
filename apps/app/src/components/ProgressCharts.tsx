@@ -12,13 +12,13 @@ import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
 import type { ProgressChartPoint } from "../lib/progress/types";
 
 const tokenConfig = {
-	input: { label: "Input", color: "var(--color-chart-1)" },
-	output: { label: "Output", color: "var(--color-chart-2)" },
-	cached: { label: "Cached", color: "var(--color-chart-3)" },
+	input: { label: "Input", color: "var(--chart-1)" },
+	output: { label: "Output", color: "var(--chart-2)" },
+	cached: { label: "Cached", color: "var(--chart-3)" },
 } satisfies ChartConfig;
 
 const promptConfig = {
-	prompts: { label: "Prompts", color: "var(--color-chart-4)" },
+	prompts: { label: "Prompts", color: "var(--chart-4)" },
 } satisfies ChartConfig;
 
 function tokenRows(points: ProgressChartPoint[]) {
@@ -35,7 +35,10 @@ export function ProgressCharts({ points }: { points: ProgressChartPoint[] }) {
 		return null;
 	}
 	const measuredDays = points.filter(
-		(point) => point.measuredInputTokens != null
+		(point) =>
+			point.measuredCachedTokens != null ||
+			point.measuredInputTokens != null ||
+			point.measuredOutputTokens != null
 	);
 	return (
 		<div className="grid gap-4 lg:grid-cols-2">

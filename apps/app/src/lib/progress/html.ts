@@ -9,6 +9,10 @@ function escapeHtml(value: string): string {
 		.replaceAll('"', "&quot;");
 }
 
+function tokenAmount(value: number | null): string {
+	return value == null ? "—" : String(value);
+}
+
 function originLabel(origin: ProgressTask["origin"]): string {
 	switch (origin) {
 		case "copilot":
@@ -87,10 +91,10 @@ function summaryHtml(view: ProgressView): string {
 	let tokenValue = "Not reported";
 	let tokenSplit = "";
 	if (measured) {
-		tokenValue = `${measured.inputTokens} / ${measured.outputTokens} / ${measured.cachedTokens}`;
-		tokenSplit = `<div class="split"><div><p class="muted">Input</p><p class="stat">${measured.inputTokens}</p></div><div><p class="muted">Output</p><p class="stat">${measured.outputTokens}</p></div><div><p class="muted">Cached</p><p class="stat">${measured.cachedTokens}</p></div></div>`;
+		tokenValue = `${tokenAmount(measured.inputTokens)} / ${tokenAmount(measured.outputTokens)} / ${tokenAmount(measured.cachedTokens)}`;
+		tokenSplit = `<div class="split"><div><p class="muted">Input</p><p class="stat">${escapeHtml(tokenAmount(measured.inputTokens))}</p></div><div><p class="muted">Output</p><p class="stat">${escapeHtml(tokenAmount(measured.outputTokens))}</p></div><div><p class="muted">Cached</p><p class="stat">${escapeHtml(tokenAmount(measured.cachedTokens))}</p></div></div>`;
 	} else if (view.summary.estimated) {
-		tokenValue = `${view.summary.estimated.inputTokens} / ${view.summary.estimated.outputTokens}`;
+		tokenValue = `${tokenAmount(view.summary.estimated.inputTokens)} / ${tokenAmount(view.summary.estimated.outputTokens)}`;
 	}
 	const tests = view.summary.tests
 		? `${view.summary.tests.passed} / ${view.summary.tests.total}`
@@ -113,7 +117,12 @@ function chartHtml(points: ProgressChartPoint[]): string {
 	if (points.length === 0) {
 		return "";
 	}
-	const measured = points.filter((point) => point.measuredInputTokens != null);
+	const measured = points.filter(
+		(point) =>
+			point.measuredCachedTokens != null ||
+			point.measuredInputTokens != null ||
+			point.measuredOutputTokens != null
+	);
 	const tokenMax = Math.max(
 		1,
 		...measured.map(
@@ -132,7 +141,7 @@ function chartHtml(points: ProgressChartPoint[]): string {
 						const input = point.measuredInputTokens ?? 0;
 						const output = point.measuredOutputTokens ?? 0;
 						const cached = point.measuredCachedTokens ?? 0;
-						return `<li><div class="row"><span>${escapeHtml(point.date)}</span><span>${input} in / ${output} out / ${cached} cached</span></div><div class="stack"><span class="in" style="width:${Math.round((input / tokenMax) * 100)}%"></span><span class="out" style="width:${Math.round((output / tokenMax) * 100)}%"></span><span class="cached" style="width:${Math.round((cached / tokenMax) * 100)}%"></span></div></li>`;
+						return `<li><div class="row"><span>${escapeHtml(point.date)}</span><span>${escapeHtml(tokenAmount(point.measuredInputTokens))} in / ${escapeHtml(tokenAmount(point.measuredOutputTokens))} out / ${escapeHtml(tokenAmount(point.measuredCachedTokens))} cached</span></div><div class="stack"><span class="in" style="width:${Math.round((input / tokenMax) * 100)}%"></span><span class="out" style="width:${Math.round((output / tokenMax) * 100)}%"></span><span class="cached" style="width:${Math.round((cached / tokenMax) * 100)}%"></span></div></li>`;
 					})
 					.join("")}</ul>`;
 	const promptBars = `<ul class="bars">${points

@@ -247,6 +247,7 @@ describe("assembleProgressView", () => {
 		expect(editorTask.origin).toBe("cursor");
 		expect(view.summary.measured).toBeNull();
 		expect(view.summary.estimated).toMatchObject({
+			cachedTokens: null,
 			inputTokens: 20,
 			outputTokens: 5,
 			taskCount: 1,
@@ -259,6 +260,38 @@ describe("assembleProgressView", () => {
 			view.chart.find((point) => point.date === "2026-11-09")
 				?.measuredInputTokens
 		).toBeNull();
+	});
+
+	it("does not treat a missing measured field as zero in totals or the chart", () => {
+		const view = assembleProgressView(
+			[
+				session({
+					usageRows: [
+						{
+							agent_role: "trainer",
+							cached_included_in_input: false,
+							cached_tokens: 2,
+							coverage: "partial",
+							input_tokens: 12,
+							native: null,
+							output_tokens: null,
+						},
+					],
+				}),
+			],
+			"UTC"
+		);
+		expect(view.summary.measured).toMatchObject({
+			cachedTokens: 2,
+			inputTokens: 12,
+			outputTokens: null,
+			taskCount: 1,
+		});
+		expect(view.chart[0]?.measuredInputTokens).toBe(12);
+		expect(view.chart[0]?.measuredOutputTokens).toBeNull();
+		expect(view.chart[0]?.measuredCachedTokens).toBe(2);
+		expect(view.trend[0]?.measuredOutputTokens).toBeNull();
+		expect(view.trend[0]?.measuredInputTokens).toBe(12);
 	});
 
 	it("does not put missing token tasks into summary totals as zero", () => {

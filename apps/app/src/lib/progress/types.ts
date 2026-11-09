@@ -72,9 +72,9 @@ export interface ProgressSection {
 }
 
 export interface ProgressTokenTotals {
-	cachedTokens: number;
-	inputTokens: number;
-	outputTokens: number;
+	cachedTokens: number | null;
+	inputTokens: number | null;
+	outputTokens: number | null;
 	taskCount: number;
 }
 

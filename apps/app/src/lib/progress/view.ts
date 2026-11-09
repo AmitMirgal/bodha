@@ -2,7 +2,7 @@ import { assembleEditorLearningReport } from "../capture/report";
 import { usageFromStoredRecords } from "../reports/assemble";
 import { type LearningReport, reportSchema } from "../reports/schema";
 import { dayBucket } from "../sessions/service";
-import { chartFromTasks, summaryFromTasks } from "./aggregate";
+import { chartFromTasks, summaryFromTasks, sumTokenField } from "./aggregate";
 import type {
 	ProgressEditorInput,
 	ProgressOrigin,
@@ -229,20 +229,12 @@ function sectionFromTasks(
 	const ordered = [...days.entries()].sort(([a], [b]) => b.localeCompare(a));
 	const trend: ProgressTrendPoint[] = ordered.map(([date, dayTasks]) => {
 		const measured = dayTasks.filter((task) => task.usage.label === "measured");
-		const input = measured.reduce(
-			(sum, task) => sum + (task.usage.inputTokens ?? 0),
-			0
-		);
-		const output = measured.reduce(
-			(sum, task) => sum + (task.usage.outputTokens ?? 0),
-			0
-		);
 		return {
 			date,
-			taskCount: dayTasks.length,
+			measuredInputTokens: sumTokenField(measured, "inputTokens"),
+			measuredOutputTokens: sumTokenField(measured, "outputTokens"),
 			measuredTaskCount: measured.length,
-			measuredInputTokens: measured.length > 0 ? input : null,
-			measuredOutputTokens: measured.length > 0 ? output : null,
+			taskCount: dayTasks.length,
 		};
 	});
 	return {

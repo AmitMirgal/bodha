@@ -21,14 +21,31 @@ function dayBucket(iso: string, timeZone: string): string {
 	return `${year}-${month}-${day}`;
 }
 
+function addKnown(into: number | null, value: number | null): number | null {
+	if (value == null) {
+		return into;
+	}
+	return (into ?? 0) + value;
+}
+
+export function sumTokenField(
+	tasks: ProgressTask[],
+	field: "cachedTokens" | "inputTokens" | "outputTokens"
+): number | null {
+	return tasks.reduce<number | null>(
+		(sum, task) => addKnown(sum, task.usage[field]),
+		null
+	);
+}
+
 function addTokens(
 	into: ProgressTokenTotals,
 	usage: ProgressUsage
 ): ProgressTokenTotals {
 	return {
-		cachedTokens: into.cachedTokens + (usage.cachedTokens ?? 0),
-		inputTokens: into.inputTokens + (usage.inputTokens ?? 0),
-		outputTokens: into.outputTokens + (usage.outputTokens ?? 0),
+		cachedTokens: addKnown(into.cachedTokens, usage.cachedTokens),
+		inputTokens: addKnown(into.inputTokens, usage.inputTokens),
+		outputTokens: addKnown(into.outputTokens, usage.outputTokens),
 		taskCount: into.taskCount + 1,
 	};
 }
@@ -46,9 +63,9 @@ export function summaryFromTasks(tasks: ProgressTask[]): ProgressSummary {
 			case "measured":
 				measured = addTokens(
 					measured ?? {
-						cachedTokens: 0,
-						inputTokens: 0,
-						outputTokens: 0,
+						cachedTokens: null,
+						inputTokens: null,
+						outputTokens: null,
 						taskCount: 0,
 					},
 					task.usage
@@ -57,9 +74,9 @@ export function summaryFromTasks(tasks: ProgressTask[]): ProgressSummary {
 			case "estimated":
 				estimated = addTokens(
 					estimated ?? {
-						cachedTokens: 0,
-						inputTokens: 0,
-						outputTokens: 0,
+						cachedTokens: null,
+						inputTokens: null,
+						outputTokens: null,
 						taskCount: 0,
 					},
 					task.usage
@@ -121,33 +138,13 @@ export function chartFromTasks(
 			const estimated = dayTasks.filter(
 				(task) => task.usage.label === "estimated"
 			);
-			const measuredInput = measured.reduce(
-				(sum, task) => sum + (task.usage.inputTokens ?? 0),
-				0
-			);
-			const measuredOutput = measured.reduce(
-				(sum, task) => sum + (task.usage.outputTokens ?? 0),
-				0
-			);
-			const measuredCached = measured.reduce(
-				(sum, task) => sum + (task.usage.cachedTokens ?? 0),
-				0
-			);
-			const estimatedInput = estimated.reduce(
-				(sum, task) => sum + (task.usage.inputTokens ?? 0),
-				0
-			);
-			const estimatedOutput = estimated.reduce(
-				(sum, task) => sum + (task.usage.outputTokens ?? 0),
-				0
-			);
 			return {
 				date,
-				estimatedInputTokens: estimated.length > 0 ? estimatedInput : null,
-				estimatedOutputTokens: estimated.length > 0 ? estimatedOutput : null,
-				measuredCachedTokens: measured.length > 0 ? measuredCached : null,
-				measuredInputTokens: measured.length > 0 ? measuredInput : null,
-				measuredOutputTokens: measured.length > 0 ? measuredOutput : null,
+				estimatedInputTokens: sumTokenField(estimated, "inputTokens"),
+				estimatedOutputTokens: sumTokenField(estimated, "outputTokens"),
+				measuredCachedTokens: sumTokenField(measured, "cachedTokens"),
+				measuredInputTokens: sumTokenField(measured, "inputTokens"),
+				measuredOutputTokens: sumTokenField(measured, "outputTokens"),
 				promptCount: dayTasks.reduce(
 					(sum, task) => sum + task.prompts.length,
 					0

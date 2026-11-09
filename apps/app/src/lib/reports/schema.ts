@@ -10,6 +10,10 @@ export const reportCitationSchema = z.object({
 		"system",
 		"consent",
 		"usage",
+		"file_edit",
+		"response",
+		"session_end",
+		"context_compact",
 	]),
 	note: z.string().min(1).max(500),
 });
@@ -61,6 +65,17 @@ export const reportSchema = z.object({
 			cachedTokens: z.number().nullable(),
 			coverage: z.enum(["complete", "partial", "unknown"]),
 		}),
+		editor: z
+			.object({
+				cachedTokens: z.number().nullable(),
+				coverage: z.enum(["complete", "partial", "unknown"]),
+				inputTokens: z.number().nullable(),
+				outputTokens: z.number().nullable(),
+				provenance: z.enum(["estimated", "measured", "missing"]),
+				reasoningTokens: z.number().nullable().optional(),
+				source: z.string(),
+			})
+			.optional(),
 		incomplete: z.boolean(),
 	}),
 	insufficientEvidence: z.array(z.string()).default([]),

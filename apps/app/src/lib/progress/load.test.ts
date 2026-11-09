@@ -1,7 +1,10 @@
+import { createHash, randomBytes } from "node:crypto";
 import { beforeAll, describe, expect, it } from "vitest";
+import { ingestBatch } from "../capture/ingest";
+import { claimDevice, startPairing } from "../capture/pair";
 import { createPrismaClient } from "../db/factory";
 import { PrismaPglite } from "../db/pglite-adapter";
-import { withUserDb } from "../db/rls";
+import { withCaptureRegisterDb, withDeviceDb, withUserDb } from "../db/rls";
 import {
 	AUTH_STUB,
 	CREATE_ROLES,
@@ -266,5 +269,70 @@ describe("loadProgressView", () => {
 				.flatMap((day) => day.tasks)
 				.some((task) => task.sessionId === SESSION_B)
 		).toBe(false);
+	});
+
+	it("lists claimed editor tasks separately from trainer sessions", async ({
+		skip: skipTest,
+	}) => {
+		if (!prisma) {
+			skipTest(skip);
+			return;
+		}
+		const tokenHash = createHash("sha256")
+			.update(randomBytes(32))
+			.digest("hex");
+		const device = await withCaptureRegisterDb(prisma, (db) =>
+			db.device.create({
+				data: {
+					consent: {
+						grantedAt: "2026-11-09T00:00:00.000Z",
+						scopes: ["prompt_text"],
+						version: 1,
+					},
+					tokenHash,
+				},
+			})
+		);
+		await withDeviceDb(prisma, device.id, (db) =>
+			ingestBatch(db, device.id, {
+				editor: "cursor",
+				editorTaskId: "conv-progress",
+				events: [
+					{
+						generationId: "g1",
+						idempotencyKey: `${device.id}:cursor:conv-progress:prompt:g1`,
+						kind: "prompt",
+						occurredAt: "2026-11-09T12:00:00.000Z",
+						text: "Fix the flaky test",
+					},
+				],
+				workspaceHash: "abc",
+			})
+		);
+		const pairing = await withUserDb(prisma, USER_A, (db) =>
+			startPairing(db, USER_A)
+		);
+		await withDeviceDb(prisma, device.id, (db) =>
+			claimDevice(db, device.id, pairing.code)
+		);
+		const view = await withUserDb(prisma, USER_A, (db) =>
+			loadProgressView(db, USER_A, "UTC")
+		);
+		const editorTask = view.editor.days
+			.flatMap((day) => day.tasks)
+			.find((task) => task.exerciseId.includes("conv-progress"));
+		expect(editorTask?.source).toBe("editor");
+		expect(editorTask?.prompts).toEqual(["Fix the flaky test"]);
+		expect(
+			view.days
+				.flatMap((day) => day.tasks)
+				.some((task) => task.source === "editor")
+		).toBe(false);
+		const asB = await withUserDb(prisma, USER_B, (db) =>
+			loadProgressView(db, USER_B, "UTC")
+		);
+		expect(
+			asB.editor.days.flatMap((day) => day.tasks).map((task) => task.exerciseId)
+		).toEqual([]);
 	});
 });

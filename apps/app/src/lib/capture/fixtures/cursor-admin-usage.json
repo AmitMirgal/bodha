@@ -1,0 +1,22 @@
+{
+  "usageEvents": [
+    {
+      "conversationId": "conv-editor-1",
+      "tokenUsage": {
+        "inputTokens": 18,
+        "outputTokens": 7,
+        "cacheReadTokens": 2,
+        "cacheWriteTokens": 1
+      }
+    },
+    {
+      "conversationId": "other-conv",
+      "tokenUsage": {
+        "inputTokens": 999,
+        "outputTokens": 999,
+        "cacheReadTokens": 0,
+        "cacheWriteTokens": 0
+      }
+    }
+  ]
+}

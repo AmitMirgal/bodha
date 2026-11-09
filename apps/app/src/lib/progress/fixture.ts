@@ -1,4 +1,8 @@
-import type { ProgressSessionInput, ProgressView } from "./types";
+import type {
+	ProgressEditorInput,
+	ProgressSessionInput,
+	ProgressView,
+} from "./types";
 import { assembleProgressView } from "./view";
 
 const promptId = "11111111-1111-4111-8111-111111111111";
@@ -86,10 +90,44 @@ const missing: ProgressSessionInput = {
 	report: null,
 };
 
+const editorTask: ProgressEditorInput = {
+	id: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+	deviceId: "dddddddd-dddd-4ddd-8ddd-dddddddddddd",
+	editor: "cursor",
+	editorTaskId: "conv-editor-1",
+	status: "closed",
+	startedAt: "2026-11-09T11:00:00.000Z",
+	finishedAt: "2026-11-09T11:10:00.000Z",
+	prompts: ["Fix the flaky test"],
+	events: [
+		{
+			id: "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee",
+			kind: "prompt",
+			occurredAt: "2026-11-09T11:00:00.000Z",
+			payload: { text: "Fix the flaky test" },
+		},
+		{
+			id: "ffffffff-ffff-4fff-8fff-ffffffffffff",
+			kind: "session_end",
+			occurredAt: "2026-11-09T11:10:00.000Z",
+			payload: { reason: "stop" },
+		},
+	],
+	usage: [
+		{
+			cachedTokens: null,
+			inputTokens: 20,
+			outputTokens: 5,
+			provenance: "estimated",
+			source: "text_estimate",
+		},
+	],
+};
+
 export function emptyProgressView(): ProgressView {
 	return assembleProgressView([], "UTC");
 }
 
 export function seededProgressView(): ProgressView {
-	return assembleProgressView([measured, missing], "UTC");
+	return assembleProgressView([measured, missing], "UTC", [editorTask]);
 }

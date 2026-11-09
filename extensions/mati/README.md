@@ -18,6 +18,14 @@ This package is not published to the VS Code Marketplace or Open VSX.
 
 To attach the device to a Mati account: generate a pairing code on Settings, then run **Mati: Claim this device**. Unclaimed devices older than 90 days are eligible for sweep. Claimed editor data can also be deleted from Settings. Trainer sessions are never deleted by these commands.
 
+## Reports
+
+Claimed editor tasks get a learning report from captured events. `/progress` keeps trainer days and adds a separate Editor section. Estimated tokens stay labelled and out of the measured bars.
+
+## Cursor Admin API
+
+Signed-in users can store an optional Cursor team Admin API key on Settings. It is encrypted like BYOK (`MATI_CREDENTIALS_ENCRYPTION_KEY`) and is not stored in the extension. Without a key, capture usage stays estimated or missing.
+
 ## Install notes
 
 A Cursor plugin (`.cursor-plugin`) is not used in this phase. Cursor does not document an API for a VS Code-compatible extension to register Agent hooks, so the extension writes `~/.cursor/hooks.json` only after explicit consent and removes that block on stop/uninstall.

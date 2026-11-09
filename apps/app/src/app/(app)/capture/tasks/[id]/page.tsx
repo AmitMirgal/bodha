@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
-import { assembleEditorLearningReport } from "../../../../../lib/capture/report";
-import { usageCopy } from "../../../../../lib/capture/usage-copy";
+import { ProgressTaskDetail } from "../../../../../components/ProgressTaskDetail";
 import { withUserDb } from "../../../../../lib/db/client";
-import { asInt, isoRequired } from "../../../../../lib/db/rows";
+import { asInt, iso, isoRequired } from "../../../../../lib/db/rows";
+import { taskFromEditor } from "../../../../../lib/progress/view";
 import { requireUser } from "../../../../../lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -47,118 +47,37 @@ export default async function CaptureTaskPage({
 			reasoningTokens: asInt(row.reasoningTokens),
 			source: row.source,
 		}));
-		const assembled = assembleEditorLearningReport({
-			taskId: task.id,
-			events,
-			usage,
-		});
-		return {
-			assembled,
-			editor: task.editor,
-			editorTaskId: task.editorTaskId,
-			events,
-		};
+		return taskFromEditor(
+			{
+				deviceId: task.deviceId,
+				editor: task.editor,
+				editorTaskId: task.editorTaskId,
+				events,
+				finishedAt: iso(task.finishedAt),
+				id: task.id,
+				prompts: events
+					.filter((event) => event.kind === "prompt")
+					.map((event) => {
+						const payload = event.payload;
+						if (
+							payload &&
+							typeof payload === "object" &&
+							"text" in payload &&
+							typeof payload.text === "string"
+						) {
+							return payload.text;
+						}
+						return "";
+					}),
+				startedAt: isoRequired(task.startedAt),
+				status: task.status,
+				usage,
+			},
+			iso(task.finishedAt) ?? isoRequired(task.startedAt)
+		);
 	});
 	if (!loaded) {
 		notFound();
 	}
-	const report = loaded.assembled.ok ? loaded.assembled.report : null;
-	const editorUsage = report?.usage.editor;
-	const prompts = loaded.events.filter((event) => event.kind === "prompt");
-	return (
-		<main className="mx-auto grid max-w-3xl gap-6 px-4 py-8">
-			<header className="grid gap-2">
-				<h1 className="font-semibold text-3xl tracking-tight">
-					{loaded.editor} · {loaded.editorTaskId}
-				</h1>
-				<p className="text-sm">
-					{usageCopy(
-						editorUsage
-							? {
-									cachedTokens: editorUsage.cachedTokens,
-									inputTokens: editorUsage.inputTokens,
-									outputTokens: editorUsage.outputTokens,
-									provenance: editorUsage.provenance,
-									reasoningTokens: editorUsage.reasoningTokens ?? null,
-									source: editorUsage.source,
-								}
-							: null,
-						loaded.editor
-					)}
-				</p>
-			</header>
-			<section aria-labelledby="prompt-timeline" className="grid gap-3">
-				<h2 className="font-medium" id="prompt-timeline">
-					Prompt timeline
-				</h2>
-				{prompts.length === 0 ? (
-					<p className="text-muted-foreground text-sm">
-						No prompts were stored for this task.
-					</p>
-				) : (
-					<ol className="grid gap-3">
-						{prompts.map((event) => {
-							const payload = event.payload;
-							const text =
-								payload &&
-								typeof payload === "object" &&
-								"text" in payload &&
-								typeof payload.text === "string"
-									? payload.text
-									: "";
-							return (
-								<li
-									className="grid gap-1 rounded-xl border bg-card p-4"
-									key={event.id}
-								>
-									<p className="text-muted-foreground text-xs">
-										{event.occurredAt}
-									</p>
-									<pre className="whitespace-pre-wrap font-mono text-sm">
-										{text || "(empty prompt)"}
-									</pre>
-									<p className="text-muted-foreground text-sm">
-										Per-prompt vendor tokens were not stored. Task totals are
-										labelled above.
-									</p>
-								</li>
-							);
-						})}
-					</ol>
-				)}
-			</section>
-			{report ? (
-				<>
-					<p>{report.summary}</p>
-					<p className="text-sm">
-						<strong>Outcome:</strong> {report.outcome.observed}
-					</p>
-					<p className="text-muted-foreground text-sm">
-						{report.outcome.verification} (
-						{report.outcome.verificationProvenance})
-					</p>
-					{report.suggestions.map((suggestion) => (
-						<section className="grid gap-1" key={suggestion.title}>
-							<h2 className="font-medium">{suggestion.title}</h2>
-							<p>
-								<strong>Improved example:</strong> {suggestion.improvedExample}
-							</p>
-							<p>
-								<strong>Why it helps:</strong> {suggestion.whyItHelps}
-							</p>
-							<p className="text-muted-foreground text-sm">
-								{suggestion.illustrative
-									? "Illustrative recommendation"
-									: "Grounded in stored prompt evidence"}
-							</p>
-						</section>
-					))}
-				</>
-			) : (
-				<p>
-					Could not assemble a learning report from the stored capture rows.
-				</p>
-			)}
-		</main>
-	);
+	return <ProgressTaskDetail task={loaded} />;
 }

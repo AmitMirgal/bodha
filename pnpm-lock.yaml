@@ -154,6 +154,9 @@ importers:
       '@supabase/supabase-js':
         specifier: ^2.86.0
         version: 2.119.0(@opentelemetry/api@1.10.0)
+      lucide-react:
+        specifier: 0.577.0
+        version: 0.577.0(react@19.2.4)
       next:
         specifier: 16.1.6
         version: 16.1.6(@babel/core@7.29.13)(@opentelemetry/api@1.10.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
@@ -266,7 +269,7 @@ importers:
     dependencies:
       '@hookform/resolvers':
         specifier: ^5.2.2
-        version: 5.9.2(@standard-schema/spec@1.1.0)(ajv@8.20.0)(effect@3.18.4)(fp-ts@2.16.11)(io-ts@2.2.22(fp-ts@2.16.11))(react-hook-form@7.91.0(@types/react@19.2.14)(react@19.2.4))(valibot@1.2.0(typescript@5.9.3))(zod@4.6.7)
+        version: 5.9.2(@standard-schema/spec@1.1.0)(ajv@6.15.0)(effect@3.18.4)(fp-ts@2.16.11)(io-ts@2.2.22(fp-ts@2.16.11))(react-hook-form@7.91.0(@types/react@19.2.14)(react@19.2.4))(valibot@1.2.0(typescript@5.9.3))(zod@4.6.7)
       '@repo/design-system':
         specifier: workspace:*
         version: link:../../packages/design-system
@@ -13308,6 +13311,19 @@ snapshots:
     dependencies:
       '@standard-schema/spec': 1.1.0
       hono: 4.13.17
+
+  '@hookform/resolvers@5.9.2(@standard-schema/spec@1.1.0)(ajv@6.15.0)(effect@3.18.4)(fp-ts@2.16.11)(io-ts@2.2.22(fp-ts@2.16.11))(react-hook-form@7.91.0(@types/react@19.2.14)(react@19.2.4))(valibot@1.2.0(typescript@5.9.3))(zod@4.6.7)':
+    dependencies:
+      '@standard-schema/utils': 0.3.0
+      react-hook-form: 7.91.0(@types/react@19.2.14)(react@19.2.4)
+    optionalDependencies:
+      '@standard-schema/spec': 1.1.0
+      ajv: 6.15.0
+      effect: 3.18.4
+      fp-ts: 2.16.11
+      io-ts: 2.2.22(fp-ts@2.16.11)
+      valibot: 1.2.0(typescript@5.9.3)
+      zod: 4.6.7
 
   '@hookform/resolvers@5.9.2(@standard-schema/spec@1.1.0)(ajv@8.20.0)(effect@3.18.4)(fp-ts@2.16.11)(io-ts@2.2.22(fp-ts@2.16.11))(react-hook-form@7.91.0(@types/react@19.2.14)(react@19.2.4))(valibot@1.2.0(typescript@5.9.3))(zod@4.6.7)':
     dependencies:

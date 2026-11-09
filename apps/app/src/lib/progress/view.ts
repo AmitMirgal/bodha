@@ -69,7 +69,7 @@ function reportStatus(
 	return "pending";
 }
 
-function taskFromSession(
+export function taskFromSession(
 	session: ProgressSessionInput,
 	occurredAt: string
 ): ProgressTask {
@@ -165,7 +165,7 @@ function progressUsageFromEditor(
 	};
 }
 
-function taskFromEditor(
+export function taskFromEditor(
 	task: ProgressEditorInput,
 	occurredAtStamp: string
 ): ProgressTask {

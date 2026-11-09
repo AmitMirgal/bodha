@@ -1,14 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { type NextRequest, NextResponse } from "next/server";
 import { getPublicSupabaseConfig } from "../env";
-
-const PUBLIC_PATHS = [
-	"/login",
-	"/auth/callback",
-	"/auth/confirm",
-	"/capture",
-	"/api/capture",
-];
+import { isPublicPath } from "./public-path";
 
 export async function updateSession(request: NextRequest) {
 	let supabaseResponse = NextResponse.next({ request });
@@ -39,14 +32,7 @@ export async function updateSession(request: NextRequest) {
 	const { data } = await supabase.auth.getClaims();
 	const userId = data?.claims?.sub;
 	const path = request.nextUrl.pathname;
-	const isPublic =
-		PUBLIC_PATHS.some(
-			(prefix) => path === prefix || path.startsWith(`${prefix}/`)
-		) ||
-		path.startsWith("/_next") ||
-		path.startsWith("/harness.js");
-
-	if (!(userId || isPublic)) {
+	if (!(userId || isPublicPath(path))) {
 		const url = request.nextUrl.clone();
 		url.pathname = "/login";
 		url.searchParams.set("next", path);

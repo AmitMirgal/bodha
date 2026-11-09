@@ -397,6 +397,8 @@ One extension, one publisher, two stores.
 
 Each PR is separately mergeable and has a check you can run without a production migrate.
 
+Docs layout: later phases append only a `Phase N implementation notes` paragraph under their own heading, and only their own `extensions/mati/README.md` section (`## Claim and deletion`, `## Reports`, `## Cursor Admin API`, `## Packaging`, and so on). Do not rewrite earlier phase notes or the shared Use steps.
+
 **Phase 1 — thinnest end-to-end (Cursor prompts only).** Device register, consent webview, Cursor user hooks (`beforeSubmitPrompt`, `afterAgentResponse`, `sessionEnd`), JSONL queue, `POST /events`, device viewer lists prompts. Usage rows stored as `missing`. No Copilot, no claim, no Mastra review, no Progress change. The device id is the bearer lookup, not a client-supplied `deviceId` field.  
 Check: documented Cursor hook payloads through `hooks/cursor.mjs` land in local Postgres via ingest and render on the device viewer. Vitest: ingest idempotency + device RLS fixture (PGlite).
 

@@ -1,6 +1,6 @@
 # Mati
 
-Open-source individual learning trainer (renamed from BODHA). Learners sign in, run two manually maintained browser-JavaScript exercises, chat with a server-side Mastra coach, and revisit evidence-grounded reports plus personal daily progress.
+Open-source individual learning trainer (renamed from BODHA). Learners sign in, run two manually maintained browser-JavaScript exercises, chat with a server-side Mastra coach, and revisit evidence-grounded reports plus personal progress.
 
 This is **not** a Google interview replica and does not claim feature parity with any other product. Runtime is **browser JavaScript** via `public/harness.js`. There is no Node, Python, or ML execution sandbox.
 

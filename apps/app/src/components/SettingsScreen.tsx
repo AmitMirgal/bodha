@@ -13,7 +13,7 @@ import { ThemeSwitcher } from "./ThemeSwitcher";
 export function SettingsScreen({ email }: { email: string }) {
 	return (
 		<main className="mx-auto grid max-w-2xl gap-6 px-4 py-8">
-			<h1 className="font-semibold text-2xl">Profile settings</h1>
+			<h1 className="font-semibold text-2xl">Settings</h1>
 			<Card>
 				<CardHeader>
 					<CardTitle>Account</CardTitle>

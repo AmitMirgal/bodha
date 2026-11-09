@@ -1,12 +1,12 @@
 # Mati individual trainer MVP
 
-Open-source individual learning product in `apps/app`. Learners sign in, run two manually maintained exercises, chat with a server-side Mastra trainer, and revisit evidence-grounded reports plus personal daily progress.
+Open-source individual learning product in `apps/app`. Learners sign in, run two manually maintained exercises, chat with a server-side Mastra trainer, and revisit evidence-grounded reports plus personal progress.
 
 This is not a Google interview replica. The product was renamed from BODHA; user-facing copy says **Mati**. Database table names and existing `supabase/migrations/*.sql` filenames are unchanged.
 
 ## What it does / does not
 
-**Does:** email/password accounts, two authored exercises, trainer chat, capture of prompts/replies/usage/tests/outcome, evidence-grounded learning report, daily progress, encrypted BYOK for five providers.
+**Does:** email/password accounts, two authored exercises, trainer chat, capture of prompts/replies/usage/tests/outcome, evidence-grounded learning report, progress, encrypted BYOK for five providers.
 
 **Does not:** team/manager views, billing, analytics, generated exercises, a CMS, autonomous tools, extra integrations, arbitrary LLM hosts, user-supplied base URLs.
 

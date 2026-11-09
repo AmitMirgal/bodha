@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
 	decryptSecret,
 	EncryptionConfigError,
@@ -15,30 +15,29 @@ const BINDING = {
 
 describe("credential encryption", () => {
 	afterEach(() => {
-		// biome-ignore lint/performance/noDelete: restore missing env between tests
-		delete process.env.MATI_CREDENTIALS_ENCRYPTION_KEY;
-		// biome-ignore lint/performance/noDelete: restore missing env between tests
-		delete process.env.BODHA_CREDENTIALS_ENCRYPTION_KEY;
+		vi.unstubAllEnvs();
 	});
 
 	it("fails closed without an encryption key", () => {
+		vi.stubEnv("MATI_CREDENTIALS_ENCRYPTION_KEY", "");
 		expect(() => getEncryptionKey()).toThrow(EncryptionConfigError);
 	});
 
 	it("does not read BODHA_* encryption keys", () => {
-		process.env.BODHA_CREDENTIALS_ENCRYPTION_KEY = KEY;
+		vi.stubEnv("MATI_CREDENTIALS_ENCRYPTION_KEY", "");
+		vi.stubEnv("BODHA_CREDENTIALS_ENCRYPTION_KEY", KEY);
 		expect(() => getEncryptionKey()).toThrow(EncryptionConfigError);
 	});
 
 	it("round-trips a secret bound to owner, provider, and model", () => {
-		process.env.MATI_CREDENTIALS_ENCRYPTION_KEY = KEY;
+		vi.stubEnv("MATI_CREDENTIALS_ENCRYPTION_KEY", KEY);
 		const encrypted = encryptSecret("sk-test-sentinel", OWNER, BINDING);
 		expect(encrypted.ciphertext).not.toContain("sk-test-sentinel");
 		expect(decryptSecret(encrypted, OWNER, BINDING)).toBe("sk-test-sentinel");
 	});
 
 	it("rejects cross-user decryption", () => {
-		process.env.MATI_CREDENTIALS_ENCRYPTION_KEY = KEY;
+		vi.stubEnv("MATI_CREDENTIALS_ENCRYPTION_KEY", KEY);
 		const encrypted = encryptSecret("sk-test-sentinel", OWNER, BINDING);
 		expect(() =>
 			decryptSecret(encrypted, "22222222-2222-4222-8222-222222222222", BINDING)
@@ -46,7 +45,7 @@ describe("credential encryption", () => {
 	});
 
 	it("rejects provider or model binding swaps", () => {
-		process.env.MATI_CREDENTIALS_ENCRYPTION_KEY = KEY;
+		vi.stubEnv("MATI_CREDENTIALS_ENCRYPTION_KEY", KEY);
 		const encrypted = encryptSecret("sk-test-sentinel", OWNER, BINDING);
 		expect(() =>
 			decryptSecret(encrypted, OWNER, { ...BINDING, provider: "anthropic" })

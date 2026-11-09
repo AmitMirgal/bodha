@@ -11,7 +11,34 @@ export interface CaptureUsageView {
 	inputTokens: number | null;
 	outputTokens: number | null;
 	provenance: string;
+	reasoningTokens?: number | null;
 	source: string;
+}
+
+function tokenPart(
+	label: string,
+	value: number | null | undefined
+): string | null {
+	return value === null || value === undefined
+		? null
+		: `${label} ${String(value)}`;
+}
+
+function missingMeasuredFields(row: CaptureUsageView): string[] {
+	const missing: string[] = [];
+	if (row.inputTokens === null) {
+		missing.push("input");
+	}
+	if (row.outputTokens === null) {
+		missing.push("output");
+	}
+	if (row.cachedTokens === null) {
+		missing.push("cached");
+	}
+	if (row.reasoningTokens === null || row.reasoningTokens === undefined) {
+		missing.push("reasoning");
+	}
+	return missing;
 }
 
 export function preferredUsage(
@@ -28,26 +55,41 @@ export function preferredUsage(
 			inputTokens: sumKnown(estimated.map((row) => row.inputTokens)),
 			outputTokens: sumKnown(estimated.map((row) => row.outputTokens)),
 			provenance: "estimated",
+			reasoningTokens: null,
 			source: "text_estimate",
 		};
 	}
 	return rows.find((row) => row.provenance === "missing") ?? null;
 }
 
-export function usageCopy(row: CaptureUsageView | null): string {
+export function usageCopy(
+	row: CaptureUsageView | null,
+	editor = "this editor"
+): string {
 	if (!row || row.provenance === "missing") {
-		return "Token counts were not available from Cursor for this task. Totals are omitted, not guessed.";
+		return `Token counts were not available from ${editor} for this task. Totals are omitted, not guessed.`;
 	}
 	if (row.provenance === "estimated") {
 		const parts = [
-			row.inputTokens === null ? null : `input ${String(row.inputTokens)}`,
-			row.outputTokens === null ? null : `output ${String(row.outputTokens)}`,
+			tokenPart("input", row.inputTokens),
+			tokenPart("output", row.outputTokens),
 		].filter((part): part is string => part !== null);
 		const counts = parts.length > 0 ? parts.join(", ") : "no countable text";
 		return `Estimated from text length (${row.source}): ${counts}. Not vendor-reported. Do not compare with measured totals. This undercounts.`;
 	}
 	if (row.provenance === "measured") {
-		return `Reported by ${row.source}: input ${String(row.inputTokens)}, output ${String(row.outputTokens)}, cached ${String(row.cachedTokens)}.`;
+		const parts = [
+			tokenPart("input", row.inputTokens),
+			tokenPart("output", row.outputTokens),
+			tokenPart("cached", row.cachedTokens),
+			tokenPart("reasoning", row.reasoningTokens ?? null),
+		].filter((part): part is string => part !== null);
+		const missing = missingMeasuredFields(row);
+		const counts = parts.length > 0 ? parts.join(", ") : "no countable fields";
+		if (missing.length > 0) {
+			return `Partial vendor report. Reported by ${row.source}: ${counts}. Missing ${missing.join(", ")}.`;
+		}
+		return `Reported by ${row.source}: ${counts}.`;
 	}
-	return "Token counts were not available from Cursor for this task. Totals are omitted, not guessed.";
+	return `Token counts were not available from ${editor} for this task. Totals are omitted, not guessed.`;
 }

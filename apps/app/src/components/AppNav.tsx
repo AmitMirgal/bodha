@@ -42,7 +42,7 @@ export function AppNav({
 					<NavLink href="/">Exercises</NavLink>
 				</Button>
 				<Button asChild size="sm" variant="ghost">
-					<NavLink href="/progress">Daily progress</NavLink>
+					<NavLink href="/progress">Progress</NavLink>
 				</Button>
 				<AccountSlot email={email} pending={pending} />
 			</nav>

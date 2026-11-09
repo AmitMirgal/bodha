@@ -4,6 +4,7 @@ import {
 	CardHeader,
 	CardTitle,
 } from "@repo/design-system/components/ui/card";
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { NavLink } from "../../../components/NavLink";
 import { withUserDb } from "../../../lib/db/client";
@@ -13,6 +14,10 @@ import { dayBucket } from "../../../lib/sessions/service";
 import { requireUser } from "../../../lib/supabase/server";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = {
+	title: "Progress",
+};
 
 export default async function ProgressPage() {
 	const { userId } = await requireUser();
@@ -33,7 +38,7 @@ export default async function ProgressPage() {
 
 	return (
 		<main className="mx-auto grid max-w-3xl gap-4 px-4 py-8">
-			<h1 className="font-semibold text-2xl">Daily progress</h1>
+			<h1 className="font-semibold text-2xl">Progress</h1>
 			<p className="text-muted-foreground text-sm">
 				Days are bucketed in {PROGRESS_TIMEZONE}. This is a view of completed
 				and in-progress sessions, not a score or trend.

@@ -53,7 +53,7 @@ export function UserMenu({ email }: { email: string }) {
 				</DropdownMenuLabel>
 				<DropdownMenuSeparator />
 				<DropdownMenuItem asChild>
-					<NavLink href="/settings">Profile settings</NavLink>
+					<NavLink href="/settings">Settings</NavLink>
 				</DropdownMenuItem>
 				<DropdownMenuItem
 					onSelect={() => runBackground(signOut())}

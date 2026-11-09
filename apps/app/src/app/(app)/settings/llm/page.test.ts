@@ -19,6 +19,11 @@ describe("settings routes", () => {
 		expect(redirectPage).toMatch(/redirect\("\/settings"\)/);
 	});
 
+	it("shows a Settings heading, not Profile settings", () => {
+		expect(settingsScreen).toMatch(/>Settings</);
+		expect(settingsScreen).not.toMatch(/Profile settings/);
+	});
+
 	it("shows read-only profile email and the LLM form on /settings", () => {
 		expect(settingsPage).toMatch(/SettingsScreen/);
 		expect(settingsPage).not.toMatch(/AppNav/);

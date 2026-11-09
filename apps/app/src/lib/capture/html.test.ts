@@ -42,28 +42,37 @@ describe("capture viewer document", () => {
 	it("renders empty and seeded states", () => {
 		const empty = captureViewerDocument([]);
 		expect(empty).toContain("No captured Agent prompts yet.");
-		expect(empty).toContain("Totals are omitted, not guessed.");
+		expect(empty).toContain("text-length estimate and undercounts");
 		const seeded = captureViewerDocument([
 			{
 				editor: "cursor",
 				editorTaskId: "conv-1",
+				filePaths: ["app.ts"],
 				id: "task-1",
 				prompts: ["Fix the flaky test"],
 				status: "closed",
+				usage: [
+					{
+						cachedTokens: null,
+						inputTokens: 5,
+						outputTokens: 2,
+						provenance: "estimated",
+						source: "text_estimate",
+					},
+				],
 			},
 		]);
 		expect(seeded).toContain("Fix the flaky test");
+		expect(seeded).toContain("Estimated from text length");
+		expect(seeded).toContain("This undercounts");
+		expect(seeded).toContain("app.ts");
 		expect(seeded).not.toContain("0 tokens");
-		writeViewer("capture-viewer-empty", empty);
-		writeViewer("capture-viewer-seeded", seeded);
+		writeViewer("capture-viewer-estimate", seeded);
 	});
 
-	it("screenshots empty and seeded viewer HTML", () => {
-		const emptyPath = `${ARTIFACTS}/capture-viewer-empty.html`;
-		const seededPath = `${ARTIFACTS}/capture-viewer-seeded.html`;
-		screenshot("capture-viewer-empty", emptyPath);
-		screenshot("capture-viewer-seeded", seededPath);
-		expect(existsSync(`${ARTIFACTS}/capture-viewer-empty.png`)).toBe(true);
-		expect(existsSync(`${ARTIFACTS}/capture-viewer-seeded.png`)).toBe(true);
+	it("screenshots estimated viewer HTML", () => {
+		const seededPath = `${ARTIFACTS}/capture-viewer-estimate.html`;
+		screenshot("capture-viewer-estimate", seededPath);
+		expect(existsSync(`${ARTIFACTS}/capture-viewer-estimate.png`)).toBe(true);
 	}, 30_000);
 });

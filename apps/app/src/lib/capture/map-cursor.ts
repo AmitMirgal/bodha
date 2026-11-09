@@ -47,17 +47,23 @@ export function ingestBatchFromCursorHook(
 	return {
 		editor: "cursor",
 		editorTaskId: parsed.conversationId,
-		workspaceHash,
 		events: [
 			{
+				attachmentNames: attachmentNames(raw),
+				contextTokens: parsed.contextTokens ?? undefined,
+				contextUsagePercent: parsed.contextUsagePercent ?? undefined,
+				contextWindowSize: parsed.contextWindowSize ?? undefined,
+				editCount: parsed.editCount ?? undefined,
+				generationId: parsed.generationId,
 				idempotencyKey: `cursor:${parsed.conversationId}:${kind}:${generationId}`,
 				kind,
 				occurredAt: stamp,
-				generationId: parsed.generationId,
-				text: parsed.prompt ?? parsed.responseText ?? undefined,
-				attachmentNames: attachmentNames(raw),
+				path: parsed.filePath ?? undefined,
 				reason: parsed.reason ?? undefined,
+				text: parsed.prompt ?? parsed.responseText ?? undefined,
+				trigger: parsed.trigger ?? undefined,
 			},
 		],
+		workspaceHash,
 	};
 }

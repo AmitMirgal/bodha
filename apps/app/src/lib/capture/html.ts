@@ -1,9 +1,19 @@
+import { preferredUsage, usageCopy } from "./usage-copy";
+
 export interface CaptureViewerTask {
 	editor: string;
 	editorTaskId: string;
+	filePaths: string[];
 	id: string;
 	prompts: string[];
 	status: string;
+	usage: Array<{
+		cachedTokens: number | null;
+		inputTokens: number | null;
+		outputTokens: number | null;
+		provenance: string;
+		source: string;
+	}>;
 }
 
 export function captureViewerDocument(tasks: CaptureViewerTask[]): string {
@@ -21,11 +31,17 @@ export function captureViewerDocument(tasks: CaptureViewerTask[]): string {
 												`<li class="prompt">${escapeHtml(prompt)}</li>`
 										)
 										.join("")}</ul>`;
+						const files =
+							task.filePaths.length === 0
+								? ""
+								: `<p class="muted">Edited files: ${escapeHtml(task.filePaths.join(", "))}</p>`;
 						return `<section class="task">
 <h2>${escapeHtml(task.editor)} · ${escapeHtml(task.status)}</h2>
 <p class="muted">Conversation ${escapeHtml(task.editorTaskId)}</p>
+<p>${escapeHtml(usageCopy(preferredUsage(task.usage)))}</p>
 <h3>Prompts</h3>
 ${prompts}
+${files}
 </section>`;
 					})
 					.join("");
@@ -48,7 +64,7 @@ ul{list-style:none;padding:0;margin:0;display:grid;gap:.5rem}
 <body>
 <main>
 <h1>Your editor tasks</h1>
-<p class="muted">This view is tied to this device. It is not a Mati account. Token counts were not available from Cursor for these tasks. Totals are omitted, not guessed.</p>
+<p class="muted">This view is tied to this device. It is not a Mati account. Cursor hooks do not report vendor token counts. Any number below is a labelled text-length estimate and undercounts.</p>
 ${body}
 </main>
 </body>

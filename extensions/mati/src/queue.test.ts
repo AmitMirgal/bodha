@@ -14,7 +14,7 @@ describe("queue drain", () => {
 				conversation_id: "conv-1",
 				generation_id: "g1",
 				hook_event_name: "beforeSubmitPrompt",
-				prompt: "Fix the flaky test",
+				prompt: "Fix the flaky test AKIAIOSFODNN7EXAMPLE",
 				user_email: "secret@example.com",
 				timestamp: "2026-11-09T12:00:00.000Z",
 			})}\n`
@@ -33,7 +33,9 @@ describe("queue drain", () => {
 			},
 		});
 		expect(result.posted).toBe(1);
-		expect(bodies[0]).toContain("Fix the flaky test");
+		expect(bodies[0]).toContain("Fix the flaky test [redacted:aws_access_key]");
+		expect(bodies[0]).toContain("text_estimate");
+		expect(bodies[0]).not.toContain("AKIAIOSFODNN7EXAMPLE");
 		expect(bodies[0]).not.toContain("secret@example.com");
 		expect(workspaceHashFromFolders(["/Users/amit/mati"])).toMatch(
 			/^[0-9a-f]{64}$/

@@ -4,8 +4,10 @@ import path from "node:path";
 
 const MATI_HOOK_MARKER = ".mati/hooks/cursor.mjs";
 const HOOK_EVENTS = [
-	"beforeSubmitPrompt",
 	"afterAgentResponse",
+	"afterFileEdit",
+	"beforeSubmitPrompt",
+	"preCompact",
 	"sessionEnd",
 ] as const;
 

@@ -1,7 +1,13 @@
+import { assembleEditorLearningReport } from "../capture/report";
 import { usageFromStoredRecords } from "../reports/assemble";
-import { reportSchema } from "../reports/schema";
+import { type LearningReport, reportSchema } from "../reports/schema";
 import { dayBucket } from "../sessions/service";
+import { chartFromTasks, summaryFromTasks, sumTokenField } from "./aggregate";
 import type {
+	ProgressEditorInput,
+	ProgressOrigin,
+	ProgressPromptTurn,
+	ProgressSection,
 	ProgressSessionInput,
 	ProgressTask,
 	ProgressTrendPoint,
@@ -9,6 +15,8 @@ import type {
 	ProgressView,
 	TokenCoverage,
 } from "./types";
+
+export { chartFromTasks, summaryFromTasks, usageCopy } from "./aggregate";
 
 function coverageOf(value: string): TokenCoverage {
 	switch (value) {
@@ -72,14 +80,23 @@ function taskFromSession(
 			? null
 			: reportSchema.safeParse(session.report.body);
 	const body = parsed?.success ? parsed.data : null;
+	const prompts = session.prompts.filter((prompt) => prompt.trim().length > 0);
 	return {
 		source: "trainer",
+		origin: "trainer",
 		sessionId: session.id,
 		exerciseId: session.exerciseId,
 		status: session.status,
 		occurredAt,
 		reportHref: `/session/${session.id}/report`,
-		prompts: session.prompts.filter((prompt) => prompt.trim().length > 0),
+		prompts,
+		promptTurns: promptTurnsFromTexts(prompts, {
+			inputTokens: null,
+			outputTokens: null,
+			cachedTokens: null,
+			coverage: "unknown",
+			label: "missing",
+		}),
 		usage,
 		reportStatus: status,
 		outcome: body
@@ -112,62 +129,212 @@ function occurredAt(session: ProgressSessionInput): string {
 	return session.finishedAt ?? session.startedAt ?? session.createdAt;
 }
 
-export function assembleProgressView(
-	sessions: ProgressSessionInput[],
-	timezone: string
-): ProgressView {
+function progressUsageFromEditor(
+	editor: NonNullable<LearningReport["usage"]["editor"]> | null | undefined
+): ProgressUsage {
+	if (!editor || editor.provenance === "missing") {
+		return {
+			inputTokens: null,
+			outputTokens: null,
+			cachedTokens: null,
+			reasoningTokens: null,
+			coverage: "unknown",
+			label: "missing",
+			source: editor?.source ?? "none",
+		};
+	}
+	if (editor.provenance === "estimated") {
+		return {
+			inputTokens: editor.inputTokens,
+			outputTokens: editor.outputTokens,
+			cachedTokens: null,
+			reasoningTokens: null,
+			coverage: "partial",
+			label: "estimated",
+			source: editor.source,
+		};
+	}
+	return {
+		inputTokens: editor.inputTokens,
+		outputTokens: editor.outputTokens,
+		cachedTokens: editor.cachedTokens,
+		reasoningTokens: editor.reasoningTokens ?? null,
+		coverage: editor.coverage,
+		label: "measured",
+		source: editor.source,
+	};
+}
+
+function taskFromEditor(
+	task: ProgressEditorInput,
+	occurredAtStamp: string
+): ProgressTask {
+	const assembled = assembleEditorLearningReport({
+		taskId: task.id,
+		events: task.events,
+		usage: task.usage,
+	});
+	const body = assembled.ok ? assembled.report : null;
+	const prompts = task.prompts.filter((prompt) => prompt.trim().length > 0);
+	const usage = progressUsageFromEditor(body?.usage.editor);
+	return {
+		source: "editor",
+		origin: originFromEditor(task.editor),
+		sessionId: task.id,
+		exerciseId: `${task.editor} · ${task.editorTaskId}`,
+		status: task.status,
+		occurredAt: occurredAtStamp,
+		reportHref: `/capture/tasks/${task.id}`,
+		prompts,
+		promptTurns: promptTurnsFromEvents(task, usage),
+		usage,
+		reportStatus: body ? "complete" : "none",
+		outcome: body
+			? {
+					observed: body.outcome.observed,
+					verification: body.outcome.verification,
+					verificationProvenance: body.outcome.verificationProvenance,
+				}
+			: null,
+		tests: {
+			found: false,
+			passed: null,
+			failed: null,
+			total: null,
+		},
+		suggestions: body
+			? body.suggestions.map((suggestion) => ({
+					title: suggestion.title,
+					improvedExample: suggestion.improvedExample,
+					whyItHelps: suggestion.whyItHelps,
+					illustrative: suggestion.illustrative,
+				}))
+			: [],
+	};
+}
+
+function sectionFromTasks(
+	tasks: ProgressTask[],
+	timezone: string,
+	occurred: string[]
+): ProgressSection {
 	const days = new Map<string, ProgressTask[]>();
-	for (const session of sessions) {
-		const stamp = occurredAt(session);
+	tasks.forEach((task, index) => {
+		const stamp = occurred[index] ?? task.occurredAt;
 		const date = dayBucket(stamp, timezone);
 		const list = days.get(date) ?? [];
-		list.push(taskFromSession(session, stamp));
+		list.push(task);
 		days.set(date, list);
-	}
+	});
 	const ordered = [...days.entries()].sort(([a], [b]) => b.localeCompare(a));
-	const trend: ProgressTrendPoint[] = ordered.map(([date, tasks]) => {
-		const measured = tasks.filter((task) => task.usage.label === "measured");
-		const input = measured.reduce(
-			(sum, task) => sum + (task.usage.inputTokens ?? 0),
-			0
-		);
-		const output = measured.reduce(
-			(sum, task) => sum + (task.usage.outputTokens ?? 0),
-			0
-		);
+	const trend: ProgressTrendPoint[] = ordered.map(([date, dayTasks]) => {
+		const measured = dayTasks.filter((task) => task.usage.label === "measured");
 		return {
 			date,
-			taskCount: tasks.length,
+			measuredInputTokens: sumTokenField(measured, "inputTokens"),
+			measuredOutputTokens: sumTokenField(measured, "outputTokens"),
 			measuredTaskCount: measured.length,
-			measuredInputTokens: measured.length > 0 ? input : null,
-			measuredOutputTokens: measured.length > 0 ? output : null,
+			taskCount: dayTasks.length,
 		};
 	});
 	return {
-		timezone,
-		days: ordered.map(([date, tasks]) => ({ date, tasks })),
+		days: ordered.map(([date, dayTasks]) => ({ date, tasks: dayTasks })),
 		trend,
 	};
 }
 
-export function usageCopy(usage: ProgressUsage): string {
-	if (usage.label === "missing") {
-		return "Token counts were not reported by the provider for this task. Totals are omitted, not guessed.";
+export function assembleProgressView(
+	sessions: ProgressSessionInput[],
+	timezone: string,
+	editorTasks: ProgressEditorInput[] = []
+): ProgressView {
+	const trainerTasks: ProgressTask[] = [];
+	const trainerOccurred: string[] = [];
+	for (const session of sessions) {
+		const stamp = occurredAt(session);
+		trainerOccurred.push(stamp);
+		trainerTasks.push(taskFromSession(session, stamp));
 	}
-	const cached =
-		usage.cachedTokens == null
-			? "cached not reported"
-			: `${usage.cachedTokens} cached`;
-	const input =
-		usage.inputTokens == null
-			? "input not reported"
-			: `${usage.inputTokens} input`;
-	const output =
-		usage.outputTokens == null
-			? "output not reported"
-			: `${usage.outputTokens} output`;
-	if (usage.coverage === "partial") {
-		return `${input}, ${output}, ${cached}. Partial vendor report.`;
+	const trainer = sectionFromTasks(trainerTasks, timezone, trainerOccurred);
+	const editorBuilt: ProgressTask[] = [];
+	const editorOccurred: string[] = [];
+	for (const task of editorTasks) {
+		const stamp = task.finishedAt ?? task.startedAt;
+		editorOccurred.push(stamp);
+		editorBuilt.push(taskFromEditor(task, stamp));
 	}
-	return `${input}, ${output}, ${cached}. Reported by the trainer provider.`;
+	const editor = sectionFromTasks(editorBuilt, timezone, editorOccurred);
+	const tasks = [...trainerTasks, ...editorBuilt].sort((left, right) =>
+		right.occurredAt.localeCompare(left.occurredAt)
+	);
+	return {
+		timezone,
+		days: trainer.days,
+		trend: trainer.trend,
+		editor,
+		tasks,
+		summary: summaryFromTasks(tasks),
+		chart: chartFromTasks(tasks, timezone),
+	};
+}
+
+function originFromEditor(editor: string): ProgressOrigin {
+	const value = editor.toLowerCase();
+	if (value.includes("copilot") || value.includes("vscode")) {
+		return "copilot";
+	}
+	return "cursor";
+}
+
+function promptTurnsFromTexts(
+	prompts: string[],
+	usage: ProgressUsage
+): ProgressPromptTurn[] {
+	return prompts.map((text) => ({
+		text,
+		occurredAt: null,
+		usage,
+	}));
+}
+
+function promptTurnsFromEvents(
+	task: ProgressEditorInput,
+	fallback: ProgressUsage
+): ProgressPromptTurn[] {
+	const turns = task.events
+		.filter((event) => event.kind === "prompt")
+		.map((event) => {
+			const payload = event.payload;
+			const text =
+				payload &&
+				typeof payload === "object" &&
+				"text" in payload &&
+				typeof payload.text === "string"
+					? payload.text
+					: "";
+			return {
+				text,
+				occurredAt: event.occurredAt,
+				usage: {
+					inputTokens: null,
+					outputTokens: null,
+					cachedTokens: null,
+					coverage: "unknown" as const,
+					label: "missing" as const,
+					source: fallback.source,
+				},
+			};
+		})
+		.filter((turn) => turn.text.trim().length > 0);
+	if (turns.length > 0) {
+		return turns;
+	}
+	return promptTurnsFromTexts(task.prompts, {
+		inputTokens: null,
+		outputTokens: null,
+		cachedTokens: null,
+		coverage: "unknown",
+		label: "missing",
+		source: fallback.source,
+	});
 }

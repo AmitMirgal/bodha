@@ -397,7 +397,7 @@ One extension, one publisher, two stores.
 
 Each PR is separately mergeable and has a check you can run without a production migrate.
 
-Docs layout: later phases append only a `Phase N implementation notes` paragraph under their own heading, and only their own `extensions/mati/README.md` section (`## Claim and deletion`, `## Packaging`, and so on). Do not rewrite earlier phase notes or the shared Use steps.
+Docs layout: later phases append only a `Phase N implementation notes` paragraph under their own heading, and only their own `extensions/mati/README.md` section (`## Claim and deletion`, `## Reports`, `## Cursor Admin API`, `## Packaging`, and so on). Do not rewrite earlier phase notes or the shared Use steps.
 
 **Phase 1 — thinnest end-to-end (Cursor prompts only).** Device register, consent webview, Cursor user hooks (`beforeSubmitPrompt`, `afterAgentResponse`, `sessionEnd`), JSONL queue, `POST /events`, device viewer lists prompts. Usage rows stored as `missing`. No Copilot, no claim, no Mastra review, no Progress change. The device id is the bearer lookup, not a client-supplied `deviceId` field.  
 Check: documented Cursor hook payloads through `hooks/cursor.mjs` land in local Postgres via ingest and render on the device viewer. Vitest: ingest idempotency + device RLS fixture (PGlite).
@@ -418,11 +418,17 @@ Phase 4 implementation notes (2026-11-09): pairing consume is `mati_consume_pair
 **Phase 5 — learning report + Progress.** Wire `assembleLearningReport` to `capture_events`; Mastra review tools read only that task; `/progress` lists claimed editor tasks separately from trainer sessions.  
 Check: report suggestions cite prompt evidence ids; token card uses the four copy states above; Progress day bucket shows the claimed task.
 
+Phase 5 implementation notes (2026-11-09): `assembleEditorLearningReport` maps capture events into the existing report schema, adds optional `usage.editor`, and forces `observations.tests.found: false`. Progress keeps trainer `days`/`trend` and adds `editor` with its own day buckets and measured-only bars. Mastra `mati-capture-review` can only call `get-capture-evidence` and `get-capture-usage` scoped to the request-context task id. Unclaimed devices still use the device viewer, not `/progress`.
+
 **Phase 6 — optional Cursor Admin API.** Operator-configured team key; join `conversationId`; upgrade provenance to `measured` when a match exists.  
 Check: without the key, behavior is unchanged; with a recorded API fixture, usage becomes measured.
 
+Phase 6 implementation notes (2026-11-09): the team key is stored per signed-in user in `cursor_admin_settings`, encrypted with `MATI_CREDENTIALS_ENCRYPTION_KEY` and AAD bound to `cursor_admin` / `filtered-usage-events` (same `encryptSecret` path as BYOK). It is not an env var and is not written to the extension. Join is `conversationId` → `EditorTaskId` against a recorded `filtered-usage-events` fixture. Without a stored key, capture usage is unchanged.
+
 **Phase 7 — packaging.** `extensions/mati` build, vsce/ovsx dry-run, uninstall removes Mati hook entries.  
 Check: `vsce package` produces a `.vsix` that installs in VS Code and Cursor; after uninstall, `~/.cursor/hooks.json` has no Mati command.
+
+Phase 7 implementation notes (2026-11-09): `pnpm --filter mati package` compiles `src` to CommonJS `dist` and runs `vsce package --no-dependencies`. GitHub Actions workflow `mati-extension.yml` typechecks, tests, and uploads the `.vsix`. Jobs `publish-vscode-marketplace` and `publish-open-vsx` are `if: false`. Uninstall already removes only the Mati `hooks.json` block (see `removeMatiHooks` tests). This agent does not publish.
 
 ## 8. Open questions (Amit)
 

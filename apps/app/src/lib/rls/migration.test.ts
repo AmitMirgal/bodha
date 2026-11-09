@@ -112,6 +112,22 @@ describe("Mati migration source constraints", () => {
 		expect(claim).not.toMatch(/grant .* on public.pairing_codes to anon/);
 	});
 
+	it("stores the optional Cursor Admin key encrypted like BYOK settings", () => {
+		const admin = readFileSync(
+			new URL(
+				"../../../../../supabase/migrations/20251109200000_cursor_admin_settings.sql",
+				import.meta.url
+			),
+			"utf8"
+		);
+		expect(admin).toMatch(/create table public.cursor_admin_settings/);
+		expect(admin).toMatch(/encrypted_api_key/);
+		expect(admin).toMatch(/force row level security/);
+		expect(admin).not.toMatch(
+			/grant .* on public.cursor_admin_settings to anon/
+		);
+	});
+
 	it("does not keep a second Prisma Migrate history under apps/app/prisma/migrations", () => {
 		const prismaMigrateDir = new URL(
 			"../../../prisma/migrations",

@@ -1,3 +1,4 @@
+import path from "node:path";
 import type { NextConfig } from "next";
 
 const config: NextConfig = {
@@ -9,6 +10,9 @@ const config: NextConfig = {
 		"@prisma/adapter-pg",
 		"@prisma/client",
 	],
+	turbopack: {
+		root: path.join(__dirname, "../.."),
+	},
 };
 
 export default config;

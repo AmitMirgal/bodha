@@ -75,6 +75,17 @@ describe("assembleProgressView", () => {
 		const view = assembleProgressView([], "UTC");
 		expect(view.days).toEqual([]);
 		expect(view.trend).toEqual([]);
+		expect(view.tasks).toEqual([]);
+		expect(view.chart).toEqual([]);
+		expect(view.summary).toMatchObject({
+			completedCount: 0,
+			estimated: null,
+			measured: null,
+			missingTaskCount: 0,
+			promptCount: 0,
+			taskCount: 0,
+			tests: null,
+		});
 		expect(view.timezone).toBe("UTC");
 	});
 
@@ -179,5 +190,121 @@ describe("assembleProgressView", () => {
 			outputTokens: null,
 			cachedTokens: null,
 		});
+	});
+
+	it("lists claimed editor tasks in a separate section and keeps estimates off the bar", () => {
+		const view = assembleProgressView([session({})], "UTC", [
+			{
+				id: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+				deviceId: "dddddddd-dddd-4ddd-8ddd-dddddddddddd",
+				editor: "cursor",
+				editorTaskId: "conv-editor-1",
+				status: "closed",
+				startedAt: "2026-11-09T11:00:00.000Z",
+				finishedAt: "2026-11-09T11:10:00.000Z",
+				prompts: ["Fix the flaky test"],
+				events: [
+					{
+						id: "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee",
+						kind: "prompt",
+						occurredAt: "2026-11-09T11:00:00.000Z",
+						payload: { text: "Fix the flaky test" },
+					},
+					{
+						id: "ffffffff-ffff-4fff-8fff-ffffffffffff",
+						kind: "session_end",
+						occurredAt: "2026-11-09T11:10:00.000Z",
+						payload: { reason: "stop" },
+					},
+				],
+				usage: [
+					{
+						cachedTokens: null,
+						inputTokens: 20,
+						outputTokens: 5,
+						provenance: "estimated",
+						source: "text_estimate",
+					},
+				],
+			},
+		]);
+		expect(view.days[0]?.tasks[0]?.source).toBe("trainer");
+		const editorTask = view.editor.days[0]?.tasks[0];
+		expect(editorTask?.source).toBe("editor");
+		expect(editorTask?.prompts).toEqual(["Fix the flaky test"]);
+		expect(editorTask?.usage.label).toBe("estimated");
+		expect(view.editor.trend[0]?.measuredInputTokens).toBeNull();
+		expect(view.editor.trend[0]?.taskCount).toBe(1);
+		if (!editorTask) {
+			throw new Error("expected an editor task");
+		}
+		expect(usageCopy(editorTask.usage, "editor")).toMatch(
+			/Estimated from text length/
+		);
+		expect(editorTask.outcome?.verificationProvenance).toBe(
+			"insufficient_evidence"
+		);
+		expect(editorTask.origin).toBe("cursor");
+		expect(view.summary.measured).toBeNull();
+		expect(view.summary.estimated).toMatchObject({
+			cachedTokens: null,
+			inputTokens: 20,
+			outputTokens: 5,
+			taskCount: 1,
+		});
+		expect(view.summary.missingTaskCount).toBe(1);
+		expect(view.chart.some((point) => point.estimatedInputTokens === 20)).toBe(
+			true
+		);
+		expect(
+			view.chart.find((point) => point.date === "2026-11-09")
+				?.measuredInputTokens
+		).toBeNull();
+	});
+
+	it("does not treat a missing measured field as zero in totals or the chart", () => {
+		const view = assembleProgressView(
+			[
+				session({
+					usageRows: [
+						{
+							agent_role: "trainer",
+							cached_included_in_input: false,
+							cached_tokens: 2,
+							coverage: "partial",
+							input_tokens: 12,
+							native: null,
+							output_tokens: null,
+						},
+					],
+				}),
+			],
+			"UTC"
+		);
+		expect(view.summary.measured).toMatchObject({
+			cachedTokens: 2,
+			inputTokens: 12,
+			outputTokens: null,
+			taskCount: 1,
+		});
+		expect(view.chart[0]?.measuredInputTokens).toBe(12);
+		expect(view.chart[0]?.measuredOutputTokens).toBeNull();
+		expect(view.chart[0]?.measuredCachedTokens).toBe(2);
+		expect(view.trend[0]?.measuredOutputTokens).toBeNull();
+		expect(view.trend[0]?.measuredInputTokens).toBe(12);
+	});
+
+	it("does not put missing token tasks into summary totals as zero", () => {
+		const view = assembleProgressView(
+			[session({ usageRows: [], prompts: ["Hello"] })],
+			"UTC"
+		);
+		expect(view.summary.measured).toBeNull();
+		expect(view.summary.estimated).toBeNull();
+		expect(view.summary.missingTaskCount).toBe(1);
+		expect(view.summary.promptCount).toBe(1);
+		expect(view.summary.tests).toBeNull();
+		expect(view.chart[0]?.measuredInputTokens).toBeNull();
+		expect(view.chart[0]?.promptCount).toBe(1);
 	});
 });

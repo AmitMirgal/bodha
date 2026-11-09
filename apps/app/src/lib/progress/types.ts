@@ -1,6 +1,6 @@
 export type TokenCoverage = "complete" | "partial" | "unknown";
 
-export type TokenLabel = "measured" | "missing";
+export type TokenLabel = "measured" | "estimated" | "missing";
 
 export interface ProgressUsage {
 	cachedTokens: number | null;
@@ -8,6 +8,8 @@ export interface ProgressUsage {
 	inputTokens: number | null;
 	label: TokenLabel;
 	outputTokens: number | null;
+	reasoningTokens?: number | null;
+	source?: string;
 }
 
 export interface ProgressSuggestion {
@@ -17,19 +19,29 @@ export interface ProgressSuggestion {
 	whyItHelps: string;
 }
 
+export type ProgressOrigin = "trainer" | "cursor" | "copilot";
+
+export interface ProgressPromptTurn {
+	occurredAt: string | null;
+	text: string;
+	usage: ProgressUsage;
+}
+
 export interface ProgressTask {
 	exerciseId: string;
 	occurredAt: string;
+	origin: ProgressOrigin;
 	outcome: {
 		observed: string;
 		verification: string;
 		verificationProvenance: string;
 	} | null;
 	prompts: string[];
+	promptTurns: ProgressPromptTurn[];
 	reportHref: string;
 	reportStatus: "none" | "complete" | "pending" | "error";
 	sessionId: string;
-	source: "trainer";
+	source: "trainer" | "editor";
 	status: string;
 	suggestions: ProgressSuggestion[];
 	tests: {
@@ -54,8 +66,50 @@ export interface ProgressTrendPoint {
 	taskCount: number;
 }
 
-export interface ProgressView {
+export interface ProgressSection {
 	days: ProgressDay[];
+	trend: ProgressTrendPoint[];
+}
+
+export interface ProgressTokenTotals {
+	cachedTokens: number | null;
+	inputTokens: number | null;
+	outputTokens: number | null;
+	taskCount: number;
+}
+
+export interface ProgressSummary {
+	completedCount: number;
+	estimated: ProgressTokenTotals | null;
+	measured: ProgressTokenTotals | null;
+	missingTaskCount: number;
+	promptCount: number;
+	taskCount: number;
+	tests: {
+		failed: number;
+		passed: number;
+		taskCount: number;
+		total: number;
+	} | null;
+}
+
+export interface ProgressChartPoint {
+	date: string;
+	estimatedInputTokens: number | null;
+	estimatedOutputTokens: number | null;
+	measuredCachedTokens: number | null;
+	measuredInputTokens: number | null;
+	measuredOutputTokens: number | null;
+	promptCount: number;
+	taskCount: number;
+}
+
+export interface ProgressView {
+	chart: ProgressChartPoint[];
+	days: ProgressDay[];
+	editor: ProgressSection;
+	summary: ProgressSummary;
+	tasks: ProgressTask[];
 	timezone: string;
 	trend: ProgressTrendPoint[];
 }
@@ -77,5 +131,30 @@ export interface ProgressSessionInput {
 		input_tokens: number | null;
 		native: unknown;
 		output_tokens: number | null;
+	}>;
+}
+
+export interface ProgressEditorInput {
+	deviceId: string;
+	editor: string;
+	editorTaskId: string;
+	events: Array<{
+		id: string;
+		kind: string;
+		occurredAt: string;
+		payload: unknown;
+	}>;
+	finishedAt: string | null;
+	id: string;
+	prompts: string[];
+	startedAt: string;
+	status: string;
+	usage: Array<{
+		cachedTokens: number | null;
+		inputTokens: number | null;
+		outputTokens: number | null;
+		provenance: string;
+		reasoningTokens?: number | null;
+		source: string;
 	}>;
 }

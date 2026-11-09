@@ -1,0 +1,6 @@
+**
+!dist/**
+!hooks/**
+!package.json
+!README.md
+!LICENSE.md

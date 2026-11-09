@@ -1,6 +1,11 @@
+import { promptsFromCaptureEvents } from "../capture/report";
 import type { MatiDb } from "../db/rls";
-import { iso, isoRequired, usageRow } from "../db/rows";
-import type { ProgressSessionInput, ProgressView } from "./types";
+import { asInt, iso, isoRequired, usageRow } from "../db/rows";
+import type {
+	ProgressEditorInput,
+	ProgressSessionInput,
+	ProgressView,
+} from "./types";
 import { assembleProgressView } from "./view";
 
 function promptFromEvidence(payload: unknown): string | null {
@@ -72,5 +77,44 @@ export async function loadProgressView(
 			report: report ? { status: report.status, body: report.body } : null,
 		};
 	});
-	return assembleProgressView(inputs, timezone);
+	const captureRows = await db.captureTask.findMany({
+		include: {
+			events: { orderBy: { occurredAt: "asc" } },
+			usage: true,
+		},
+		orderBy: { startedAt: "desc" },
+		where: { userId },
+	});
+	const editorInputs: ProgressEditorInput[] = captureRows.map((task) => ({
+		id: task.id,
+		deviceId: task.deviceId,
+		editor: task.editor,
+		editorTaskId: task.editorTaskId,
+		status: task.status,
+		startedAt: isoRequired(task.startedAt),
+		finishedAt: iso(task.finishedAt),
+		prompts: promptsFromCaptureEvents(
+			task.events.map((event) => ({
+				id: event.id,
+				kind: event.kind,
+				occurredAt: isoRequired(event.occurredAt),
+				payload: event.payload,
+			}))
+		),
+		events: task.events.map((event) => ({
+			id: event.id,
+			kind: event.kind,
+			occurredAt: isoRequired(event.occurredAt),
+			payload: event.payload,
+		})),
+		usage: task.usage.map((row) => ({
+			cachedTokens: asInt(row.cachedTokens),
+			inputTokens: asInt(row.inputTokens),
+			outputTokens: asInt(row.outputTokens),
+			provenance: row.provenance,
+			reasoningTokens: asInt(row.reasoningTokens),
+			source: row.source,
+		})),
+	}));
+	return assembleProgressView(inputs, timezone, editorInputs);
 }

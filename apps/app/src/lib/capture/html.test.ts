@@ -70,7 +70,15 @@ describe("capture viewer document", () => {
 		writeViewer("capture-viewer-estimate", seeded);
 	});
 
-	it("screenshots estimated viewer HTML", () => {
+	it("screenshots estimated viewer HTML when Chrome is installed", () => {
+		try {
+			execFileSync("google-chrome", ["--version"], {
+				timeout: 3000,
+				stdio: "pipe",
+			});
+		} catch {
+			return;
+		}
 		const seededPath = `${ARTIFACTS}/capture-viewer-estimate.html`;
 		screenshot("capture-viewer-estimate", seededPath);
 		expect(existsSync(`${ARTIFACTS}/capture-viewer-estimate.png`)).toBe(true);

@@ -1,10 +1,10 @@
-# BODHA Prisma mapping
+# Mati Prisma mapping
 
 `schema.prisma` maps tables created by `supabase/migrations/*.sql`.
 
-**Authoritative schema and RLS:** the SQL files under `supabase/migrations/`.
+**Authoritative schema and RLS:** the SQL files under `supabase/migrations/`. Existing filenames such as `20251108120000_bodha_mvp.sql` are historical and must not be renamed.
 
-**Do not** run `prisma migrate dev`, `prisma migrate deploy`, or `prisma db push` against a BODHA database. Those commands would create a second migration history and can drift or reset the SQL baseline.
+**Do not** run `prisma migrate dev`, `prisma migrate deploy`, or `prisma db push` against a Mati database. Those commands would create a second migration history and can drift or reset the SQL baseline.
 
 Generate the client only:
 

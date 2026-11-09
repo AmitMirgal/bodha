@@ -9,7 +9,7 @@ const migration = readFileSync(
 	"utf8"
 );
 
-describe("BODHA migration source constraints", () => {
+describe("Mati migration source constraints", () => {
 	it("does not revoke anon on unrelated public tables", () => {
 		expect(migration).not.toMatch(
 			/revoke all on all tables in schema public from anon/i

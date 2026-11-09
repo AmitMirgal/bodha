@@ -32,7 +32,10 @@ describe("inspectLivePrismaTarget", () => {
 
 	it("refuses opt-in without an isolated-target confirmation", () => {
 		const target = inspectLivePrismaTarget(
-			env({ BODHA_LIVE_ISOLATED_TARGET: undefined })
+			env({
+				BODHA_LIVE_ISOLATED_TARGET: undefined,
+				MATI_LIVE_ISOLATED_TARGET: undefined,
+			})
 		);
 		expect(target.kind).toBe("refused");
 		if (target.kind !== "refused") {

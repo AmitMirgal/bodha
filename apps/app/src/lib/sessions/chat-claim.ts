@@ -1,5 +1,5 @@
 import { findEvidencePayload } from "../db/queries";
-import type { BodhaDb } from "../db/rls";
+import type { MatiDb } from "../db/rls";
 import { insertEvidence } from "./service";
 
 export type ChatClaim =
@@ -11,7 +11,7 @@ export type ChatClaim =
 	  };
 
 export async function claimChatTurn(
-	db: BodhaDb,
+	db: MatiDb,
 	input: {
 		sessionId: string;
 		userId: string;

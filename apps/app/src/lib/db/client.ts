@@ -7,18 +7,18 @@ import {
 	readPrismaTransactionOptions,
 } from "./connect-options";
 import { createPrismaClient } from "./factory";
-import { type BodhaDb, createRunWithDb, type RunWithDb } from "./rls";
+import { createRunWithDb, type MatiDb, type RunWithDb } from "./rls";
 import { assertServerDatabaseUrl } from "./urls";
 
 const globalForPrisma = globalThis as unknown as {
-	bodhaPrisma?: PrismaClient;
+	matiPrisma?: PrismaClient;
 };
 
 export function getRuntimePrisma(): PrismaClient {
-	if (!globalForPrisma.bodhaPrisma) {
+	if (!globalForPrisma.matiPrisma) {
 		const connectionString = assertServerDatabaseUrl(process.env.DATABASE_URL);
 		const pool = readPgPoolConnectOptions();
-		globalForPrisma.bodhaPrisma = createPrismaClient(
+		globalForPrisma.matiPrisma = createPrismaClient(
 			new PrismaPg({
 				connectionString,
 				connectionTimeoutMillis: pool.connectionTimeoutMillis,
@@ -28,7 +28,7 @@ export function getRuntimePrisma(): PrismaClient {
 			{ transactionOptions: readPrismaTransactionOptions() }
 		);
 	}
-	return globalForPrisma.bodhaPrisma;
+	return globalForPrisma.matiPrisma;
 }
 
 export function runtimeRunWithDb(): RunWithDb {
@@ -37,13 +37,13 @@ export function runtimeRunWithDb(): RunWithDb {
 
 export async function withUserDb<T>(
 	userId: string,
-	fn: (db: BodhaDb) => Promise<T>
+	fn: (db: MatiDb) => Promise<T>
 ): Promise<T> {
 	return await runtimeRunWithDb()({ role: "authenticated", userId }, fn);
 }
 
 export async function withAnonDb<T>(
-	fn: (db: BodhaDb) => Promise<T>
+	fn: (db: MatiDb) => Promise<T>
 ): Promise<T> {
 	return await runtimeRunWithDb()({ role: "anon" }, fn);
 }

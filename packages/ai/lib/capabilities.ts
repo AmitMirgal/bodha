@@ -69,8 +69,8 @@ export async function probeOpenAiCompatible(
 				capabilities,
 				error:
 					capabilities.tools === "unsupported"
-						? "This endpoint rejected tool calling. BODHA will not fall back to a one-shot completion."
-						: "This endpoint did not actually execute a tool call. BODHA will not treat tool_choice=none or a 200 with no tool_calls as proof.",
+						? "This endpoint rejected tool calling. Mati will not fall back to a one-shot completion."
+						: "This endpoint did not actually execute a tool call. Mati will not treat tool_choice=none or a 200 with no tool_calls as proof.",
 			};
 		}
 		return { capabilities };
@@ -111,20 +111,19 @@ async function probeToolSupport(
 					messages: [
 						{
 							role: "user",
-							content:
-								"Call bodha_capability_ping and do not answer otherwise.",
+							content: "Call mati_capability_ping and do not answer otherwise.",
 						},
 					],
 					max_tokens: 32,
 					tool_choice: {
 						type: "function",
-						function: { name: "bodha_capability_ping" },
+						function: { name: "mati_capability_ping" },
 					},
 					tools: [
 						{
 							type: "function",
 							function: {
-								name: "bodha_capability_ping",
+								name: "mati_capability_ping",
 								description: "Capability probe only.",
 								parameters: { type: "object", properties: {} },
 							},
@@ -145,7 +144,7 @@ async function probeToolSupport(
 			const names = (body.choices ?? []).flatMap((choice) =>
 				(choice.message?.tool_calls ?? []).map((call) => call.function?.name)
 			);
-			return names.includes("bodha_capability_ping") ? "supported" : "unknown";
+			return names.includes("mati_capability_ping") ? "supported" : "unknown";
 		}
 		const text = (await response.text()).toLowerCase();
 		if (
@@ -178,7 +177,7 @@ export function describeUnsupported(
 	}
 	if (capabilities.structuredOutput === "unsupported") {
 		issues.push(
-			"Native structured output is unsupported; BODHA will validate JSON in the application instead."
+			"Native structured output is unsupported; Mati will validate JSON in the application instead."
 		);
 	}
 	if (capabilities.streaming === "unsupported") {

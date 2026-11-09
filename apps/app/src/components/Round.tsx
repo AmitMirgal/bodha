@@ -210,7 +210,7 @@ export default function Round({
 					title="Back to exercises (progress is saved)"
 					type="button"
 				>
-					<span>{"//"}</span> BODHA
+					<span>{"//"}</span> Mati
 				</button>
 				<div className="bar-title">{challenge.title}</div>
 				<div className={`clock ${urgent ? "urgent" : ""}`}>

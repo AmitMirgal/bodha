@@ -35,7 +35,7 @@ export function encodeDbPassword(password: string): string {
 	return encodeURIComponent(password);
 }
 
-export function parseBodhaPostgresUrl(raw: string, label: string): URL {
+export function parseMatiPostgresUrl(raw: string, label: string): URL {
 	if (raw.startsWith("NEXT_PUBLIC_")) {
 		throw new DatabaseUrlError(
 			`${label} must not be a public browser variable.`
@@ -74,7 +74,7 @@ export function parseBodhaPostgresUrl(raw: string, label: string): URL {
 }
 
 export function withTransactionPoolerOptions(rawUrl: string): string {
-	const parsed = parseBodhaPostgresUrl(rawUrl, "DATABASE_URL");
+	const parsed = parseMatiPostgresUrl(rawUrl, "DATABASE_URL");
 	if (
 		parsed.port === TRANSACTION_PORT &&
 		!parsed.searchParams.has("pgbouncer")
@@ -94,7 +94,7 @@ export function assertServerDatabaseUrl(rawUrl: string | undefined): string {
 }
 
 export function assertDirectUrl(rawUrl: string): string {
-	return parseBodhaPostgresUrl(rawUrl, "DIRECT_URL").toString();
+	return parseMatiPostgresUrl(rawUrl, "DIRECT_URL").toString();
 }
 
 function positionalCliTokens(argv: readonly string[]): string[] {
@@ -142,7 +142,7 @@ export function prismaCliKind(argv: readonly string[]): PrismaCliKind {
 }
 
 const CONNECTING_CLI_HINT =
-	"DIRECT_URL is required for Prisma migrate / db pull / db push. Set the session-mode pooler (port 5432). Generate can run without it. BODHA schema changes are supabase/migrations/*.sql — do not prisma migrate against a BODHA database.";
+	"DIRECT_URL is required for Prisma migrate / db pull / db push. Set the session-mode pooler (port 5432). Generate can run without it. Mati schema changes are supabase/migrations/*.sql — do not prisma migrate against a Mati database.";
 
 export function resolvePrismaCliDatasourceUrl(
 	env: PrismaCliEnv,

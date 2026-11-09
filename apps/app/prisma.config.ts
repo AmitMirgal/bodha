@@ -5,7 +5,7 @@ import { resolvePrismaCliDatasourceUrl } from "./src/lib/db/urls";
 // Client uses DATABASE_URL (transaction-mode pooler, port 6543) via
 // @prisma/adapter-pg and never reads this file's URL for product queries.
 //
-// Prisma 7's config API includes migrations.path. BODHA's single migration
+// Prisma 7's config API includes migrations.path. Mati's single migration
 // workflow is supabase/migrations/*.sql. Do not run `prisma migrate` — that
 // would create apps/app/prisma/migrations and a second history. Generate can
 // use a local placeholder when DIRECT_URL is unset; migrate / db pull fail.

@@ -4,6 +4,7 @@ import {
 	createHash,
 	randomBytes,
 } from "node:crypto";
+import { matiEnv } from "../mati-env";
 
 const ALGO = "aes-256-gcm";
 const HEX_KEY = /^[0-9a-fA-F]{64}$/;
@@ -16,10 +17,10 @@ export class EncryptionConfigError extends Error {
 }
 
 export function getEncryptionKey(): Buffer {
-	const raw = process.env.BODHA_CREDENTIALS_ENCRYPTION_KEY;
+	const raw = matiEnv("CREDENTIALS_ENCRYPTION_KEY");
 	if (!raw) {
 		throw new EncryptionConfigError(
-			"BODHA_CREDENTIALS_ENCRYPTION_KEY is not set. Refusing to store or read credentials."
+			"MATI_CREDENTIALS_ENCRYPTION_KEY is not set. Refusing to store or read credentials."
 		);
 	}
 	if (HEX_KEY.test(raw)) {
@@ -34,7 +35,7 @@ export function getEncryptionKey(): Buffer {
 		// fall through
 	}
 	throw new EncryptionConfigError(
-		"BODHA_CREDENTIALS_ENCRYPTION_KEY must be 32 bytes as 64 hex chars or base64."
+		"MATI_CREDENTIALS_ENCRYPTION_KEY must be 32 bytes as 64 hex chars or base64."
 	);
 }
 

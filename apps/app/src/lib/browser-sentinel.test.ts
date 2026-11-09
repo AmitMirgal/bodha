@@ -6,10 +6,10 @@ import { describe, expect, it } from "vitest";
 const SENTINEL = "sk-test-sentinel-local-only";
 
 describe("local fixture UI / secret sentinels (not live credentials)", () => {
-	it("does not treat BODHA_LIVE_* as the local browser fixture", () => {
-		expect(SENTINEL).not.toMatch(/^BODHA_LIVE_/);
-		expect(process.env.BODHA_LIVE_SUPABASE_URL ?? "").not.toContain(SENTINEL);
-		expect(process.env.BODHA_LIVE_USER_A_ACCESS_TOKEN ?? "").not.toContain(
+	it("does not treat MATI_LIVE_* as the local browser fixture", () => {
+		expect(SENTINEL).not.toMatch(/^MATI_LIVE_/);
+		expect(process.env.MATI_LIVE_SUPABASE_URL ?? "").not.toContain(SENTINEL);
+		expect(process.env.MATI_LIVE_USER_A_ACCESS_TOKEN ?? "").not.toContain(
 			SENTINEL
 		);
 	});
@@ -26,7 +26,7 @@ describe("local fixture UI / secret sentinels (not live credentials)", () => {
 	});
 
 	it("serves a local HTML fixture that does not echo the sentinel", async () => {
-		const html = `<!doctype html><html lang="en"><head><title>BODHA local fixture</title></head><body>
+		const html = `<!doctype html><html lang="en"><head><title>Mati local fixture</title></head><body>
 <main>
 <p>Local trainer fixture. This is not a live deployment.</p>
 <input id="apiKey" type="password" autocomplete="new-password" />
@@ -54,7 +54,7 @@ describe("local fixture UI / secret sentinels (not live credentials)", () => {
 			expect(body).toMatch(/Local trainer fixture/);
 			expect(body).toMatch(/type="password"/);
 			expect(body).not.toContain(SENTINEL);
-			expect(body).not.toMatch(/BODHA_LIVE_/);
+			expect(body).not.toMatch(/MATI_LIVE_/);
 			expect(href).toMatch(/^http:\/\/127\.0\.0\.1:/);
 		} finally {
 			server.close();

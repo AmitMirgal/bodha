@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { matiEnv } from "./mati-env";
 
 const publicSchema = z.object({
 	NEXT_PUBLIC_SUPABASE_URL: z.string().url(),
@@ -23,14 +24,14 @@ export function getPublicSupabaseConfig() {
 }
 
 export function getAllowedLlmHosts(): string[] {
-	return (process.env.BODHA_ALLOWED_LLM_HOSTS ?? "")
+	return (matiEnv("ALLOWED_LLM_HOSTS") ?? "")
 		.split(",")
 		.map((value) => value.trim().toLowerCase())
 		.filter(Boolean);
 }
 
 export function allowHttpLlm(): boolean {
-	return process.env.BODHA_ALLOW_HTTP_LLM === "true";
+	return matiEnv("ALLOW_HTTP_LLM") === "true";
 }
 
 function parseCapabilityStatus(
@@ -48,10 +49,10 @@ function parseCapabilityStatus(
 }
 
 export function getOperatorDefault() {
-	const provider = process.env.BODHA_OPERATOR_LLM_PROVIDER?.trim();
-	const model = process.env.BODHA_OPERATOR_LLM_MODEL?.trim();
-	const baseUrl = process.env.BODHA_OPERATOR_LLM_BASE_URL?.trim();
-	const apiKey = process.env.BODHA_OPERATOR_LLM_API_KEY?.trim();
+	const provider = matiEnv("OPERATOR_LLM_PROVIDER")?.trim();
+	const model = matiEnv("OPERATOR_LLM_MODEL")?.trim();
+	const baseUrl = matiEnv("OPERATOR_LLM_BASE_URL")?.trim();
+	const apiKey = matiEnv("OPERATOR_LLM_API_KEY")?.trim();
 	if (!(provider && model && baseUrl && apiKey)) {
 		return null;
 	}
@@ -62,7 +63,7 @@ export function getOperatorDefault() {
 		apiKey,
 		source: "operator_default" as const,
 		capabilities: {
-			tools: parseCapabilityStatus(process.env.BODHA_OPERATOR_LLM_TOOLS),
+			tools: parseCapabilityStatus(matiEnv("OPERATOR_LLM_TOOLS")),
 			structuredOutput: "unknown" as const,
 			streaming: "unknown" as const,
 			usageReporting: "unknown" as const,
@@ -70,4 +71,4 @@ export function getOperatorDefault() {
 	};
 }
 
-export const PROGRESS_TIMEZONE = process.env.BODHA_PROGRESS_TIMEZONE ?? "UTC";
+export const PROGRESS_TIMEZONE = matiEnv("PROGRESS_TIMEZONE") ?? "UTC";

@@ -1,6 +1,7 @@
+import { matiEnv } from "../mati-env";
 import {
 	DatabaseUrlError,
-	parseBodhaPostgresUrl,
+	parseMatiPostgresUrl,
 	withTransactionPoolerOptions,
 } from "./urls";
 
@@ -30,7 +31,7 @@ export type LivePrismaTarget =
 	  };
 
 export const LIVE_PRISMA_SKIPPED_REASON =
-	"Live PrismaPg / Supabase transaction-pooler RLS suite was not executed. Opt in only with BODHA_LIVE_PRISMA_RLS=1, BODHA_LIVE_ISOLATED_TARGET=1, an isolated DATABASE_URL on port 6543, and distinct BODHA_LIVE_USER_A_ID / BODHA_LIVE_USER_B_ID. Default CI does not open a remote database.";
+	"Live PrismaPg / Supabase transaction-pooler RLS suite was not executed. Opt in only with MATI_LIVE_PRISMA_RLS=1, MATI_LIVE_ISOLATED_TARGET=1, an isolated DATABASE_URL on port 6543, and distinct MATI_LIVE_USER_A_ID / MATI_LIVE_USER_B_ID. Default CI does not open a remote database.";
 
 function refuse(reason: string): LivePrismaTarget {
 	return { kind: "refused", reason: `${reason} No connection was opened.` };
@@ -39,12 +40,12 @@ function refuse(reason: string): LivePrismaTarget {
 export function inspectLivePrismaTarget(
 	env: LivePrismaTargetEnv
 ): LivePrismaTarget {
-	if (env.BODHA_LIVE_PRISMA_RLS !== "1") {
+	if (matiEnv("LIVE_PRISMA_RLS", env) !== "1") {
 		return { kind: "skipped", reason: LIVE_PRISMA_SKIPPED_REASON };
 	}
-	if (env.BODHA_LIVE_ISOLATED_TARGET !== "1") {
+	if (matiEnv("LIVE_ISOLATED_TARGET", env) !== "1") {
 		return refuse(
-			"Refusing live PrismaPg: set BODHA_LIVE_ISOLATED_TARGET=1 to confirm a throwaway non-production project."
+			"Refusing live PrismaPg: set MATI_LIVE_ISOLATED_TARGET=1 to confirm a throwaway non-production project."
 		);
 	}
 	const raw = env.DATABASE_URL;
@@ -58,7 +59,7 @@ export function inspectLivePrismaTarget(
 	}
 	let parsed: URL;
 	try {
-		parsed = parseBodhaPostgresUrl(raw, "DATABASE_URL");
+		parsed = parseMatiPostgresUrl(raw, "DATABASE_URL");
 	} catch (error) {
 		if (error instanceof DatabaseUrlError) {
 			return refuse(`Refusing live PrismaPg: ${error.message}`);
@@ -81,11 +82,11 @@ export function inspectLivePrismaTarget(
 			"Refusing live PrismaPg: host must be a Supabase pooler on an isolated project."
 		);
 	}
-	const userAId = env.BODHA_LIVE_USER_A_ID ?? "";
-	const userBId = env.BODHA_LIVE_USER_B_ID ?? "";
+	const userAId = matiEnv("LIVE_USER_A_ID", env) ?? "";
+	const userBId = matiEnv("LIVE_USER_B_ID", env) ?? "";
 	if (!(UUID.test(userAId) && UUID.test(userBId)) || userAId === userBId) {
 		return refuse(
-			"Refusing live PrismaPg: BODHA_LIVE_USER_A_ID and BODHA_LIVE_USER_B_ID must be distinct UUIDs of users on that isolated project."
+			"Refusing live PrismaPg: MATI_LIVE_USER_A_ID and MATI_LIVE_USER_B_ID must be distinct UUIDs of users on that isolated project."
 		);
 	}
 	return {

@@ -32,6 +32,26 @@ async function assertResolvedAddressAllowed(
 	await assertPublicDns(host);
 }
 
+export const LLM_FETCH_TIMEOUT_MS = 30_000;
+export const LLM_FETCH_MAX_BYTES = 2_000_000;
+
+function withTimeout(
+	external: AbortSignal | undefined,
+	timeoutMs: number
+): { signal: AbortSignal; cancel: () => void } {
+	const controller = new AbortController();
+	const timer = setTimeout(() => controller.abort(), timeoutMs);
+	const onAbort = () => controller.abort();
+	external?.addEventListener("abort", onAbort);
+	return {
+		signal: controller.signal,
+		cancel: () => {
+			clearTimeout(timer);
+			external?.removeEventListener("abort", onAbort);
+		},
+	};
+}
+
 export function createProtectedFetch(
 	endpoint: ValidatedEndpoint
 ): typeof fetch {
@@ -43,7 +63,28 @@ export function createProtectedFetch(
 			);
 		}
 		await assertResolvedAddressAllowed(url.hostname, endpoint);
-		const response = await fetch(url, { ...init, redirect: "manual" });
+		const timed = withTimeout(init?.signal ?? undefined, LLM_FETCH_TIMEOUT_MS);
+		let response: Response;
+		try {
+			response = await fetch(url, {
+				...init,
+				redirect: "manual",
+				signal: timed.signal,
+			});
+		} catch (error) {
+			timed.cancel();
+			if (error instanceof Error && error.name === "AbortError") {
+				throw new EndpointValidationError("LLM request timed out.");
+			}
+			throw error;
+		}
+		timed.cancel();
+		const length = response.headers.get("content-length");
+		if (length && Number(length) > LLM_FETCH_MAX_BYTES) {
+			throw new EndpointValidationError(
+				"LLM response exceeded the size limit."
+			);
+		}
 		if (response.status >= 300 && response.status < 400) {
 			const location = response.headers.get("location");
 			if (location) {

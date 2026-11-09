@@ -9,7 +9,7 @@ import {
 } from "@repo/ai/provider";
 import { decryptSecret, encryptionAvailable } from "../crypto/credentials";
 import { getLlmSecrets, getMaskedLlmRow, hasLlmSettings } from "../db/queries";
-import type { BodhaDb } from "../db/rls";
+import type { MatiDb } from "../db/rls";
 import { allowHttpLlm, getAllowedLlmHosts, getOperatorDefault } from "../env";
 
 export class LlmConfigError extends Error {
@@ -26,14 +26,14 @@ function requireSupportedTools(
 	const capabilities = parseProviderCapabilities(value);
 	if (!capabilities || capabilities.tools !== "supported") {
 		throw new LlmConfigError(
-			`${label} has not proven tool calling. Save settings after a successful connection check. BODHA will not fall back to a one-shot completion.`
+			`${label} has not proven tool calling. Save settings after a successful connection check. Mati will not fall back to a one-shot completion.`
 		);
 	}
 	return capabilities;
 }
 
 export async function getMaskedSettings(
-	db: BodhaDb,
+	db: MatiDb,
 	userId: string
 ): Promise<MaskedLlmSettings> {
 	const data = await getMaskedLlmRow(db, userId);
@@ -75,7 +75,7 @@ export async function getMaskedSettings(
 }
 
 export async function resolveLlmForUser(
-	db: BodhaDb,
+	db: MatiDb,
 	userId: string
 ): Promise<{ config: ResolvedLlmConfig; apiKey: string }> {
 	if (!encryptionAvailable() && (await hasLlmSettings(db, userId))) {

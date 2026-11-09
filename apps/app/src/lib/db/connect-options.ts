@@ -22,6 +22,10 @@ function envString(env: object, key: string): string | undefined {
 	return typeof value === "string" ? value : undefined;
 }
 
+function envPref(env: object, suffix: string): string | undefined {
+	return envString(env, `MATI_${suffix}`) ?? envString(env, `BODHA_${suffix}`);
+}
+
 function readPositiveInt(
 	raw: string | undefined,
 	fallback: number,
@@ -46,14 +50,14 @@ export function readPrismaTransactionOptions(
 ): PrismaInteractiveTransactionOptions {
 	return {
 		maxWait: readPositiveInt(
-			envString(env, "BODHA_PRISMA_TX_MAX_WAIT_MS"),
+			envPref(env, "PRISMA_TX_MAX_WAIT_MS"),
 			DEFAULT_TX_MAX_WAIT_MS,
-			"BODHA_PRISMA_TX_MAX_WAIT_MS"
+			"MATI_PRISMA_TX_MAX_WAIT_MS"
 		),
 		timeout: readPositiveInt(
-			envString(env, "BODHA_PRISMA_TX_TIMEOUT_MS"),
+			envPref(env, "PRISMA_TX_TIMEOUT_MS"),
 			DEFAULT_TX_TIMEOUT_MS,
-			"BODHA_PRISMA_TX_TIMEOUT_MS"
+			"MATI_PRISMA_TX_TIMEOUT_MS"
 		),
 	};
 }
@@ -63,19 +67,19 @@ export function readPgPoolConnectOptions(
 ): PgPoolConnectOptions {
 	return {
 		max: readPositiveInt(
-			envString(env, "BODHA_PG_POOL_MAX"),
+			envPref(env, "PG_POOL_MAX"),
 			DEFAULT_PG_POOL_MAX,
-			"BODHA_PG_POOL_MAX"
+			"MATI_PG_POOL_MAX"
 		),
 		connectionTimeoutMillis: readPositiveInt(
-			envString(env, "BODHA_PG_CONNECTION_TIMEOUT_MS"),
+			envPref(env, "PG_CONNECTION_TIMEOUT_MS"),
 			DEFAULT_PG_CONNECTION_TIMEOUT_MS,
-			"BODHA_PG_CONNECTION_TIMEOUT_MS"
+			"MATI_PG_CONNECTION_TIMEOUT_MS"
 		),
 		idleTimeoutMillis: readPositiveInt(
-			envString(env, "BODHA_PG_IDLE_TIMEOUT_MS"),
+			envPref(env, "PG_IDLE_TIMEOUT_MS"),
 			DEFAULT_PG_IDLE_TIMEOUT_MS,
-			"BODHA_PG_IDLE_TIMEOUT_MS"
+			"MATI_PG_IDLE_TIMEOUT_MS"
 		),
 	};
 }

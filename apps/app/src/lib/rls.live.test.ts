@@ -1,4 +1,5 @@
 import { beforeAll, describe, expect, it } from "vitest";
+import { matiEnv } from "./mati-env";
 import {
 	AUTH_STUB,
 	asUser,
@@ -20,17 +21,12 @@ interface Queryable {
 }
 
 const liveMissing = [
-	process.env.BODHA_LIVE_SUPABASE_URL ? null : "BODHA_LIVE_SUPABASE_URL",
-	process.env.BODHA_LIVE_SUPABASE_PUBLISHABLE_KEY ||
-	process.env.BODHA_LIVE_SUPABASE_ANON_KEY
+	matiEnv("LIVE_SUPABASE_URL") ? null : "MATI_LIVE_SUPABASE_URL",
+	matiEnv("LIVE_SUPABASE_PUBLISHABLE_KEY") || matiEnv("LIVE_SUPABASE_ANON_KEY")
 		? null
-		: "BODHA_LIVE_SUPABASE_PUBLISHABLE_KEY",
-	process.env.BODHA_LIVE_USER_A_ACCESS_TOKEN
-		? null
-		: "BODHA_LIVE_USER_A_ACCESS_TOKEN",
-	process.env.BODHA_LIVE_USER_B_ACCESS_TOKEN
-		? null
-		: "BODHA_LIVE_USER_B_ACCESS_TOKEN",
+		: "MATI_LIVE_SUPABASE_PUBLISHABLE_KEY",
+	matiEnv("LIVE_USER_A_ACCESS_TOKEN") ? null : "MATI_LIVE_USER_A_ACCESS_TOKEN",
+	matiEnv("LIVE_USER_B_ACCESS_TOKEN") ? null : "MATI_LIVE_USER_B_ACCESS_TOKEN",
 ].filter((value): value is string => value !== null);
 const hasLive = liveMissing.length === 0;
 
@@ -239,14 +235,14 @@ describe("local Postgres RLS (PGlite)", () => {
 });
 
 describe.skipIf(!hasLive)(
-	"live isolated Supabase RLS (requires BODHA_LIVE_* user tokens; service role is unused)",
+	"live isolated Supabase RLS (requires MATI_LIVE_* user tokens; service role is unused)",
 	() => {
 		async function client(accessToken: string) {
 			const { createClient } = await import("@supabase/supabase-js");
 			return createClient(
-				process.env.BODHA_LIVE_SUPABASE_URL ?? "",
-				process.env.BODHA_LIVE_SUPABASE_PUBLISHABLE_KEY ??
-					process.env.BODHA_LIVE_SUPABASE_ANON_KEY ??
+				matiEnv("LIVE_SUPABASE_URL") ?? "",
+				matiEnv("LIVE_SUPABASE_PUBLISHABLE_KEY") ??
+					matiEnv("LIVE_SUPABASE_ANON_KEY") ??
 					"",
 				{ global: { headers: { Authorization: `Bearer ${accessToken}` } } }
 			);
@@ -263,12 +259,8 @@ describe.skipIf(!hasLive)(
 		}
 
 		it("hides user A's session from user B, anon, and forged owner inserts", async () => {
-			const userA = await client(
-				process.env.BODHA_LIVE_USER_A_ACCESS_TOKEN ?? ""
-			);
-			const userB = await client(
-				process.env.BODHA_LIVE_USER_B_ACCESS_TOKEN ?? ""
-			);
+			const userA = await client(matiEnv("LIVE_USER_A_ACCESS_TOKEN") ?? "");
+			const userB = await client(matiEnv("LIVE_USER_B_ACCESS_TOKEN") ?? "");
 			const userAId = await requireUserId(userA);
 			const created = await userA
 				.from("sessions")
@@ -296,9 +288,9 @@ describe.skipIf(!hasLive)(
 			const anon = await import("@supabase/supabase-js").then(
 				({ createClient }) =>
 					createClient(
-						process.env.BODHA_LIVE_SUPABASE_URL ?? "",
-						process.env.BODHA_LIVE_SUPABASE_PUBLISHABLE_KEY ??
-							process.env.BODHA_LIVE_SUPABASE_ANON_KEY ??
+						matiEnv("LIVE_SUPABASE_URL") ?? "",
+						matiEnv("LIVE_SUPABASE_PUBLISHABLE_KEY") ??
+							matiEnv("LIVE_SUPABASE_ANON_KEY") ??
 							""
 					)
 			);
@@ -308,12 +300,8 @@ describe.skipIf(!hasLive)(
 		});
 
 		it("rejects cross-session evidence citations and evidence updates", async () => {
-			const userA = await client(
-				process.env.BODHA_LIVE_USER_A_ACCESS_TOKEN ?? ""
-			);
-			const userB = await client(
-				process.env.BODHA_LIVE_USER_B_ACCESS_TOKEN ?? ""
-			);
+			const userA = await client(matiEnv("LIVE_USER_A_ACCESS_TOKEN") ?? "");
+			const userB = await client(matiEnv("LIVE_USER_B_ACCESS_TOKEN") ?? "");
 			const userAId = await requireUserId(userA);
 			const userBId = await requireUserId(userB);
 			const sessionA = await userA

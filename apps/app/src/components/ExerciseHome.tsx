@@ -102,7 +102,7 @@ export function ExerciseHome({ challenges }: { challenges: ChallengeMeta[] }) {
 					<AlertTitle>Before this session is captured</AlertTitle>
 					<AlertDescription>
 						<p className="mb-2">
-							BODHA stores the following for you only, until you delete the
+							Mati stores the following for you only, until you delete the
 							account or we apply the documented retention window:
 						</p>
 						<ul className="mb-3 list-disc pl-5">

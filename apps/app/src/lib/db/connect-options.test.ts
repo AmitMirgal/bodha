@@ -24,14 +24,14 @@ describe("Prisma / pg connect options", () => {
 	it("reads explicit millisecond overrides", () => {
 		expect(
 			readPrismaTransactionOptions({
-				BODHA_PRISMA_TX_MAX_WAIT_MS: "25000",
-				BODHA_PRISMA_TX_TIMEOUT_MS: "40000",
+				MATI_PRISMA_TX_MAX_WAIT_MS: "25000",
+				MATI_PRISMA_TX_TIMEOUT_MS: "40000",
 			})
 		).toEqual({ maxWait: 25_000, timeout: 40_000 });
 		expect(
 			readPgPoolConnectOptions({
-				BODHA_PG_CONNECTION_TIMEOUT_MS: "12000",
-				BODHA_PG_POOL_MAX: "3",
+				MATI_PG_CONNECTION_TIMEOUT_MS: "12000",
+				MATI_PG_POOL_MAX: "3",
 			})
 		).toMatchObject({
 			connectionTimeoutMillis: 12_000,
@@ -39,12 +39,20 @@ describe("Prisma / pg connect options", () => {
 		});
 	});
 
+	it("falls back to legacy BODHA_* names", () => {
+		expect(
+			readPrismaTransactionOptions({
+				BODHA_PRISMA_TX_MAX_WAIT_MS: "18000",
+			})
+		).toMatchObject({ maxWait: 18_000 });
+	});
+
 	it("rejects non-integer overrides", () => {
 		expect(() =>
-			readPrismaTransactionOptions({ BODHA_PRISMA_TX_MAX_WAIT_MS: "fast" })
-		).toThrow(/BODHA_PRISMA_TX_MAX_WAIT_MS/);
-		expect(() => readPgPoolConnectOptions({ BODHA_PG_POOL_MAX: "0" })).toThrow(
-			/BODHA_PG_POOL_MAX/
+			readPrismaTransactionOptions({ MATI_PRISMA_TX_MAX_WAIT_MS: "fast" })
+		).toThrow(/MATI_PRISMA_TX_MAX_WAIT_MS/);
+		expect(() => readPgPoolConnectOptions({ MATI_PG_POOL_MAX: "0" })).toThrow(
+			/MATI_PG_POOL_MAX/
 		);
 	});
 });

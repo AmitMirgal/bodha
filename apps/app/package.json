@@ -10,7 +10,7 @@
     "typecheck": "prisma generate --config=./prisma.config.ts && tsc --noEmit --emitDeclarationOnly false",
     "test": "prisma generate --config=./prisma.config.ts && vitest run",
     "validate": "node scripts/validate-challenges.mjs",
-    "lint:bodha": "node scripts/lint-bodha.mjs"
+    "lint:mati": "node scripts/lint-mati.mjs"
   },
   "dependencies": {
     "@mastra/core": "^1.0.4",

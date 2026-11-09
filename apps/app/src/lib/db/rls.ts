@@ -10,11 +10,11 @@ export type VerifiedIdentity =
 	| { role: "authenticated"; userId: string }
 	| { role: "anon" };
 
-export type BodhaDb = Prisma.TransactionClient;
+export type MatiDb = Prisma.TransactionClient;
 
 export type RunWithDb = <T>(
 	identity: VerifiedIdentity,
-	fn: (db: BodhaDb) => Promise<T>
+	fn: (db: MatiDb) => Promise<T>
 ) => Promise<T>;
 
 const ROLES: Record<RlsRole, RlsRole> = {
@@ -41,7 +41,7 @@ export class DatabaseTransactionError extends Error {
 }
 
 export const TRANSACTION_START_HINT =
-	"Could not start a database transaction in time. Percent-encode reserved password characters (example: p@ss → p%40ss) in DATABASE_URL and DIRECT_URL, then restart. If the database is far from this machine, raise BODHA_PRISMA_TX_MAX_WAIT_MS and BODHA_PG_CONNECTION_TIMEOUT_MS. This is not an anonymous-auth setting.";
+	"Could not start a database transaction in time. Percent-encode reserved password characters (example: p@ss → p%40ss) in DATABASE_URL and DIRECT_URL, then restart. If the database is far from this machine, raise MATI_PRISMA_TX_MAX_WAIT_MS and MATI_PG_CONNECTION_TIMEOUT_MS. This is not an anonymous-auth setting.";
 
 function prismaErrorCode(error: unknown): string | undefined {
 	if (!(error && typeof error === "object" && "code" in error)) {
@@ -96,7 +96,7 @@ function assertIdentity(identity: VerifiedIdentity): VerifiedIdentity {
 }
 
 export async function applyRlsContext(
-	db: BodhaDb,
+	db: MatiDb,
 	identity: VerifiedIdentity
 ): Promise<void> {
 	const safe = assertIdentity(identity);
@@ -166,14 +166,14 @@ export function createRunWithDb(prisma: PrismaClient): RunWithDb {
 export async function withUserDb<T>(
 	prisma: PrismaClient,
 	userId: string,
-	fn: (db: BodhaDb) => Promise<T>
+	fn: (db: MatiDb) => Promise<T>
 ): Promise<T> {
 	return await createRunWithDb(prisma)({ role: "authenticated", userId }, fn);
 }
 
 export async function withAnonDb<T>(
 	prisma: PrismaClient,
-	fn: (db: BodhaDb) => Promise<T>
+	fn: (db: MatiDb) => Promise<T>
 ): Promise<T> {
 	return await createRunWithDb(prisma)({ role: "anon" }, fn);
 }

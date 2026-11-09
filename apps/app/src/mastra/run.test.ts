@@ -84,20 +84,16 @@ describe("orchestration contract", () => {
 		expect(() =>
 			assertAgentToolsAllowed({
 				source: "user",
-				protocol: "openai-compatible",
 				provider: "openai",
 				model: "gpt-4.1",
-				baseUrl: "https://api.openai.com/v1",
 				capabilities: { ...DEFAULT_CAPABILITIES, tools: "unsupported" },
 			})
 		).toThrow(ToolsUnsupportedError);
 		expect(() =>
 			assertAgentToolsAllowed({
 				source: "user",
-				protocol: "openai-compatible",
 				provider: "openai",
 				model: "gpt-4.1",
-				baseUrl: "https://api.openai.com/v1",
 				capabilities: DEFAULT_CAPABILITIES,
 			})
 		).toThrow(ToolsUnsupportedError);

@@ -23,6 +23,8 @@ describe("local fixture UI / secret sentinels (not live credentials)", () => {
 		expect(source).toMatch(/setApiKey\(""\)/);
 		expect(source).not.toMatch(/localStorage/);
 		expect(source).not.toMatch(/sk-live/);
+		expect(source).not.toMatch(/baseUrl/);
+		expect(source).not.toMatch(/ALLOWED_LLM|ALLOW_HTTP/);
 	});
 
 	it("serves a local HTML fixture that does not echo the sentinel", async () => {

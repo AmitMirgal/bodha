@@ -39,12 +39,15 @@ describe("Prisma / pg connect options", () => {
 		});
 	});
 
-	it("falls back to legacy BODHA_* names", () => {
+	it("does not read BODHA_* names", () => {
 		expect(
 			readPrismaTransactionOptions({
 				BODHA_PRISMA_TX_MAX_WAIT_MS: "18000",
 			})
-		).toMatchObject({ maxWait: 18_000 });
+		).toEqual({
+			maxWait: DEFAULT_TX_MAX_WAIT_MS,
+			timeout: DEFAULT_TX_TIMEOUT_MS,
+		});
 	});
 
 	it("rejects non-integer overrides", () => {

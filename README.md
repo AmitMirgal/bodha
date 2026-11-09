@@ -31,7 +31,7 @@ Corporate/team/manager views, org dashboards, employee comparisons, billing, ana
 - **Runtime queries:** Prisma 7.4.2 + `@prisma/adapter-pg` on `DATABASE_URL` (transaction-mode pooler, port **6543**, `pgbouncer=true`). Each product operation runs in a short transaction that `SET LOCAL ROLE authenticated|anon` and sets `request.jwt.claims` / `request.jwt.claim.sub` from the verified user. After `SET LOCAL ROLE`, the request **fails closed** if `current_user` is not `authenticated`/`anon`, `is_superuser` is on, `pg_roles.rolsuper` is true, or **`pg_roles.rolbypassrls` is true**.
 - **CLI / generate:** `DIRECT_URL` (session-mode pooler, port **5432**). `prisma.config.ts` uses this URL (placeholder only for `generate` if unset). Migrate / db pull fail without `DIRECT_URL`.
 - **Transactions:** Default wait is 15s (`MATI_PRISMA_TX_MAX_WAIT_MS`); the pg pool connection timeout defaults to 10s (`MATI_PG_CONNECTION_TIMEOUT_MS`). Prisma's stock 2s `maxWait` is too short for a first cross-region pooler connection and surfaces as P2028.
-- **Models:** One OpenAI-compatible adapter in `@repo/ai`. Product code does not import provider SDKs. Capabilities (tools, usage, streaming, structured output) are probed and stored. Missing capabilities fail closed with a visible message; usage is never invented.
+- **Models:** Five fixed providers (OpenAI, Anthropic, Sarvam AI, xAI Grok, Google Gemini) via Mastra's model router. Official endpoints live in adapters. Learners pick provider + model and paste a key. No user-supplied base URL. Missing capabilities fail closed with a visible message; usage is never invented.
 
 ## Package manager
 
@@ -48,7 +48,7 @@ Apply `supabase/migrations/*.sql` yourself against an isolated non-production pr
 
 ## Environment
 
-Copy `apps/app/.env.example`. Never commit real values. Canonical names are `MATI_*`. Matching `BODHA_*` values are still read if the `MATI_*` value is unset. Encode reserved password characters (`p@ss` → `p%40ss`).
+Copy `apps/app/.env.example`. Never commit real values. Names are `MATI_*` only; `BODHA_*` is not read. Encode reserved password characters (`p@ss` → `p%40ss`).
 
 | Variable | Required | Where | Role |
 | --- | --- | --- | --- |
@@ -56,10 +56,10 @@ Copy `apps/app/.env.example`. Never commit real values. Canonical names are `MAT
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | yes | browser | Public anon/publishable key |
 | `DATABASE_URL` | yes (runtime) | server | Transaction-mode pooler `:6543` |
 | `DIRECT_URL` | CLI migrate/db pull | server | Session-mode pooler `:5432` |
-| `MATI_CREDENTIALS_ENCRYPTION_KEY` | to store BYOK | server | 32-byte key (64 hex chars) |
-| `MATI_ALLOWED_LLM_HOSTS` | for BYOK | server | Comma-separated LLM hosts |
-| `MATI_ALLOW_HTTP_LLM` | no | server | `"true"` to allow HTTP for approved public hosts |
-| `MATI_OPERATOR_LLM_*` | no | server | Optional operator default |
+| `MATI_CREDENTIALS_ENCRYPTION_KEY` | to store BYOK | server | 32-byte key (`openssl rand -hex 32`); distinct per environment |
+| `MATI_OPERATOR_LLM_PROVIDER` | no | server | Optional operator default (`openai`, `anthropic`, `sarvam`, `xai`, `google`) |
+| `MATI_OPERATOR_LLM_MODEL` | no | server | Optional operator default model id |
+| `MATI_OPERATOR_LLM_API_KEY` | no | server | Optional operator default key |
 | `MATI_PROGRESS_TIMEZONE` | no | server | Day-bucket timezone (default `UTC`) |
 | `MATI_PRISMA_TX_MAX_WAIT_MS` | no | server | Interactive transaction acquire wait |
 | `MATI_PG_CONNECTION_TIMEOUT_MS` | no | server | pg Pool first-connection timeout |

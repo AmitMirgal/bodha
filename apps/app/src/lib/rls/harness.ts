@@ -1,4 +1,6 @@
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 export const USER_A = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 export const USER_B = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
@@ -7,15 +9,19 @@ export const SESSION_B = "22222222-2222-4222-8222-222222222222";
 export const SNAP_A = "33333333-3333-4333-8333-333333333333";
 export const EVIDENCE_A = "44444444-4444-4444-8444-444444444444";
 
-const MIGRATION_PATH = new URL(
-	"../../../../../supabase/migrations/20251108120000_bodha_mvp.sql",
-	import.meta.url
+const MIGRATIONS_DIR = fileURLToPath(
+	new URL("../../../../../supabase/migrations/", import.meta.url)
 );
 const PGCRYPTO_EXT = /create extension if not exists pgcrypto;/i;
 const AUTH_USER_TRIGGER = /create trigger on_auth_user_created[\s\S]*?;/;
 
 export function migrationSql(): string {
-	return readFileSync(MIGRATION_PATH, "utf8")
+	const files = readdirSync(MIGRATIONS_DIR)
+		.filter((name) => name.endsWith(".sql"))
+		.sort();
+	return files
+		.map((name) => readFileSync(path.join(MIGRATIONS_DIR, name), "utf8"))
+		.join("\n")
 		.replace(PGCRYPTO_EXT, "")
 		.replace(AUTH_USER_TRIGGER, "");
 }

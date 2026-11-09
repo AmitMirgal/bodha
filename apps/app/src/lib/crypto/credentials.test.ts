@@ -11,7 +11,6 @@ const OWNER = "11111111-1111-4111-8111-111111111111";
 const BINDING = {
 	provider: "openai",
 	model: "gpt-4.1",
-	baseUrl: "https://api.openai.com/v1",
 };
 
 describe("credential encryption", () => {
@@ -26,7 +25,12 @@ describe("credential encryption", () => {
 		expect(() => getEncryptionKey()).toThrow(EncryptionConfigError);
 	});
 
-	it("round-trips a secret bound to owner and provider config", () => {
+	it("does not read BODHA_* encryption keys", () => {
+		process.env.BODHA_CREDENTIALS_ENCRYPTION_KEY = KEY;
+		expect(() => getEncryptionKey()).toThrow(EncryptionConfigError);
+	});
+
+	it("round-trips a secret bound to owner, provider, and model", () => {
 		process.env.MATI_CREDENTIALS_ENCRYPTION_KEY = KEY;
 		const encrypted = encryptSecret("sk-test-sentinel", OWNER, BINDING);
 		expect(encrypted.ciphertext).not.toContain("sk-test-sentinel");
@@ -34,24 +38,18 @@ describe("credential encryption", () => {
 	});
 
 	it("rejects cross-user decryption", () => {
-		process.env.BODHA_CREDENTIALS_ENCRYPTION_KEY = KEY;
+		process.env.MATI_CREDENTIALS_ENCRYPTION_KEY = KEY;
 		const encrypted = encryptSecret("sk-test-sentinel", OWNER, BINDING);
 		expect(() =>
 			decryptSecret(encrypted, "22222222-2222-4222-8222-222222222222", BINDING)
 		).toThrow();
 	});
 
-	it("rejects provider or endpoint binding swaps", () => {
-		process.env.BODHA_CREDENTIALS_ENCRYPTION_KEY = KEY;
+	it("rejects provider or model binding swaps", () => {
+		process.env.MATI_CREDENTIALS_ENCRYPTION_KEY = KEY;
 		const encrypted = encryptSecret("sk-test-sentinel", OWNER, BINDING);
 		expect(() =>
-			decryptSecret(encrypted, OWNER, { ...BINDING, provider: "openrouter" })
-		).toThrow();
-		expect(() =>
-			decryptSecret(encrypted, OWNER, {
-				...BINDING,
-				baseUrl: "https://openrouter.ai/api/v1",
-			})
+			decryptSecret(encrypted, OWNER, { ...BINDING, provider: "anthropic" })
 		).toThrow();
 		expect(() =>
 			decryptSecret(encrypted, OWNER, { ...BINDING, model: "other-model" })

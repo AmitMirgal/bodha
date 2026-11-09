@@ -1,16 +1,16 @@
 import "server-only";
 
 import {
+	documentedCapabilitiesFor,
 	type MaskedLlmSettings,
 	parseProviderCapabilities,
-	probeOpenAiCompatible,
 	type ResolvedLlmConfig,
-	validateLlmEndpoint,
+	requireMatiProvider,
 } from "@repo/ai/provider";
 import { decryptSecret, encryptionAvailable } from "../crypto/credentials";
 import { getLlmSecrets, getMaskedLlmRow, hasLlmSettings } from "../db/queries";
 import type { MatiDb } from "../db/rls";
-import { allowHttpLlm, getAllowedLlmHosts, getOperatorDefault } from "../env";
+import { getOperatorDefault } from "../env";
 
 export class LlmConfigError extends Error {
 	constructor(message: string) {
@@ -44,7 +44,6 @@ export async function getMaskedSettings(
 			source: "user",
 			provider: data.provider,
 			model: data.model,
-			baseUrl: data.baseUrl,
 			keyFingerprint: data.keyFingerprint,
 			capabilities: parseProviderCapabilities(data.capabilities),
 		};
@@ -57,9 +56,8 @@ export async function getMaskedSettings(
 			source: "operator_default",
 			provider: operator.provider,
 			model: operator.model,
-			baseUrl: operator.baseUrl,
 			keyFingerprint: "operator-env",
-			capabilities: parseProviderCapabilities(operator.capabilities),
+			capabilities: documentedCapabilitiesFor(operator.provider),
 		};
 	}
 
@@ -68,7 +66,6 @@ export async function getMaskedSettings(
 		source: "none",
 		provider: null,
 		model: null,
-		baseUrl: null,
 		keyFingerprint: null,
 		capabilities: null,
 	};
@@ -87,6 +84,7 @@ export async function resolveLlmForUser(
 	const data = await getLlmSecrets(db, userId);
 
 	if (data) {
+		const provider = requireMatiProvider(data.provider);
 		const apiKey = decryptSecret(
 			{
 				ciphertext: data.encryptedApiKey,
@@ -98,22 +96,15 @@ export async function resolveLlmForUser(
 			{
 				provider: data.provider,
 				model: data.model,
-				baseUrl: data.baseUrl,
+				legacyBaseUrl: data.baseUrl,
 			}
-		);
-		const endpoint = await validateLlmEndpoint(
-			data.baseUrl,
-			getAllowedLlmHosts(),
-			{ allowHttpForApprovedHosts: allowHttpLlm() }
 		);
 		return {
 			apiKey,
 			config: {
 				source: "user",
-				protocol: "openai-compatible",
-				provider: data.provider,
+				provider: provider.id,
 				model: data.model,
-				baseUrl: endpoint.href,
 				capabilities: requireSupportedTools(
 					data.capabilities,
 					"Saved settings"
@@ -128,28 +119,14 @@ export async function resolveLlmForUser(
 			"No LLM key is configured. Add your provider settings before chatting or generating a report."
 		);
 	}
-	const endpoint = await validateLlmEndpoint(
-		operator.baseUrl,
-		getAllowedLlmHosts(),
-		{ allowHttpForApprovedHosts: allowHttpLlm() }
-	);
-	const probe = await probeOpenAiCompatible(
-		endpoint,
-		operator.apiKey,
-		operator.model
-	);
+	const capabilities = documentedCapabilitiesFor(operator.provider);
 	return {
 		apiKey: operator.apiKey,
 		config: {
 			source: "operator_default",
-			protocol: "openai-compatible",
 			provider: operator.provider,
 			model: operator.model,
-			baseUrl: endpoint.href,
-			capabilities: requireSupportedTools(
-				probe.capabilities,
-				"Operator default"
-			),
+			capabilities: requireSupportedTools(capabilities, "Operator default"),
 		},
 	};
 }

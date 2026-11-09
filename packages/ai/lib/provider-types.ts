@@ -1,7 +1,3 @@
-export const LLM_PROTOCOL = "openai-compatible" as const;
-
-export type LlmProtocol = typeof LLM_PROTOCOL;
-
 export type CapabilityStatus = "supported" | "unsupported" | "unknown";
 
 export interface ProviderCapabilities {
@@ -12,16 +8,13 @@ export interface ProviderCapabilities {
 }
 
 export interface ResolvedLlmConfig {
-	baseUrl: string;
 	capabilities: ProviderCapabilities;
 	model: string;
-	protocol: LlmProtocol;
 	provider: string;
 	source: "user" | "operator_default";
 }
 
 export interface MaskedLlmSettings {
-	baseUrl: string | null;
 	capabilities: ProviderCapabilities | null;
 	configured: boolean;
 	keyFingerprint: string | null;

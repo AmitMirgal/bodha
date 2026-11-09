@@ -389,7 +389,6 @@ export async function getMaskedLlmRow(db: MatiDb, userId: string) {
 		select: {
 			provider: true,
 			model: true,
-			baseUrl: true,
 			keyFingerprint: true,
 			capabilities: true,
 		},
@@ -422,7 +421,6 @@ export async function upsertLlmSettings(
 		userId: string;
 		provider: string;
 		model: string;
-		baseUrl: string;
 		encryptedApiKey: string;
 		encryptionIv: string;
 		encryptionTag: string;
@@ -437,7 +435,6 @@ export async function upsertLlmSettings(
 		update: {
 			provider: input.provider,
 			model: input.model,
-			baseUrl: input.baseUrl,
 			encryptedApiKey: input.encryptedApiKey,
 			encryptionIv: input.encryptionIv,
 			encryptionTag: input.encryptionTag,

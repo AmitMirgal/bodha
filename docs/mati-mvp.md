@@ -6,9 +6,9 @@ This is not a Google interview replica. The product was renamed from BODHA; user
 
 ## What it does / does not
 
-**Does:** email/password accounts, two authored exercises, trainer chat, capture of prompts/replies/usage/tests/outcome, evidence-grounded learning report, daily progress, encrypted BYOK.
+**Does:** email/password accounts, two authored exercises, trainer chat, capture of prompts/replies/usage/tests/outcome, evidence-grounded learning report, daily progress, encrypted BYOK for five providers.
 
-**Does not:** team/manager views, billing, analytics, generated exercises, a CMS, autonomous tools, extra integrations.
+**Does not:** team/manager views, billing, analytics, generated exercises, a CMS, autonomous tools, extra integrations, arbitrary LLM hosts, user-supplied base URLs.
 
 ## Package manager
 
@@ -31,15 +31,21 @@ Root `pnpm check` lints the whole next-forge template and is not a Mati-clean si
 1. Copy `apps/app/.env.example` to `apps/app/.env.local`.
 2. Create an isolated non-production Supabase project (or `pnpm dlx supabase start`).
 3. Apply `supabase/migrations/*.sql` (SQL editor or `pnpm dlx supabase db push`) on **that** project only.
-4. Set `NEXT_PUBLIC_SUPABASE_*`, `DATABASE_URL` (`:6543?pgbouncer=true`), `DIRECT_URL` (`:5432`), `MATI_CREDENTIALS_ENCRYPTION_KEY`, `MATI_ALLOWED_LLM_HOSTS`. Percent-encode passwords (`p@ss` → `p%40ss`).
+4. Set `NEXT_PUBLIC_SUPABASE_*`, `DATABASE_URL` (`:6543?pgbouncer=true`), `DIRECT_URL` (`:5432`), `MATI_CREDENTIALS_ENCRYPTION_KEY` (`openssl rand -hex 32`). Percent-encode passwords (`p@ss` → `p%40ss`).
 5. Add `{APP_ORIGIN}/auth/callback` to the Auth redirect allowlist. Enable Email auth. Do not enable anonymous sign-ins.
 6. `pnpm --filter app prisma:generate` then `pnpm --filter app dev`.
 
-`MATI_*` is canonical. Matching `BODHA_*` values still work if the `MATI_*` value is unset.
+Mati reads `MATI_*` only. `BODHA_*` names are ignored.
 
 ## Environment variables
 
 See `apps/app/.env.example` for placeholders. Browser-safe variables are only `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`. Everything else is server-only. Preview and production must not share encryption keys or pooler URLs.
+
+`MATI_CREDENTIALS_ENCRYPTION_KEY` encrypts learners' saved provider API keys at rest. Generate with `openssl rand -hex 32`. Use a distinct value per environment.
+
+Optional operator default (used only when the learner has no saved key): `MATI_OPERATOR_LLM_PROVIDER`, `MATI_OPERATOR_LLM_MODEL`, `MATI_OPERATOR_LLM_API_KEY`. Provider must be one of `openai`, `anthropic`, `sarvam`, `xai`, `google`. There is no operator base URL.
+
+Vercel env should use `MATI_*` names. Do not keep `BODHA_*`, `MATI_ALLOWED_LLM_HOSTS`, `MATI_ALLOW_HTTP_LLM`, or `MATI_OPERATOR_LLM_BASE_URL`.
 
 ## Migration workflow
 
@@ -48,6 +54,8 @@ See `apps/app/.env.example` for placeholders. Browser-safe variables are only `N
 `apps/app/prisma.config.ts` sets `datasource.url` from `DIRECT_URL` (generate-only placeholder if unset) and includes Prisma 7 `migrations.path = prisma/migrations`. That folder is intentionally absent. Do not `prisma migrate` / `prisma db push`. Do not rename historical files such as `20251108120000_bodha_mvp.sql`. Additive schema changes belong in a new SQL file under `supabase/migrations/`.
 
 Runtime Prisma uses `DATABASE_URL` via `@prisma/adapter-pg`. CLI uses `DIRECT_URL`. Interactive transactions wait 15s by default (Prisma's 2s `maxWait` otherwise surfaces as P2028 on a slow first pooler connection). `SET LOCAL ROLE` stays inside each `$transaction`.
+
+`llm_settings.base_url` is unused. A new additive migration makes it nullable and adds a `NOT VALID` check that new rows use one of the five providers. The column is not dropped.
 
 ## How to add an exercise
 
@@ -60,19 +68,22 @@ Each folder needs `meta.json`, `starter/`, `reference/`, `tests.js`. Runtime is 
 
 ## How to add a provider adapter
 
-1. Keep product/Mastra code on `@repo/ai/provider`. Do not import provider SDKs from `apps/app`.
-2. Add an adapter under `packages/ai/lib/` that implements the shared interface (`toProtectedLanguageModel`, capabilities, usage normalization).
-3. Declare capabilities (`tools`, `structuredOutput`, `streaming`, `usageReporting`) as `supported` / `unsupported` / `unknown`.
-4. Route HTTP through `createProtectedFetch` (HTTPS, host allowlist, DNS re-check, no automatic redirects, timeout, size limit).
-5. Tests must use a fake adapter. No vendor account is required to build or test.
+Do not add a sixth provider without a product decision. The registry is designed so a later provider is:
 
-The shipping adapter is OpenAI-compatible (protocol, not a capability guarantee).
+1. One entry in `packages/ai/lib/providers.ts` (id, Mastra router id, official URL, documented capabilities).
+2. App validation via `MATI_PROVIDERS` / `parseLlmSettingsInput`.
+3. A new additive SQL check-constraint update if the provider list changes.
+4. Tests with a mock adapter only. No vendor account is required to build or test.
+
+Product/Mastra code stays on `@repo/ai/provider`. Do not import provider SDKs from `apps/app`. Model calls go through Mastra's model router (`{ id: "openai/gpt-4.1", apiKey }`).
 
 ## Capability matrix
 
+Documented per provider in `PROVIDER_REGISTRY`. Gaps are shown in settings and stored; they are never invented.
+
 | Capability | If missing |
 | --- | --- |
-| Tool calling | Settings are not saved; chat/report will not run. Visible error. No one-shot fallback. |
+| Tool calling | Settings are not saved when tools are not `supported`; chat/report will not run. Visible error. No one-shot fallback. |
 | Usage reporting | Store `unknown` / "not reported by provider". Never estimate. |
 | Structured output | Validate JSON in the app; do not invent scores. |
 | Streaming | Not required for this MVP. |
@@ -83,7 +94,7 @@ Retries use per-request idempotency keys. A retried chat turn does not silently 
 
 - RLS on every product table; owner is `auth.uid()`. FORCE RLS is additive SQL. Runtime Prisma must `SET LOCAL ROLE` and refuse `BYPASSRLS`.
 - Encrypted BYOK keys live in `llm_settings`. The status view hides ciphertext. APIs return a masked fingerprint only.
-- Base URLs: HTTPS unless `MATI_ALLOW_HTTP_LLM=true` for an allowlisted public host. Private, link-local, and metadata IPs are blocked before and after DNS.
+- Learners cannot supply a base URL. Official endpoints are defined in adapters.
 - Server-only env must not appear in `"use client"` modules (enforced by `client-env-leak.test.ts`).
 - No service role for learner operations.
 

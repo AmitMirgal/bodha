@@ -23,7 +23,7 @@ function envString(env: object, key: string): string | undefined {
 }
 
 function envPref(env: object, suffix: string): string | undefined {
-	return envString(env, `MATI_${suffix}`) ?? envString(env, `BODHA_${suffix}`);
+	return envString(env, `MATI_${suffix}`);
 }
 
 function readPositiveInt(

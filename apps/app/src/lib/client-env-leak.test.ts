@@ -27,7 +27,7 @@ function walk(dir: string): string[] {
 }
 
 describe("client modules do not read server-only env", () => {
-	it("keeps MATI_/BODHA_/DATABASE_URL out of use client files", () => {
+	it("keeps MATI_/DATABASE_URL out of use client files", () => {
 		const leaks: string[] = [];
 		for (const file of walk(SRC)) {
 			const source = readFileSync(file, "utf8");

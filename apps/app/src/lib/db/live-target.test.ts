@@ -12,10 +12,10 @@ const ISOLATED_URL =
 
 function env(overrides: LivePrismaTargetEnv = {}): LivePrismaTargetEnv {
 	return {
-		BODHA_LIVE_ISOLATED_TARGET: "1",
-		BODHA_LIVE_PRISMA_RLS: "1",
-		BODHA_LIVE_USER_A_ID: USER_A,
-		BODHA_LIVE_USER_B_ID: USER_B,
+		MATI_LIVE_ISOLATED_TARGET: "1",
+		MATI_LIVE_PRISMA_RLS: "1",
+		MATI_LIVE_USER_A_ID: USER_A,
+		MATI_LIVE_USER_B_ID: USER_B,
 		DATABASE_URL: ISOLATED_URL,
 		...overrides,
 	};
@@ -33,7 +33,6 @@ describe("inspectLivePrismaTarget", () => {
 	it("refuses opt-in without an isolated-target confirmation", () => {
 		const target = inspectLivePrismaTarget(
 			env({
-				BODHA_LIVE_ISOLATED_TARGET: undefined,
 				MATI_LIVE_ISOLATED_TARGET: undefined,
 			})
 		);

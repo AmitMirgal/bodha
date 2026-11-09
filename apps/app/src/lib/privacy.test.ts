@@ -29,7 +29,7 @@ describe("privacy regressions", () => {
 			"utf8"
 		);
 		expect(source).toMatch(/provider/);
-		expect(source).toMatch(/baseUrl/);
+		expect(source).toMatch(/binding\.model/);
 		expect(source).not.toMatch(/setAAD\(Buffer\.from\(ownerId, "utf8"\)\)/);
 	});
 
@@ -46,6 +46,18 @@ describe("privacy regressions", () => {
 		expect(queries).toMatch(/insertOnce/);
 		expect(queries).not.toMatch(/evidenceEvent\.upsert/);
 		expect(queries).not.toMatch(/exerciseSnapshot\.upsert/);
+	});
+
+	it("does not write llm_settings.base_url on upsert", () => {
+		const queries = readFileSync(
+			new URL("./db/queries.ts", import.meta.url),
+			"utf8"
+		);
+		const upsert = queries.slice(
+			queries.indexOf("export async function upsertLlmSettings")
+		);
+		expect(upsert).not.toMatch(/baseUrl/);
+		expect(upsert).not.toMatch(/base_url/);
 	});
 
 	it("keeps llm-settings GET on the ciphertext-free status path", () => {

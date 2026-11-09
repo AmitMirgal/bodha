@@ -1,9 +1,11 @@
-import { createOpenAI } from "@ai-sdk/openai";
-import type { LanguageModelV3 } from "@ai-sdk/provider";
-import { endpointFromHref, type ValidatedEndpoint } from "./endpoint";
 import { ToolsUnsupportedError } from "./errors";
 import type { ResolvedLlmConfig } from "./provider-types";
-import { createProtectedFetch } from "./transport";
+import { mastraModelId, requireMatiProvider } from "./providers";
+
+export interface MastraRouterConfig {
+	apiKey: string;
+	id: `${string}/${string}`;
+}
 
 export function assertAgentToolsAllowed(config: ResolvedLlmConfig): void {
 	if (config.capabilities.tools !== "supported") {
@@ -15,28 +17,17 @@ export function assertAgentToolsAllowed(config: ResolvedLlmConfig): void {
 	}
 }
 
-export function toProtectedLanguageModel(
+export function toMastraModelConfig(
 	config: ResolvedLlmConfig,
-	apiKey: string,
-	endpoint: ValidatedEndpoint
-): LanguageModelV3 {
+	apiKey: string
+): MastraRouterConfig {
 	assertAgentToolsAllowed(config);
 	if (!apiKey) {
 		throw new Error("LLM API key is missing.");
 	}
-	const expected = endpointFromHref(config.baseUrl);
-	if (
-		expected.href !== endpoint.href ||
-		expected.origin !== endpoint.origin ||
-		expected.host !== endpoint.host
-	) {
-		throw new Error("Resolved base URL does not match the validated endpoint.");
-	}
-	const openai = createOpenAI({
-		baseURL: endpoint.href,
+	const provider = requireMatiProvider(config.provider);
+	return {
+		id: mastraModelId(provider.id, config.model),
 		apiKey,
-		name: config.provider,
-		fetch: createProtectedFetch(endpoint),
-	});
-	return openai.chat(config.model);
+	};
 }

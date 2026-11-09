@@ -1,30 +1,46 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { matiEnv } from "./mati-env";
 
 describe("matiEnv", () => {
-	it("prefers MATI_* over legacy BODHA_*", () => {
+	it("reads MATI_* only", () => {
 		expect(
-			matiEnv("ALLOWED_LLM_HOSTS", {
-				MATI_ALLOWED_LLM_HOSTS: "api.openai.com",
-				BODHA_ALLOWED_LLM_HOSTS: "legacy.example",
+			matiEnv("CREDENTIALS_ENCRYPTION_KEY", {
+				MATI_CREDENTIALS_ENCRYPTION_KEY: "0".repeat(64),
 			})
-		).toBe("api.openai.com");
+		).toBe("0".repeat(64));
+		expect(
+			matiEnv("PROGRESS_TIMEZONE", {
+				MATI_PROGRESS_TIMEZONE: "Asia/Kolkata",
+			})
+		).toBe("Asia/Kolkata");
 	});
 
-	it("falls back to BODHA_* when MATI_* is unset", () => {
+	it("does not read BODHA_* names", () => {
 		expect(
 			matiEnv("CREDENTIALS_ENCRYPTION_KEY", {
 				BODHA_CREDENTIALS_ENCRYPTION_KEY: "0".repeat(64),
 			})
-		).toBe("0".repeat(64));
-	});
-
-	it("treats blank MATI_* as missing", () => {
+		).toBeUndefined();
+		expect(
+			matiEnv("ALLOWED_LLM_HOSTS", {
+				BODHA_ALLOWED_LLM_HOSTS: "legacy.example",
+			})
+		).toBeUndefined();
 		expect(
 			matiEnv("PROGRESS_TIMEZONE", {
 				MATI_PROGRESS_TIMEZONE: "  ",
 				BODHA_PROGRESS_TIMEZONE: "Asia/Kolkata",
 			})
-		).toBe("Asia/Kolkata");
+		).toBeUndefined();
+	});
+
+	it("does not interpolate BODHA_* names", () => {
+		const source = readFileSync(
+			new URL("./mati-env.ts", import.meta.url),
+			"utf8"
+		);
+		expect(source).not.toMatch(/BODHA_\$\{/);
+		expect(source).not.toMatch(/`BODHA_/);
 	});
 });

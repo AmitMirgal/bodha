@@ -2,7 +2,7 @@
 
 Coaching for AI-assisted development in **Cursor** and **VS Code** only. A developer installs one Mati extension, consents once, does a task with no sign-in, and gets a per-task report: prompts used, token usage for that task, and how to change the prompts to reach the intended outcome. Progress shows that skill over time.
 
-This document is the contract. No implementation in this PR.
+This document is the contract. Implementation PRs follow it and edit this file when the code proves a section wrong.
 
 Docs re-checked 2026-11-09:
 
@@ -147,10 +147,17 @@ type CaptureEvent =
   | UsageRecord;
 
 interface IngestBatch {
-  deviceId: DeviceId;
+  editor: Editor;
+  editorTaskId: EditorTaskId;
+  workspaceHash: string;
   events: Array<{
     idempotencyKey: IdempotencyKey;
-    event: CaptureEvent;
+    kind: CaptureEvent["kind"] | "session_end";
+    occurredAt: string;
+    generationId?: string | null;
+    text?: string;
+    attachmentNames?: string[];
+    reason?: string;
   }>;
 }
 ```
@@ -198,7 +205,7 @@ Common fields on Agent hooks: `conversation_id`, `generation_id`, `model`, `hook
 
 **Tokens.** Hooks have no per-request input/output/cached counts. Default provenance is `missing`. Optional later: team Admin API `POST https://api.cursor.com/teams/filtered-usage-events`, join `conversationId` → `EditorTaskId`, use `tokenUsage.{inputTokens,outputTokens,cacheWriteTokens,cacheReadTokens}`. Hourly aggregation. Needs a team admin key Amit stores as operator config, not in the extension.
 
-Writing `~/.cursor/hooks.json` from a VS Code-compatible extension is **not a documented Cursor API**. It is the only user-level path that does not require a `.cursor-plugin`. Treat it as a risk; verify on current Cursor before Phase 1 ships.
+Writing `~/.cursor/hooks.json` from a VS Code-compatible extension is **not a documented Cursor API**. Phase 1 writes that file only after consent (and removes the Mati block on stop/uninstall) because a `.cursor-plugin` is not proven here to register Agent hooks. Revisit if Cursor documents a plugin hook API.
 
 ### VS Code / Copilot (Preview)
 
@@ -321,7 +328,7 @@ devices (id uuid pk, token_hash text unique, claimed_user_id uuid null reference
 capture_tasks (id, device_id, user_id null, editor, editor_task_id, status, started_at, finished_at, workspace_hash)
 capture_events (id, task_id, device_id, user_id null, kind, payload jsonb, idempotency_key, occurred_at)
 capture_usage (id, task_id, device_id, user_id null, operation_id, provenance, source, input_tokens, output_tokens, cached_tokens, reasoning_tokens, model, native jsonb)
-pairing_codes (id, user_id, code_hash, expires_at, consumed_at)
+pairing_codes (id, user_id, code_hash, expires_at, consumed_at) — Phase 4
 ```
 
 Unique: `capture_tasks (device_id, editor, editor_task_id)`, `capture_events (device_id, idempotency_key)`, `capture_usage (task_id, operation_id)`.
@@ -390,8 +397,8 @@ One extension, one publisher, two stores.
 
 Each PR is separately mergeable and has a check you can run without a production migrate.
 
-**Phase 1 — thinnest end-to-end (Cursor prompts only).** Device register, consent webview, Cursor user hooks (`beforeSubmitPrompt`, `afterAgentResponse`, `sessionEnd`), JSONL queue, `POST /events`, device viewer lists prompts. Usage rows stored as `missing`. No Copilot, no claim, no Mastra review, no Progress change.  
-Check: in Cursor, Accept consent, send one Agent prompt, open **Mati: Open report**, see that prompt and the missing-tokens sentence. Vitest: ingest idempotency + device RLS fixture (PGlite).
+**Phase 1 — thinnest end-to-end (Cursor prompts only).** Device register, consent webview, Cursor user hooks (`beforeSubmitPrompt`, `afterAgentResponse`, `sessionEnd`), JSONL queue, `POST /events`, device viewer lists prompts. Usage rows stored as `missing`. No Copilot, no claim, no Mastra review, no Progress change. The device id is the bearer lookup, not a client-supplied `deviceId` field.  
+Check: documented Cursor hook payloads through `hooks/cursor.mjs` land in local Postgres via ingest and render on the device viewer. Vitest: ingest idempotency + device RLS fixture (PGlite).
 
 **Phase 2 — redaction + estimates + file paths + preCompact.** Redaction fixtures (AWS key in a prompt is `[redacted:aws_access_key]` in the stored payload). Optional text-length estimate labeled `estimated`. `afterFileEdit` paths. `preCompact` as `ContextCompact`, not usage.  
 Check: fixture test file of secrets; viewer shows estimate copy, not a naked number.
@@ -413,15 +420,15 @@ Check: `vsce package` produces a `.vsix` that installs in VS Code and Cursor; af
 
 ## 8. Open questions (Amit)
 
-1. Device viewer (signed URL, no Mati account) vs forcing claim before any dashboard — this design picks the viewer so “no sign-in” is a complete loop. Confirm.
-2. Upload `afterAgentThought` text? Useful for coaching, noisier and more sensitive. Default **no**.
-3. Upload `afterFileEdit` `old_string`/`new_string` snippets vs paths only? Default **paths only** until a new consent version.
-4. Keep writing `~/.cursor/hooks.json`, or also ship a Cursor plugin (`.cursor-plugin`) once that API is the supported install path?
+1. Device viewer (signed URL, no Mati account) vs forcing claim before any dashboard — **viewer**. “No sign-in” is a complete loop.
+2. Upload `afterAgentThought` text? **No.**
+3. Upload `afterFileEdit` snippets vs paths only? **Paths only** until a new consent version.
+4. Keep writing `~/.cursor/hooks.json`, or also ship a Cursor plugin? **hooks.json after consent** until a plugin is proven to register Agent hooks.
 5. Remote SSH / WSL / Dev Containers: hooks run on the remote filesystem. In or out for v1?
 6. Retention after claim (90-day unclaimed TTL is specified; claimed retention is not).
 7. Marketplace publisher id and whether Open VSX is required for Cursor's marketplace.
 8. Production ingest origin the extension should pin (`mati` domain vs preview).
-9. Should Progress ever mix trainer exercises and editor tasks in one chart? This design says no.
+9. Should Progress ever mix trainer exercises and editor tasks in one chart? **No.** Separate sections/charts.
 
 ## 9. Risks
 

@@ -73,6 +73,7 @@
   "type": "module",
   "workspaces": [
     "apps/*",
-    "packages/*"
+    "packages/*",
+    "extensions/*"
   ]
 }

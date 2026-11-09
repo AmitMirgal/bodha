@@ -47,3 +47,16 @@ export async function withAnonDb<T>(
 ): Promise<T> {
 	return await runtimeRunWithDb()({ role: "anon" }, fn);
 }
+
+export async function withDeviceDb<T>(
+	deviceId: string,
+	fn: (db: MatiDb) => Promise<T>
+): Promise<T> {
+	return await runtimeRunWithDb()({ role: "device", deviceId }, fn);
+}
+
+export async function withCaptureRegisterDb<T>(
+	fn: (db: MatiDb) => Promise<T>
+): Promise<T> {
+	return await runtimeRunWithDb()({ role: "capture_register" }, fn);
+}

@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useRef, useState } from "react";
 import { runBackground } from "../lib/background";
 import type { Challenge } from "../lib/types";
+import { markNavigating } from "./NavigationProgress";
 import Round from "./Round";
 
 export default function RoundScreen({
@@ -98,12 +99,18 @@ export default function RoundScreen({
 				enqueue={enqueuePersist}
 				expectedUpdatedAt={expectedUpdatedAt}
 				files={files}
-				onExit={() => router.push("/")}
+				onExit={() => {
+					markNavigating();
+					router.push("/");
+				}}
 				onFiles={(next) => {
 					setFiles(next);
 					runBackground(enqueuePersist(next));
 				}}
-				onFinish={() => router.push(`/session/${sessionId}/report`)}
+				onFinish={() => {
+					markNavigating();
+					router.push(`/session/${sessionId}/report`);
+				}}
 				onSavedAt={(updatedAt) => {
 					expectedUpdatedAt.current = updatedAt;
 				}}

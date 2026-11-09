@@ -1,51 +1,50 @@
 "use client";
 
 import { Button } from "@repo/design-system/components/ui/button";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { runBackground } from "../lib/background";
+import { Skeleton } from "@repo/design-system/components/ui/skeleton";
+import { NavLink } from "./NavLink";
+import { UserMenu } from "./UserMenu";
 
-export function AppNav({ email }: { email?: string | null }) {
-	const router = useRouter();
-
-	async function signOut() {
-		await fetch("/api/auth/sign-out", { method: "POST" });
-		router.push("/login");
-		router.refresh();
+function AccountSlot({
+	email,
+	pending,
+}: {
+	email?: string | null;
+	pending: boolean;
+}) {
+	if (pending) {
+		return <Skeleton className="size-8 rounded-full" />;
 	}
+	if (email) {
+		return <UserMenu email={email} />;
+	}
+	return (
+		<Button asChild size="sm">
+			<NavLink href="/login">Sign in</NavLink>
+		</Button>
+	);
+}
 
+export function AppNav({
+	email,
+	pending = false,
+}: {
+	email?: string | null;
+	pending?: boolean;
+}) {
 	return (
 		<header className="flex flex-wrap items-center justify-between gap-3 border-b px-4 py-3">
-			<Link className="font-semibold tracking-tight" href="/">
+			<NavLink className="font-semibold tracking-tight" href="/">
 				Mati
-			</Link>
+			</NavLink>
 			<nav aria-label="Main" className="flex flex-wrap items-center gap-2">
 				<Button asChild size="sm" variant="ghost">
-					<Link href="/">Exercises</Link>
+					<NavLink href="/">Exercises</NavLink>
 				</Button>
 				<Button asChild size="sm" variant="ghost">
-					<Link href="/progress">Daily progress</Link>
+					<NavLink href="/progress">Daily progress</NavLink>
 				</Button>
-				<Button asChild size="sm" variant="ghost">
-					<Link href="/settings">LLM settings</Link>
-				</Button>
-				{email ? (
-					<span className="text-muted-foreground text-sm">{email}</span>
-				) : null}
-				{email ? (
-					<Button
-						onClick={() => runBackground(signOut())}
-						size="sm"
-						type="button"
-						variant="outline"
-					>
-						Sign out
-					</Button>
-				) : (
-					<Button asChild size="sm">
-						<Link href="/login">Sign in</Link>
-					</Button>
-				)}
+				<AccountSlot email={email} pending={pending} />
 			</nav>
 		</header>
 	);

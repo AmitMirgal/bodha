@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -116,9 +117,9 @@ export default function AiPanel({ sessionId }: { sessionId: string }) {
 		<div className="ai">
 			<div className="ai-head">
 				<h3>Trainer</h3>
-				<a className="link" href="/settings">
+				<Link className="link" href="/settings#llm" prefetch>
 					LLM settings
-				</a>
+				</Link>
 			</div>
 			<p className="muted">
 				Server-side Mastra agent with read-only session tools. Keys stay on the

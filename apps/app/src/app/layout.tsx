@@ -2,6 +2,7 @@ import { Toaster } from "@repo/design-system/components/ui/sonner";
 import { TooltipProvider } from "@repo/design-system/components/ui/tooltip";
 import { ThemeProvider } from "@repo/design-system/providers/theme";
 import type { Metadata } from "next";
+import { NavigationProgress } from "../components/NavigationProgress";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -16,10 +17,16 @@ export default function RootLayout({
 	children: React.ReactNode;
 }) {
 	return (
-		<html className="dark" lang="en" suppressHydrationWarning>
+		<html lang="en" suppressHydrationWarning>
 			<body>
-				<ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
+				<ThemeProvider
+					attribute="class"
+					defaultTheme="system"
+					disableTransitionOnChange
+					enableSystem
+				>
 					<TooltipProvider>
+						<NavigationProgress />
 						{children}
 						<Toaster />
 					</TooltipProvider>

@@ -2,16 +2,16 @@
 
 :root {
 	--ink: #0d0d0f;
-	--panel: #16161b;
-	--panel-2: #1d1d24;
-	--line: #2b2b35;
-	--text: #f2f0e8;
-	--dim: #8b8b99;
 	--lime: #c6ff3d;
 	--pink: #ff4d8d;
 	--amber: #ffb84d;
 	--display: "Bricolage Grotesque", system-ui, sans-serif;
 	--mono: "JetBrains Mono", ui-monospace, monospace;
+	--panel: #ffffff;
+	--panel-2: #f3f1ea;
+	--line: #d9d6cc;
+	--text: #0d0d0f;
+	--dim: #5c5c68;
 	--background: #f2f0e8;
 	--foreground: #0d0d0f;
 	--card: #ffffff;
@@ -28,9 +28,15 @@
 	--border: #d9d6cc;
 	--input: #cfcabe;
 	--ring: #3f5a00;
+	color-scheme: light;
 }
 
 .dark {
+	--panel: #16161b;
+	--panel-2: #1d1d24;
+	--line: #2b2b35;
+	--text: #f2f0e8;
+	--dim: #8b8b99;
 	--background: var(--ink);
 	--foreground: var(--text);
 	--card: var(--panel);
@@ -47,6 +53,7 @@
 	--border: var(--line);
 	--input: var(--line);
 	--ring: var(--lime);
+	color-scheme: dark;
 }
 
 * {
@@ -171,7 +178,7 @@ kbd {
 .pill {
 	padding: 2px 10px;
 	font: 700 12px var(--mono);
-	color: var(--ink);
+	color: var(--background);
 	background: var(--text);
 	border-radius: 99px;
 }
@@ -252,7 +259,7 @@ kbd {
 	max-width: 600px;
 	margin: 26px 0 32px;
 	font-size: 19px;
-	color: #c9c7be;
+	color: var(--dim);
 }
 
 .how {
@@ -288,7 +295,7 @@ kbd {
 }
 .step p {
 	font-size: 14px;
-	color: #b9b7ae;
+	color: var(--dim);
 }
 
 .rounds h2 {
@@ -323,7 +330,7 @@ kbd {
 	letter-spacing: -0.03em;
 }
 .card p {
-	color: #b9b7ae;
+	color: var(--dim);
 }
 .card ul {
 	padding-left: 18px;
@@ -442,7 +449,7 @@ footer {
 	width: 20px;
 	height: 20px;
 	font: 700 11px var(--mono);
-	color: var(--ink);
+	color: var(--background);
 	background: var(--text);
 	border-radius: 6px;
 }
@@ -463,7 +470,7 @@ footer {
 .tasks p {
 	margin-top: 6px;
 	font-size: 13px;
-	color: #a8a69d;
+	color: var(--dim);
 }
 
 .files {
@@ -477,7 +484,7 @@ footer {
 	width: 100%;
 	padding: 6px 10px;
 	font: 500 13px var(--mono);
-	color: #bbb9b0;
+	color: var(--dim);
 	text-align: left;
 	background: none;
 	border: 0;
@@ -773,7 +780,7 @@ footer {
 	margin: 0;
 	overflow-x: auto;
 	font: 13px / 1.6 var(--mono);
-	background: #121216;
+	background: var(--panel-2);
 }
 .end-actions {
 	display: flex;
@@ -820,7 +827,7 @@ footer {
 	border-radius: 7px;
 }
 .seg button.on {
-	color: var(--ink);
+	color: var(--background);
 	background: var(--text);
 }
 .seg i {
@@ -1003,7 +1010,7 @@ body.resizing {
 .md blockquote {
 	padding-left: 10px;
 	margin: 0 0 8px;
-	color: #bbb9b0;
+	color: var(--dim);
 	border-left: 3px solid var(--pink);
 }
 .bubble.assistant {

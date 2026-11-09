@@ -20,7 +20,7 @@ export function getEncryptionKey(): Buffer {
 	const raw = matiEnv("CREDENTIALS_ENCRYPTION_KEY");
 	if (!raw) {
 		throw new EncryptionConfigError(
-			"MATI_CREDENTIALS_ENCRYPTION_KEY is not set. Refusing to store or read credentials."
+			"MATI_CREDENTIALS_ENCRYPTION_KEY is not set. Generate one with `openssl rand -hex 32`. Use a distinct key per environment. Refusing to store or read credentials."
 		);
 	}
 	if (HEX_KEY.test(raw)) {
@@ -35,7 +35,7 @@ export function getEncryptionKey(): Buffer {
 		// fall through
 	}
 	throw new EncryptionConfigError(
-		"MATI_CREDENTIALS_ENCRYPTION_KEY must be 32 bytes as 64 hex chars or base64."
+		"MATI_CREDENTIALS_ENCRYPTION_KEY must be 32 bytes as 64 hex chars (`openssl rand -hex 32`) or base64."
 	);
 }
 
@@ -56,7 +56,7 @@ export interface EncryptedSecret {
 }
 
 export interface CredentialBinding {
-	baseUrl: string;
+	legacyBaseUrl?: string | null;
 	model: string;
 	provider: string;
 }
@@ -66,7 +66,20 @@ export function credentialAad(
 	binding: CredentialBinding
 ): Buffer {
 	return Buffer.from(
-		`${ownerId}\0${binding.provider}\0${binding.model}\0${binding.baseUrl}`,
+		`${ownerId}\0${binding.provider}\0${binding.model}`,
+		"utf8"
+	);
+}
+
+function legacyCredentialAad(
+	ownerId: string,
+	binding: CredentialBinding
+): Buffer | null {
+	if (!binding.legacyBaseUrl) {
+		return null;
+	}
+	return Buffer.from(
+		`${ownerId}\0${binding.provider}\0${binding.model}\0${binding.legacyBaseUrl}`,
 		"utf8"
 	);
 }
@@ -101,22 +114,38 @@ export function encryptSecret(
 	};
 }
 
-export function decryptSecret(
+function decryptWithAad(
 	secret: EncryptedSecret,
-	ownerId: string,
-	binding: CredentialBinding
+	key: Buffer,
+	aad: Buffer
 ): string {
-	const key = getEncryptionKey();
 	const decipher = createDecipheriv(
 		ALGO,
 		key,
 		Buffer.from(secret.iv, "base64")
 	);
-	decipher.setAAD(credentialAad(ownerId, binding));
+	decipher.setAAD(aad);
 	decipher.setAuthTag(Buffer.from(secret.tag, "base64"));
 	const decrypted = Buffer.concat([
 		decipher.update(Buffer.from(secret.ciphertext, "base64")),
 		decipher.final(),
 	]);
 	return decrypted.toString("utf8");
+}
+
+export function decryptSecret(
+	secret: EncryptedSecret,
+	ownerId: string,
+	binding: CredentialBinding
+): string {
+	const key = getEncryptionKey();
+	try {
+		return decryptWithAad(secret, key, credentialAad(ownerId, binding));
+	} catch {
+		const legacy = legacyCredentialAad(ownerId, binding);
+		if (!legacy) {
+			throw new Error("Could not decrypt the stored API key.");
+		}
+		return decryptWithAad(secret, key, legacy);
+	}
 }

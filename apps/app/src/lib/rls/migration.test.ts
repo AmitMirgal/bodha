@@ -64,6 +64,20 @@ describe("Mati migration source constraints", () => {
 		expect(force).not.toMatch(/prisma migrate/i);
 	});
 
+	it("adds an additive provider constraint without dropping base_url", () => {
+		const fixed = readFileSync(
+			new URL(
+				"../../../../../supabase/migrations/20251109090000_llm_settings_fixed_providers.sql",
+				import.meta.url
+			),
+			"utf8"
+		);
+		expect(fixed).toMatch(/llm_settings_provider_allowed/);
+		expect(fixed).toMatch(/openai.*anthropic.*sarvam.*xai.*google/s);
+		expect(fixed).toMatch(/alter column base_url drop not null/);
+		expect(fixed).not.toMatch(/drop column base_url/i);
+	});
+
 	it("does not keep a second Prisma Migrate history under apps/app/prisma/migrations", () => {
 		const prismaMigrateDir = new URL(
 			"../../../prisma/migrations",

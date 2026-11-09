@@ -1,6 +1,13 @@
 "use client";
 
 import {
+	describeCapabilityGaps,
+	listMatiProviders,
+	type MatiProviderId,
+	PROVIDER_REGISTRY,
+	parseMatiProvider,
+} from "@repo/ai/providers";
+import {
 	Alert,
 	AlertDescription,
 	AlertTitle,
@@ -15,12 +22,16 @@ import {
 } from "@repo/design-system/components/ui/card";
 import { Input } from "@repo/design-system/components/ui/input";
 import { Label } from "@repo/design-system/components/ui/label";
-import { type FormEvent, useEffect, useState } from "react";
+import { type FormEvent, useEffect, useMemo, useState } from "react";
 import { runBackground } from "../lib/background";
 
 interface Masked {
-	baseUrl: string | null;
-	capabilities?: { tools?: string } | null;
+	capabilities?: {
+		streaming?: string;
+		structuredOutput?: string;
+		tools?: string;
+		usageReporting?: string;
+	} | null;
 	configured: boolean;
 	keyFingerprint: string | null;
 	model: string | null;
@@ -28,42 +39,40 @@ interface Masked {
 	source: "user" | "operator_default" | "none";
 }
 
+const CATALOG = listMatiProviders();
+
 export function LlmSettingsForm() {
-	const [provider, setProvider] = useState("openai-compatible");
+	const [provider, setProvider] = useState<MatiProviderId>("openai");
 	const [model, setModel] = useState("");
-	const [baseUrl, setBaseUrl] = useState("https://api.openai.com/v1");
 	const [apiKey, setApiKey] = useState("");
 	const [masked, setMasked] = useState<Masked | null>(null);
 	const [encryptionReady, setEncryptionReady] = useState(true);
-	const [allowedHosts, setAllowedHosts] = useState<string[]>([]);
 	const [message, setMessage] = useState("");
 	const [error, setError] = useState("");
 	const [busy, setBusy] = useState(false);
+
+	const selected = useMemo(
+		() =>
+			CATALOG.find((item) => item.id === provider) ?? PROVIDER_REGISTRY.openai,
+		[provider]
+	);
+	const gaps = describeCapabilityGaps(selected.capabilities);
 
 	useEffect(() => {
 		runBackground(
 			fetch("/api/llm-settings")
 				.then((response) => response.json())
-				.then(
-					(body: {
-						allowedHosts?: string[];
-						encryptionReady?: boolean;
-						settings?: Masked;
-					}) => {
-						setMasked(body.settings ?? null);
-						setEncryptionReady(Boolean(body.encryptionReady));
-						setAllowedHosts(body.allowedHosts ?? []);
-						if (body.settings?.provider) {
-							setProvider(body.settings.provider);
-						}
-						if (body.settings?.model) {
-							setModel(body.settings.model);
-						}
-						if (body.settings?.baseUrl) {
-							setBaseUrl(body.settings.baseUrl);
-						}
+				.then((body: { encryptionReady?: boolean; settings?: Masked }) => {
+					setMasked(body.settings ?? null);
+					setEncryptionReady(Boolean(body.encryptionReady));
+					const saved = parseMatiProvider(body.settings?.provider);
+					if (saved) {
+						setProvider(saved);
 					}
-				)
+					if (body.settings?.model) {
+						setModel(body.settings.model);
+					}
+				})
 		);
 	}, []);
 
@@ -72,15 +81,12 @@ export function LlmSettingsForm() {
 		const body = await response.json();
 		setMasked(body.settings);
 		setEncryptionReady(Boolean(body.encryptionReady));
-		setAllowedHosts(body.allowedHosts ?? []);
-		if (body.settings?.provider) {
-			setProvider(body.settings.provider);
+		const saved = parseMatiProvider(body.settings?.provider);
+		if (saved) {
+			setProvider(saved);
 		}
 		if (body.settings?.model) {
 			setModel(body.settings.model);
-		}
-		if (body.settings?.baseUrl) {
-			setBaseUrl(body.settings.baseUrl);
 		}
 	}
 
@@ -93,7 +99,7 @@ export function LlmSettingsForm() {
 			const response = await fetch("/api/llm-settings", {
 				method: "PUT",
 				headers: { "content-type": "application/json" },
-				body: JSON.stringify({ provider, model, baseUrl, apiKey }),
+				body: JSON.stringify({ provider, model, apiKey }),
 			});
 			const body = await response.json();
 			setApiKey("");
@@ -118,7 +124,7 @@ export function LlmSettingsForm() {
 			const response = await fetch("/api/llm-settings", {
 				method: "POST",
 				headers: { "content-type": "application/json" },
-				body: JSON.stringify({ provider, model, baseUrl, apiKey }),
+				body: JSON.stringify({ provider, model, apiKey }),
 			});
 			const body = await response.json();
 			setApiKey("");
@@ -126,10 +132,14 @@ export function LlmSettingsForm() {
 				setError(body.error ?? "Check failed.");
 				return;
 			}
+			const extra =
+				Array.isArray(body.gaps) && body.gaps.length > 0
+					? ` ${body.gaps.join(" ")}`
+					: "";
 			setMessage(
 				body.error
 					? body.error
-					: "Connection check succeeded. No exercise content was sent."
+					: `Documented capabilities loaded.${extra} No exercise content was sent.`
 			);
 		} finally {
 			setBusy(false);
@@ -160,9 +170,10 @@ export function LlmSettingsForm() {
 				<CardHeader>
 					<CardTitle>Bring your own LLM key</CardTitle>
 					<CardDescription>
-						Trainer chat and learning review both use this configuration. Keys
-						are submitted over HTTPS, encrypted at rest, and never returned to
-						the browser.
+						Pick one of the five supported providers, enter the model id, and
+						paste your API key. Keys are submitted over HTTPS, encrypted at
+						rest, and never returned to the browser. Mati always uses that
+						provider&apos;s official endpoint.
 					</CardDescription>
 				</CardHeader>
 				<CardContent className="grid gap-4">
@@ -170,8 +181,8 @@ export function LlmSettingsForm() {
 						<Alert variant="destructive">
 							<AlertTitle>Encryption is not configured</AlertTitle>
 							<AlertDescription>
-								Set MATI_CREDENTIALS_ENCRYPTION_KEY on the server. Mati will not
-								store plaintext keys.
+								Set MATI_CREDENTIALS_ENCRYPTION_KEY on the server (`openssl rand
+								-hex 32`). Mati will not store plaintext keys.
 							</AlertDescription>
 						</Alert>
 					)}
@@ -184,39 +195,39 @@ export function LlmSettingsForm() {
 							? ` · tools ${masked.capabilities.tools}`
 							: ""}
 					</p>
-					<p className="text-muted-foreground text-sm">
-						Allowed hosts:{" "}
-						{allowedHosts.length ? allowedHosts.join(", ") : "none configured"}
-					</p>
 					<form
 						className="grid gap-4"
 						onSubmit={(event) => runBackground(onSave(event))}
 					>
 						<div className="grid gap-2">
-							<Label htmlFor="provider">Provider id</Label>
-							<Input
+							<Label htmlFor="provider">Provider</Label>
+							<select
+								className="h-9 rounded-md border border-input bg-background px-3 text-sm"
 								id="provider"
-								onChange={(event) => setProvider(event.target.value)}
+								onChange={(event) => {
+									const next = parseMatiProvider(event.target.value);
+									if (next) {
+										setProvider(next);
+									}
+								}}
 								required
 								value={provider}
-							/>
+							>
+								{CATALOG.map((item) => (
+									<option key={item.id} value={item.id}>
+										{item.label}
+									</option>
+								))}
+							</select>
 						</div>
 						<div className="grid gap-2">
 							<Label htmlFor="model">Model</Label>
 							<Input
 								id="model"
 								onChange={(event) => setModel(event.target.value)}
+								placeholder="Provider model id"
 								required
 								value={model}
-							/>
-						</div>
-						<div className="grid gap-2">
-							<Label htmlFor="baseUrl">OpenAI-compatible base URL</Label>
-							<Input
-								id="baseUrl"
-								onChange={(event) => setBaseUrl(event.target.value)}
-								required
-								value={baseUrl}
 							/>
 						</div>
 						<div className="grid gap-2">
@@ -230,6 +241,18 @@ export function LlmSettingsForm() {
 								value={apiKey}
 							/>
 						</div>
+						{gaps.length > 0 ? (
+							<Alert>
+								<AlertTitle>Documented capability gaps</AlertTitle>
+								<AlertDescription>
+									<ul className="list-disc pl-4">
+										{gaps.map((gap) => (
+											<li key={gap}>{gap}</li>
+										))}
+									</ul>
+								</AlertDescription>
+							</Alert>
+						) : null}
 						{error ? (
 							<p className="text-destructive text-sm" role="alert">
 								{error}
@@ -246,7 +269,7 @@ export function LlmSettingsForm() {
 								type="button"
 								variant="secondary"
 							>
-								Check connection
+								Check capabilities
 							</Button>
 							<Button
 								disabled={busy}

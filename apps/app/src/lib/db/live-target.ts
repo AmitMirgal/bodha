@@ -12,11 +12,11 @@ const POOLER_HOST = /(?:^|\.)pooler\.supabase\.com$/i;
 const TRANSACTION_PORT = "6543";
 
 export interface LivePrismaTargetEnv {
-	BODHA_LIVE_ISOLATED_TARGET?: string;
-	BODHA_LIVE_PRISMA_RLS?: string;
-	BODHA_LIVE_USER_A_ID?: string;
-	BODHA_LIVE_USER_B_ID?: string;
 	DATABASE_URL?: string;
+	MATI_LIVE_ISOLATED_TARGET?: string;
+	MATI_LIVE_PRISMA_RLS?: string;
+	MATI_LIVE_USER_A_ID?: string;
+	MATI_LIVE_USER_B_ID?: string;
 	[key: string]: string | undefined;
 }
 

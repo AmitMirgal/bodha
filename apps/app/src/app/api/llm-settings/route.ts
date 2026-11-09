@@ -1,23 +1,22 @@
-import { probeOpenAiCompatible, validateLlmEndpoint } from "@repo/ai/provider";
+import {
+	describeUnsupported,
+	documentedCapabilitiesFor,
+	publicProviderCatalog,
+} from "@repo/ai/provider";
 import { NextResponse } from "next/server";
-import { z } from "zod";
 import {
 	encryptionAvailable,
 	encryptSecret,
 } from "../../../lib/crypto/credentials";
 import { withUserDb } from "../../../lib/db/client";
 import { deleteLlmSettings, upsertLlmSettings } from "../../../lib/db/queries";
-import { allowHttpLlm, getAllowedLlmHosts } from "../../../lib/env";
 import { redactProviderError } from "../../../lib/errors";
 import { getMaskedSettings } from "../../../lib/llm/resolve-config";
+import {
+	LlmSettingsInputError,
+	parseLlmSettingsInput,
+} from "../../../lib/llm/settings-input";
 import { requireUser } from "../../../lib/supabase/server";
-
-const saveSchema = z.object({
-	provider: z.string().min(1).max(64),
-	model: z.string().min(1).max(200),
-	baseUrl: z.string().url(),
-	apiKey: z.string().min(1).max(4096),
-});
 
 export async function GET() {
 	const { userId } = await requireUser();
@@ -30,7 +29,7 @@ export async function GET() {
 	return NextResponse.json({
 		settings,
 		encryptionReady: encryptionAvailable(),
-		allowedHosts: getAllowedLlmHosts(),
+		providers: publicProviderCatalog(),
 	});
 }
 
@@ -48,62 +47,51 @@ export async function PUT(request: Request) {
 			{ status: 503 }
 		);
 	}
-	const parsed = saveSchema.safeParse(await request.json());
-	if (!parsed.success) {
-		return NextResponse.json({ error: "Invalid settings." }, { status: 400 });
-	}
 	try {
-		const endpoint = await validateLlmEndpoint(
-			parsed.data.baseUrl,
-			getAllowedLlmHosts(),
-			{ allowHttpForApprovedHosts: allowHttpLlm() }
-		);
-		const probe = await probeOpenAiCompatible(
-			endpoint,
-			parsed.data.apiKey,
-			parsed.data.model
-		);
-		if (probe.capabilities.tools !== "supported") {
+		const parsed = parseLlmSettingsInput(await request.json());
+		const capabilities = documentedCapabilitiesFor(parsed.provider);
+		if (capabilities.tools !== "supported") {
 			return NextResponse.json(
 				{
 					error:
-						probe.error ??
-						"This endpoint has not proven tool calling. Settings were not saved.",
-					capabilities: probe.capabilities,
+						"This provider has not proven tool calling. Settings were not saved. Mati will not fall back to a one-shot completion.",
+					capabilities,
+					gaps: describeUnsupported(capabilities),
 				},
 				{ status: 400 }
 			);
 		}
-		const secret = encryptSecret(parsed.data.apiKey, userId, {
-			provider: parsed.data.provider,
-			model: parsed.data.model,
-			baseUrl: endpoint.href,
+		const secret = encryptSecret(parsed.apiKey, userId, {
+			provider: parsed.provider,
+			model: parsed.model,
 		});
 		await withUserDb(userId, (db) =>
 			upsertLlmSettings(db, {
 				userId,
-				provider: parsed.data.provider,
-				model: parsed.data.model,
-				baseUrl: endpoint.href,
+				provider: parsed.provider,
+				model: parsed.model,
 				encryptedApiKey: secret.ciphertext,
 				encryptionIv: secret.iv,
 				encryptionTag: secret.tag,
 				keyFingerprint: secret.fingerprint,
-				capabilities: probe.capabilities,
+				capabilities,
 			})
 		);
 		return NextResponse.json({
 			settings: {
 				configured: true,
 				source: "user",
-				provider: parsed.data.provider,
-				model: parsed.data.model,
-				baseUrl: endpoint.href,
+				provider: parsed.provider,
+				model: parsed.model,
 				keyFingerprint: secret.fingerprint,
-				capabilities: probe.capabilities,
+				capabilities,
 			},
+			gaps: describeUnsupported(capabilities),
 		});
 	} catch (error) {
+		if (error instanceof LlmSettingsInputError) {
+			return NextResponse.json({ error: error.message }, { status: 400 });
+		}
 		return NextResponse.json(
 			{ error: redactProviderError(error) },
 			{ status: 400 }
@@ -132,32 +120,25 @@ export async function POST(request: Request) {
 	if (!userId) {
 		return NextResponse.json({ error: "Sign in required." }, { status: 401 });
 	}
-	const parsed = saveSchema.safeParse(await request.json());
-	if (!parsed.success) {
-		return NextResponse.json(
-			{ error: "Invalid settings for connection check." },
-			{ status: 400 }
-		);
-	}
 	try {
-		const endpoint = await validateLlmEndpoint(
-			parsed.data.baseUrl,
-			getAllowedLlmHosts(),
-			{ allowHttpForApprovedHosts: allowHttpLlm() }
-		);
-		const probe = await probeOpenAiCompatible(
-			endpoint,
-			parsed.data.apiKey,
-			parsed.data.model
-		);
+		const parsed = parseLlmSettingsInput(await request.json());
+		const capabilities = documentedCapabilitiesFor(parsed.provider);
+		const gaps = describeUnsupported(capabilities);
 		return NextResponse.json({
-			ok: !probe.error,
-			error: probe.error ?? null,
-			capabilities: probe.capabilities,
+			ok: capabilities.tools === "supported",
+			error:
+				capabilities.tools === "supported"
+					? null
+					: "This provider has not proven tool calling. Mati will not fall back to a one-shot completion.",
+			capabilities,
+			gaps,
 			notice:
-				"This check lists models and probes tool support. It does not send exercise content.",
+				"This check uses the documented capability matrix. It does not send exercise content or call the provider with your key.",
 		});
 	} catch (error) {
+		if (error instanceof LlmSettingsInputError) {
+			return NextResponse.json({ error: error.message }, { status: 400 });
+		}
 		return NextResponse.json(
 			{ error: redactProviderError(error) },
 			{ status: 400 }

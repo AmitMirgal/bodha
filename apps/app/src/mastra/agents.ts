@@ -2,17 +2,15 @@ import { Agent } from "@mastra/core/agent";
 import type { MastraModelConfig } from "@mastra/core/llm";
 import type { RequestContext } from "@mastra/core/request-context";
 import {
-	endpointFromHref,
 	parseProviderCapabilities,
 	type ResolvedLlmConfig,
-	toProtectedLanguageModel,
+	toMastraModelConfig,
 } from "@repo/ai/provider";
 import { z } from "zod";
 import { reviewTools, trainerTools } from "./tools";
 
 interface LlmRequestContext {
 	apiKey: string;
-	baseUrl: string;
 	capabilitiesJson: string;
 	model: string;
 	provider: string;
@@ -27,13 +25,11 @@ const modelFromContext = ({
 }): MastraModelConfig => {
 	const provider = requestContext.get("provider");
 	const model = requestContext.get("model");
-	const url = requestContext.get("baseUrl");
 	const apiKey = requestContext.get("apiKey");
 	const capabilitiesJson = requestContext.get("capabilitiesJson");
 	if (
 		typeof provider !== "string" ||
 		typeof model !== "string" ||
-		typeof url !== "string" ||
 		typeof apiKey !== "string" ||
 		typeof capabilitiesJson !== "string"
 	) {
@@ -51,13 +47,11 @@ const modelFromContext = ({
 	}
 	const config: ResolvedLlmConfig = {
 		source: "user",
-		protocol: "openai-compatible",
 		provider,
 		model,
-		baseUrl: url,
 		capabilities,
 	};
-	return toProtectedLanguageModel(config, apiKey, endpointFromHref(url));
+	return toMastraModelConfig(config, apiKey);
 };
 
 const requestContextSchema = z.object({
@@ -65,7 +59,6 @@ const requestContextSchema = z.object({
 	sessionId: z.string().uuid(),
 	provider: z.string(),
 	model: z.string(),
-	baseUrl: z.string(),
 	apiKey: z.string(),
 	capabilitiesJson: z.string(),
 });

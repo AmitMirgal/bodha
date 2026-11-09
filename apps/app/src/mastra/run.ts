@@ -74,7 +74,6 @@ function contextFor(input: RunInput) {
 		sessionId: string;
 		provider: string;
 		model: string;
-		baseUrl: string;
 		apiKey: string;
 		capabilitiesJson: string;
 	}>();
@@ -82,7 +81,6 @@ function contextFor(input: RunInput) {
 	requestContext.set("sessionId", input.sessionId);
 	requestContext.set("provider", input.config.provider);
 	requestContext.set("model", input.config.model);
-	requestContext.set("baseUrl", input.config.baseUrl);
 	requestContext.set("apiKey", input.apiKey);
 	requestContext.set(
 		"capabilitiesJson",

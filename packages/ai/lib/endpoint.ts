@@ -76,10 +76,7 @@ export interface ValidatedEndpoint {
 	origin: string;
 }
 
-function parseEndpointUrl(
-	rawUrl: string,
-	options?: { allowHttpForApprovedHosts?: boolean }
-): URL {
+function parseEndpointUrl(rawUrl: string): URL {
 	let parsed: URL;
 	try {
 		parsed = new URL(rawUrl);
@@ -87,11 +84,7 @@ function parseEndpointUrl(
 		throw new EndpointValidationError("Base URL is not a valid URL.");
 	}
 
-	const allowHttp = options?.allowHttpForApprovedHosts === true;
-	if (
-		parsed.protocol !== "https:" &&
-		!(allowHttp && parsed.protocol === "http:")
-	) {
+	if (parsed.protocol !== "https:") {
 		throw new EndpointValidationError("Base URL must use HTTPS.");
 	}
 	if (parsed.username || parsed.password) {
@@ -115,9 +108,7 @@ function assertHostAllowed(host: string, allowedHosts: string[]) {
 	}
 	const allowed = new Set(allowedHosts.map((value) => value.toLowerCase()));
 	if (allowed.size === 0) {
-		throw new EndpointValidationError(
-			"No allowed LLM hosts are configured. Set MATI_ALLOWED_LLM_HOSTS."
-		);
+		throw new EndpointValidationError("No allowed LLM hosts are configured.");
 	}
 	const hostAllowed =
 		allowed.has(host) ||
@@ -160,10 +151,9 @@ export function endpointFromHref(href: string): ValidatedEndpoint {
 
 export async function validateLlmEndpoint(
 	rawUrl: string,
-	allowedHosts: string[],
-	options?: { allowHttpForApprovedHosts?: boolean }
+	allowedHosts: string[]
 ): Promise<ValidatedEndpoint> {
-	const parsed = parseEndpointUrl(rawUrl, options);
+	const parsed = parseEndpointUrl(rawUrl);
 	const host = parsed.hostname.toLowerCase();
 	assertHostAllowed(host, allowedHosts);
 	await assertPublicDns(host);

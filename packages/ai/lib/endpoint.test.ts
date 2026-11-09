@@ -22,21 +22,21 @@ describe("endpoint validation", () => {
 
 	it("rejects http, credentials, and unlisted hosts", async () => {
 		await expect(
-			validateLlmEndpoint("http://api.openai.com/v1", ["api.openai.com"]),
+			validateLlmEndpoint("http://api.openai.com/v1", ["api.openai.com"])
 		).rejects.toThrow(/HTTPS/);
 		await expect(
 			validateLlmEndpoint("https://user:pass@api.openai.com/v1", [
 				"api.openai.com",
-			]),
+			])
 		).rejects.toThrow(/credentials/);
 		await expect(
-			validateLlmEndpoint("https://not-allowed.example/v1", ["api.openai.com"]),
+			validateLlmEndpoint("https://not-allowed.example/v1", ["api.openai.com"])
 		).rejects.toThrow(/not on the operator-approved/);
 	});
 
 	it("rejects DNS that resolves privately", async () => {
 		await expect(
-			validateLlmEndpoint("https://evil.example/v1", ["evil.example"]),
+			validateLlmEndpoint("https://evil.example/v1", ["evil.example"])
 		).rejects.toThrow(/private/);
 	});
 
@@ -47,17 +47,9 @@ describe("endpoint validation", () => {
 		expect(endpoint.host).toBe("api.openai.com");
 	});
 
-	it("allows HTTP only for operator-approved public hosts", async () => {
-		const endpoint = await validateLlmEndpoint(
-			"http://api.openai.com/v1",
-			["api.openai.com"],
-			{ allowHttpForApprovedHosts: true },
-		);
-		expect(endpoint.href).toContain("http://api.openai.com");
+	it("rejects HTTP even for public hosts", async () => {
 		await expect(
-			validateLlmEndpoint("http://127.0.0.1/v1", ["127.0.0.1"], {
-				allowHttpForApprovedHosts: true,
-			}),
-		).rejects.toThrow(/not allowed|Private/);
+			validateLlmEndpoint("http://api.openai.com/v1", ["api.openai.com"])
+		).rejects.toThrow(/HTTPS/);
 	});
 });

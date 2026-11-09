@@ -43,6 +43,7 @@ export const ingestEventSchema = z.object({
 	outputTokens: z.number().int().nonnegative().nullable().optional(),
 	path: z.string().max(500).optional(),
 	provenance: z.enum(["estimated", "measured", "missing"]).optional(),
+	reasoningTokens: z.number().int().nonnegative().nullable().optional(),
 	reason: z.string().max(80).optional(),
 	source: z
 		.enum([

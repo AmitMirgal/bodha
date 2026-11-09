@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
-import { AppNav } from "../../components/AppNav";
-import { LlmSettingsForm } from "../../components/LlmSettingsForm";
-import { requireUser } from "../../lib/supabase/server";
+import { SettingsScreen } from "../../../components/SettingsScreen";
+import { requireUser } from "../../../lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
@@ -11,10 +10,7 @@ export default async function SettingsPage() {
 		redirect("/login?next=/settings");
 	}
 	const { data } = await supabase.auth.getUser();
-	return (
-		<>
-			<AppNav email={data.user?.email} />
-			<LlmSettingsForm />
-		</>
-	);
+	const email = data.user?.email ?? "";
+
+	return <SettingsScreen email={email} />;
 }

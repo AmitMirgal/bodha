@@ -1,6 +1,7 @@
 "use client";
 
 import Editor, { type BeforeMount } from "@monaco-editor/react";
+import { useTheme } from "next-themes";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { runBackground } from "../lib/background";
 import { fmtClock } from "../lib/format";
@@ -46,6 +47,23 @@ const defineTheme: BeforeMount = (monaco) => {
 			"editor.selectionBackground": "#c6ff3d33",
 		},
 	});
+	monaco.editor.defineTheme("code-comprehension-light", {
+		base: "vs",
+		inherit: true,
+		rules: [
+			{ token: "comment", foreground: "6b6b78", fontStyle: "italic" },
+			{ token: "keyword", foreground: "b00040" },
+			{ token: "string", foreground: "3f5a00" },
+			{ token: "number", foreground: "8a4b00" },
+		],
+		colors: {
+			"editor.background": "#f7f6f1",
+			"editor.lineHighlightBackground": "#eceae3",
+			"editorLineNumber.foreground": "#8b8b99",
+			"editorLineNumber.activeForeground": "#3f5a00",
+			"editor.selectionBackground": "#c6ff3d66",
+		},
+	});
 };
 
 export default function Round({
@@ -61,6 +79,11 @@ export default function Round({
 	onExit,
 	onSavedAt,
 }: Props) {
+	const { resolvedTheme } = useTheme();
+	const monacoTheme =
+		resolvedTheme === "light"
+			? "code-comprehension-light"
+			: "code-comprehension";
 	const paths = Object.keys(files);
 	const [active, setActive] = useState(
 		paths.find((path) => path === "README.md") ?? paths[0]
@@ -321,7 +344,7 @@ export default function Round({
 							renderLineHighlight: "line",
 						}}
 						path={active}
-						theme="code-comprehension"
+						theme={monacoTheme}
 						value={files[active]}
 					/>
 				</div>

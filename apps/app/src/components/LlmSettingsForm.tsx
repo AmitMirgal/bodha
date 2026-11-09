@@ -165,7 +165,7 @@ export function LlmSettingsForm() {
 	}
 
 	return (
-		<main className="mx-auto grid max-w-2xl gap-4 px-4 py-8">
+		<section id="llm">
 			<Card>
 				<CardHeader>
 					<CardTitle>Bring your own LLM key</CardTitle>
@@ -283,6 +283,6 @@ export function LlmSettingsForm() {
 					</form>
 				</CardContent>
 			</Card>
-		</main>
+		</section>
 	);
 }

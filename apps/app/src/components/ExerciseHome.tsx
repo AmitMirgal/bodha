@@ -17,6 +17,8 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { runBackground } from "../lib/background";
 import type { ChallengeMeta } from "../lib/types";
+import { markNavigating } from "./NavigationProgress";
+import { NavLink } from "./NavLink";
 
 interface SessionRow {
 	exercise_id: string;
@@ -71,6 +73,7 @@ export function ExerciseHome({ challenges }: { challenges: ChallengeMeta[] }) {
 			setError(startedBody.error ?? "Could not start session.");
 			return;
 		}
+		markNavigating();
 		router.push(`/session/${body.session.id}`);
 	}
 
@@ -153,11 +156,8 @@ export function ExerciseHome({ challenges }: { challenges: ChallengeMeta[] }) {
 								</ul>
 								<div className="flex flex-wrap gap-2">
 									{session?.status === "running" ? (
-										<Button
-											onClick={() => router.push(`/session/${session.id}`)}
-											type="button"
-										>
-											Resume
+										<Button asChild>
+											<NavLink href={`/session/${session.id}`}>Resume</NavLink>
 										</Button>
 									) : (
 										<Button onClick={() => setPending(challenge)} type="button">
@@ -165,14 +165,10 @@ export function ExerciseHome({ challenges }: { challenges: ChallengeMeta[] }) {
 										</Button>
 									)}
 									{session?.status === "complete" ? (
-										<Button
-											onClick={() =>
-												router.push(`/session/${session.id}/report`)
-											}
-											type="button"
-											variant="secondary"
-										>
-											View report
+										<Button asChild variant="secondary">
+											<NavLink href={`/session/${session.id}/report`}>
+												View report
+											</NavLink>
 										</Button>
 									) : null}
 								</div>

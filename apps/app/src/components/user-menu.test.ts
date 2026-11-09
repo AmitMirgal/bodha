@@ -7,6 +7,10 @@ const progressPage = readFileSync(
 	new URL("../app/(app)/progress/page.tsx", import.meta.url),
 	"utf8"
 );
+const progressScreen = readFileSync(
+	new URL("./ProgressScreen.tsx", import.meta.url),
+	"utf8"
+);
 
 describe("avatar account menu", () => {
 	it("opens from an initials avatar with an accessible label", () => {
@@ -26,7 +30,9 @@ describe("avatar account menu", () => {
 		expect(nav).toMatch(/>Progress</);
 		expect(nav).not.toMatch(/Daily progress/);
 		expect(nav).not.toMatch(/LLM settings/);
-		expect(progressPage).toMatch(/>Progress</);
+		expect(progressPage).toMatch(/title: "Progress"/);
+		expect(progressScreen).toMatch(/>Progress</);
 		expect(progressPage).not.toMatch(/Daily progress/);
+		expect(progressScreen).not.toMatch(/Daily progress/);
 	});
 });

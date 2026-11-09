@@ -1,4 +1,10 @@
-import { copyFileSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import {
+	copyFileSync,
+	mkdirSync,
+	readFileSync,
+	rmSync,
+	writeFileSync,
+} from "node:fs";
 import { homedir } from "node:os";
 import path from "node:path";
 
@@ -96,4 +102,63 @@ export function uninstallCursorHooks(options?: {
 	const next = removeMatiHooks(readHooks(hooksPath));
 	writeFileSync(hooksPath, `${JSON.stringify(next, null, 2)}\n`);
 	return next;
+}
+
+const COPILOT_HOOK_EVENTS = [
+	"UserPromptSubmit",
+	"userPromptSubmitted",
+	"PostToolUse",
+	"postToolUse",
+	"PreCompact",
+	"preCompact",
+	"SessionEnd",
+	"sessionEnd",
+	"Stop",
+	"agentStop",
+] as const;
+
+export interface CopilotHooksFile {
+	hooks: Record<string, Array<{ bash: string; type: "command" }>>;
+	version: number;
+}
+
+export function defaultCopilotHooksPath(): string {
+	return (
+		process.env.MATI_COPILOT_HOOKS_PATH ||
+		path.join(homedir(), ".copilot", "hooks", "mati.json")
+	);
+}
+
+export function installCopilotHooks(options: {
+	hookScriptSource: string;
+	hooksPath?: string;
+	matiHome?: string;
+}): { command: string; hooksPath: string } {
+	const matiHome = options.matiHome ?? defaultMatiHome();
+	const hooksPath = options.hooksPath ?? defaultCopilotHooksPath();
+	const hookDir = path.join(matiHome, "hooks");
+	mkdirSync(hookDir, { recursive: true });
+	mkdirSync(path.join(matiHome, "queue"), { recursive: true });
+	const dest = path.join(hookDir, "copilot.mjs");
+	copyFileSync(options.hookScriptSource, dest);
+	const command = `node ${dest}`;
+	const hooks: CopilotHooksFile["hooks"] = {};
+	for (const event of COPILOT_HOOK_EVENTS) {
+		hooks[event] = [{ type: "command", bash: command }];
+	}
+	mkdirSync(path.dirname(hooksPath), { recursive: true });
+	writeFileSync(
+		hooksPath,
+		`${JSON.stringify({ version: 1, hooks }, null, 2)}\n`
+	);
+	return { hooksPath, command };
+}
+
+export function uninstallCopilotHooks(options?: { hooksPath?: string }): void {
+	const hooksPath = options?.hooksPath ?? defaultCopilotHooksPath();
+	try {
+		rmSync(hooksPath);
+	} catch {
+		// Already gone.
+	}
 }

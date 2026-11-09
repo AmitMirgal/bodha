@@ -4,13 +4,19 @@ import { readPrismaTransactionOptions } from "./connect-options";
 const UUID =
 	/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-export type RlsRole = "authenticated" | "anon" | "device" | "capture_register";
+export type RlsRole =
+	| "authenticated"
+	| "anon"
+	| "device"
+	| "capture_register"
+	| "capture_janitor";
 
 export type VerifiedIdentity =
 	| { role: "authenticated"; userId: string }
 	| { role: "anon" }
-	| { role: "device"; deviceId: string }
-	| { role: "capture_register" };
+	| { role: "device"; deviceId: string; pairingCodeHash?: string }
+	| { role: "capture_register" }
+	| { role: "capture_janitor" };
 
 export type MatiDb = Prisma.TransactionClient;
 
@@ -24,6 +30,7 @@ const ROLES: Record<RlsRole, RlsRole> = {
 	anon: "anon",
 	device: "device",
 	capture_register: "capture_register",
+	capture_janitor: "capture_janitor",
 };
 
 function pgBool(value: unknown): boolean {
@@ -88,9 +95,15 @@ function claimsFor(identity: VerifiedIdentity): string {
 		case "anon":
 			return JSON.stringify({ role: "anon" });
 		case "device":
-			return JSON.stringify({ role: "device", device_id: identity.deviceId });
+			return JSON.stringify({
+				device_id: identity.deviceId,
+				pairing_code_hash: identity.pairingCodeHash ?? null,
+				role: "device",
+			});
 		case "capture_register":
 			return JSON.stringify({ role: "capture_register" });
+		case "capture_janitor":
+			return JSON.stringify({ role: "capture_janitor" });
 		default: {
 			const exhaustive: never = identity;
 			throw new RlsContextError(
@@ -121,6 +134,9 @@ function assertIdentity(identity: VerifiedIdentity): VerifiedIdentity {
 		return identity;
 	}
 	if (identity.role === "capture_register") {
+		return identity;
+	}
+	if (identity.role === "capture_janitor") {
 		return identity;
 	}
 	const exhaustive: never = identity;
@@ -179,7 +195,12 @@ export async function applyRlsContext(
 			"Refusing anonymous Prisma access while auth.uid() is set."
 		);
 	}
-	if ((safe.role === "device" || safe.role === "capture_register") && row.uid) {
+	if (
+		(safe.role === "device" ||
+			safe.role === "capture_register" ||
+			safe.role === "capture_janitor") &&
+		row.uid
+	) {
 		throw new RlsContextError(
 			"Refusing device Prisma access while auth.uid() is set."
 		);
@@ -226,9 +247,17 @@ export async function withAnonDb<T>(
 export async function withDeviceDb<T>(
 	prisma: PrismaClient,
 	deviceId: string,
-	fn: (db: MatiDb) => Promise<T>
+	fn: (db: MatiDb) => Promise<T>,
+	options?: { pairingCodeHash?: string }
 ): Promise<T> {
-	return await createRunWithDb(prisma)({ role: "device", deviceId }, fn);
+	return await createRunWithDb(prisma)(
+		{
+			role: "device",
+			deviceId,
+			pairingCodeHash: options?.pairingCodeHash,
+		},
+		fn
+	);
 }
 
 export async function withCaptureRegisterDb<T>(
@@ -236,4 +265,11 @@ export async function withCaptureRegisterDb<T>(
 	fn: (db: MatiDb) => Promise<T>
 ): Promise<T> {
 	return await createRunWithDb(prisma)({ role: "capture_register" }, fn);
+}
+
+export async function withCaptureJanitorDb<T>(
+	prisma: PrismaClient,
+	fn: (db: MatiDb) => Promise<T>
+): Promise<T> {
+	return await createRunWithDb(prisma)({ role: "capture_janitor" }, fn);
 }

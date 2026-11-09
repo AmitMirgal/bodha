@@ -38,6 +38,16 @@ declare module "vscode" {
 	export const window: {
 		showInformationMessage(message: string): Thenable<string | undefined>;
 		showErrorMessage(message: string): Thenable<string | undefined>;
+		showInputBox(options: {
+			ignoreFocusOut?: boolean;
+			placeHolder?: string;
+			prompt?: string;
+		}): Thenable<string | undefined>;
+		showWarningMessage(
+			message: string,
+			options: { modal?: boolean },
+			...items: string[]
+		): Thenable<string | undefined>;
 		createWebviewPanel(
 			viewType: string,
 			title: string,

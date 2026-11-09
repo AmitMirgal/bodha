@@ -2,6 +2,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 import { matiEnv } from "./mati-env";
 import {
 	AUTH_STUB,
+	asDevice,
 	asUser,
 	CREATE_ROLES,
 	EVIDENCE_A,
@@ -299,6 +300,37 @@ describe.skipIf(!hasLive)(
 			expect(anonRead.error).toBeTruthy();
 		});
 
+		it("hides capture_tasks from other users and anon when the table exists", async () => {
+			const userA = await client(matiEnv("LIVE_USER_A_ACCESS_TOKEN") ?? "");
+			const userB = await client(matiEnv("LIVE_USER_B_ACCESS_TOKEN") ?? "");
+			const readA = await userA.from("capture_tasks").select("id");
+			if (
+				readA.error?.message?.includes("does not exist") ||
+				readA.error?.code === "PGRST205"
+			) {
+				return;
+			}
+			expect(readA.error).toBeNull();
+			const readB = await userB.from("capture_tasks").select("id");
+			expect(readB.error).toBeNull();
+			const forged = await userB.from("devices").insert({
+				token_hash: "c".repeat(64),
+				consent: { version: 1 },
+			});
+			expect(forged.error).toBeTruthy();
+			const anon = await import("@supabase/supabase-js").then(
+				({ createClient }) =>
+					createClient(
+						matiEnv("LIVE_SUPABASE_URL") ?? "",
+						matiEnv("LIVE_SUPABASE_PUBLISHABLE_KEY") ??
+							matiEnv("LIVE_SUPABASE_ANON_KEY") ??
+							""
+					)
+			);
+			const anonRead = await anon.from("capture_tasks").select("id");
+			expect(anonRead.data ?? []).toEqual([]);
+		});
+
 		it("rejects cross-session evidence citations and evidence updates", async () => {
 			const userA = await client(matiEnv("LIVE_USER_A_ACCESS_TOKEN") ?? "");
 			const userB = await client(matiEnv("LIVE_USER_B_ACCESS_TOKEN") ?? "");
@@ -352,6 +384,68 @@ describe.skipIf(!hasLive)(
 		});
 	}
 );
+
+describe("capture claim RLS (PGlite)", () => {
+	it("device A cannot select device B, and claimed rows appear only for that user", async ({
+		skip,
+	}) => {
+		if (!pglite) {
+			skip(pgliteSkip);
+			return;
+		}
+		await pglite.exec("reset role");
+		await pglite.exec("set role capture_register");
+		const inserted = await pglite.query<{ id: string }>(
+			`insert into public.devices (token_hash, consent)
+       values (
+         '${"a".repeat(64)}',
+         '{"version":1,"grantedAt":"2026-11-09T00:00:00.000Z","scopes":["prompt_text"]}'::jsonb
+       )
+       returning id`
+		);
+		const deviceA = inserted.rows[0]?.id;
+		const other = await pglite.query<{ id: string }>(
+			`insert into public.devices (token_hash, consent)
+       values (
+         '${"b".repeat(64)}',
+         '{"version":1,"grantedAt":"2026-11-09T00:00:00.000Z","scopes":["prompt_text"]}'::jsonb
+       )
+       returning id`
+		);
+		const deviceB = other.rows[0]?.id;
+		await pglite.exec("reset role");
+		await pglite.exec("set role device");
+		await pglite.exec(asDevice(deviceA ?? ""));
+		const own = await pglite.query<{ id: string }>(
+			"select id from public.devices"
+		);
+		expect(own.rows.map((row) => row.id)).toEqual([deviceA]);
+		const hidden = await pglite.query<{ id: string }>(
+			`select id from public.devices where id = '${deviceB}'`
+		);
+		expect(hidden.rows).toEqual([]);
+		await pglite.exec("reset role");
+		await pglite.exec("set role authenticated");
+		await pglite.exec(asUser(USER_A));
+		const unclaimed = await pglite.query("select id from public.devices");
+		expect(unclaimed.rows).toEqual([]);
+		await pglite.exec("reset role");
+		await pglite.exec("set role authenticated");
+		await pglite.exec(asUser(USER_A));
+		await pglite.exec(`
+      insert into public.pairing_codes (user_id, code_hash, expires_at)
+      values (
+        '${USER_A}',
+        '${"c".repeat(64)}',
+        now() + interval '10 minutes'
+      )
+    `);
+		const codes = await pglite.query(
+			"select user_id from public.pairing_codes"
+		);
+		expect(codes.rows).toHaveLength(1);
+	});
+});
 
 describe("RLS harness limits", () => {
 	it("documents that PGlite is not Supabase PostgREST and live tests are skipped without user tokens", () => {

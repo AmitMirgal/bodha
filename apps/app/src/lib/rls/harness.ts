@@ -58,6 +58,7 @@ alter table public.devices force row level security;
 alter table public.capture_tasks force row level security;
 alter table public.capture_events force row level security;
 alter table public.capture_usage force row level security;
+alter table public.pairing_codes force row level security;
 `;
 
 export const CREATE_ROLES = `
@@ -77,8 +78,18 @@ grant anon to current_user;
 `;
 
 export const GRANT_SEQUENCES = `
-grant usage, select on all sequences in schema public to authenticated, device, capture_register;
+grant usage, select on all sequences in schema public to authenticated, device, capture_register, capture_janitor;
 `;
+
+export function asDevice(deviceId: string, pairingHash?: string): string {
+	const claims = JSON.stringify({
+		device_id: deviceId,
+		pairing_code_hash: pairingHash ?? null,
+		role: "device",
+	}).replace(/'/g, "''");
+	return `select set_config('request.jwt.claim.sub', '', false);
+select set_config('request.jwt.claims', '${claims}', false)`;
+}
 
 export function asUser(id: string): string {
 	// Session-level (is_local=false): PGlite commits each statement.

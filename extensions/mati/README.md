@@ -10,7 +10,9 @@ This package is not published to the VS Code Marketplace or Open VSX.
 2. Send an Agent prompt in Cursor.
 3. Run **Mati: Open report** to open the signed device viewer.
 
-**Mati: Stop capturing** removes only the Mati hook block. The device token stays until a later delete command.
+**Mati: Stop capturing** removes only the Mati hook block. The device token stays until **Mati: Delete my capture data**.
+
+To attach the device to a Mati account: generate a pairing code on Settings, then run **Mati: Claim this device**. Unclaimed devices older than 90 days are eligible for sweep. Claimed editor data can also be deleted from Settings. Trainer sessions are never deleted by these commands.
 
 ## Install notes
 

@@ -26,6 +26,14 @@
 			{
 				"command": "mati.capture.stop",
 				"title": "Mati: Stop capturing"
+			},
+			{
+				"command": "mati.capture.claim",
+				"title": "Mati: Claim this device"
+			},
+			{
+				"command": "mati.capture.deleteData",
+				"title": "Mati: Delete my capture data"
 			}
 		]
 	},

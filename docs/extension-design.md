@@ -409,6 +409,8 @@ Check: VS Code Copilot Agent session shows measured tokens from a recorded `chat
 **Phase 4 — claim, deletion, live RLS.** Pairing code, `user_id` backfill, `DELETE` wipe, authenticated `/progress` still empty until Phase 5.  
 Check: `MATI_LIVE_PRISMA_RLS` style test: device A cannot `SELECT` device B; after claim, `auth.uid()` sees the rows; delete leaves zero rows for that device.
 
+Phase 4 implementation notes (2026-11-09): pairing consume is `mati_consume_pairing_code(code_hash)` SECURITY DEFINER, execute granted to `device` only. Pairing rows stay user-RLS; the device JWT does not read `pairing_codes`. Unclaimed TTL is role `capture_janitor` deleting devices with `claimed_user_id is null` and `created_at < now() - 90 days`. This agent does not schedule pg_cron and does not apply the migration to a remote project. `/progress` is unchanged in this phase.
+
 **Phase 5 — learning report + Progress.** Wire `assembleLearningReport` to `capture_events`; Mastra review tools read only that task; `/progress` lists claimed editor tasks separately from trainer sessions.  
 Check: report suggestions cite prompt evidence ids; token card uses the four copy states above; Progress day bucket shows the claimed task.
 

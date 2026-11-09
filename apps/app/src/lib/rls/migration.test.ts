@@ -96,6 +96,22 @@ describe("Mati migration source constraints", () => {
 		expect(capture).not.toMatch(/with anon db/i);
 	});
 
+	it("adds pairing codes, claimed-user deletes, and a 90-day unclaimed janitor", () => {
+		const claim = readFileSync(
+			new URL(
+				"../../../../../supabase/migrations/20251109180000_capture_claim.sql",
+				import.meta.url
+			),
+			"utf8"
+		);
+		expect(claim).toMatch(/create table public.pairing_codes/);
+		expect(claim).toMatch(/create role capture_janitor /);
+		expect(claim).toMatch(/interval '90 days'/);
+		expect(claim).toMatch(/devices_user_delete/);
+		expect(claim).toMatch(/mati_consume_pairing_code/);
+		expect(claim).not.toMatch(/grant .* on public.pairing_codes to anon/);
+	});
+
 	it("does not keep a second Prisma Migrate history under apps/app/prisma/migrations", () => {
 		const prismaMigrateDir = new URL(
 			"../../../prisma/migrations",

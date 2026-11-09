@@ -10,20 +10,32 @@ import {
 } from "vscode";
 import {
 	defaultMatiHome,
+	installCopilotHooks,
 	installCursorHooks,
+	uninstallCopilotHooks,
 	uninstallCursorHooks,
 } from "./install-hooks";
-import { drainQueueFile, workspaceHashFromFolders } from "./queue";
+import {
+	defaultOtelOutfile,
+	installCopilotOtel,
+	uninstallCopilotOtel,
+} from "./otel";
+import {
+	drainOtelFile,
+	drainQueueFile,
+	workspaceHashFromFolders,
+} from "./queue";
 
 const SECRET_ID = "mati.deviceId";
 const SECRET_TOKEN = "mati.deviceSecret";
 const SECRET_ORIGIN = "mati.appOrigin";
 const CONSENT_FLAG = "mati.consent.v1";
+const OTEL_MANAGED = "mati.otel.managed";
 
 const CONSENT_HTML = `<!doctype html>
 <html><body style="font-family:sans-serif;padding:1.5rem;max-width:40rem">
 <h1>Capture Agent prompts on this device</h1>
-<p>Mati stores the prompts you send to Cursor Agent, the assistant text, edited file names, and a device token on this machine. It does not create a Mati account. Cursor hooks have no vendor token counts; any estimate is labelled and undercounts. Known secret patterns are replaced with [redacted:class] on this device before upload. That is not a guarantee.</p>
+<p>Mati stores the prompts you send to Cursor Agent or Copilot Chat, the assistant text, edited file names, and a device token on this machine. It does not create a Mati account. Cursor hooks have no vendor token counts; any estimate is labelled and undercounts. Copilot Chat can report measured tokens from OpenTelemetry chat spans when Mati is allowed to write a file exporter. captureContent stays off. Known secret patterns are replaced with [redacted:class] on this device before upload. That is not a guarantee.</p>
 <p>Sample upload:</p>
 <pre>{"kind":"prompt","text":"Fix the flaky test [redacted:aws_access_key]","attachmentNames":["app.ts"]}</pre>
 <button id="accept">Accept and start capturing</button>
@@ -43,7 +55,7 @@ async function registerDevice(
 		body: JSON.stringify({
 			version: 1,
 			grantedAt: new Date().toISOString(),
-			scopes: ["prompt_text", "response_text"],
+			scopes: ["prompt_text", "response_text", "file_edit_paths", "usage"],
 		}),
 	});
 	if (!response.ok) {
@@ -54,6 +66,14 @@ async function registerDevice(
 		secret: string;
 		viewerUrl: string;
 	};
+}
+
+function stopCapture(context: ExtensionContext | null) {
+	uninstallCursorHooks();
+	uninstallCopilotHooks();
+	uninstallCopilotOtel({
+		managed: Boolean(context?.globalState.get<boolean>(OTEL_MANAGED)),
+	});
 }
 
 export async function activate(context: ExtensionContext) {
@@ -87,9 +107,23 @@ export async function activate(context: ExtensionContext) {
 							"cursor.mjs"
 						),
 					});
+					installCopilotHooks({
+						hookScriptSource: path.join(
+							context.extensionPath,
+							"hooks",
+							"copilot.mjs"
+						),
+					});
+					const otel = installCopilotOtel({ matiHome: defaultMatiHome() });
+					await context.globalState.update(
+						OTEL_MANAGED,
+						otel.action === "write"
+					);
 					panel.dispose();
 					await window.showInformationMessage(
-						"Mati is capturing Cursor Agent prompts on this device."
+						otel.action === "write"
+							? "Mati is capturing Cursor Agent and Copilot Chat prompts on this device."
+							: `Mati is capturing prompts. ${otel.reason}`
 					);
 				} catch (error) {
 					await window.showErrorMessage(
@@ -119,7 +153,7 @@ export async function activate(context: ExtensionContext) {
 			}
 		}),
 		commands.registerCommand("mati.capture.stop", async () => {
-			uninstallCursorHooks();
+			stopCapture(context);
 			await window.showInformationMessage(
 				"Stopped capturing. The device token is kept until you delete capture data."
 			);
@@ -135,20 +169,32 @@ export async function activate(context: ExtensionContext) {
 		return;
 	}
 	process.env.MATI_DEVICE_ID = deviceId;
-	const queuePath = path.join(defaultMatiHome(), "queue", `${deviceId}.jsonl`);
+	const matiHome = defaultMatiHome();
+	const queuePath = path.join(matiHome, "queue", `${deviceId}.jsonl`);
+	const otelPath = defaultOtelOutfile(matiHome);
 	const folders = workspace.workspaceFolders?.map(
 		(folder) => folder.uri.fsPath
 	) ?? [homedir()];
-	const tick = () =>
-		drainQueueFile({
-			queuePath,
-			origin,
-			secret,
-			workspaceHash: workspaceHashFromFolders(folders),
-		}).then(
+	const tick = () => {
+		const workspaceHash = workspaceHashFromFolders(folders);
+		return Promise.all([
+			drainQueueFile({
+				queuePath,
+				origin,
+				secret,
+				workspaceHash,
+			}),
+			drainOtelFile({
+				otelPath,
+				origin,
+				secret,
+				workspaceHash,
+			}),
+		]).then(
 			() => undefined,
 			() => undefined
 		);
+	};
 	const timer = setInterval(() => {
 		tick();
 	}, 4000);
@@ -157,5 +203,5 @@ export async function activate(context: ExtensionContext) {
 }
 
 export function deactivate() {
-	uninstallCursorHooks();
+	stopCapture(null);
 }

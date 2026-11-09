@@ -30,5 +30,37 @@ describe("usageCopy", () => {
 				])
 			)
 		).not.toMatch(/output 0/);
+		expect(
+			usageCopy({
+				cachedTokens: 3,
+				inputTokens: 12,
+				outputTokens: 4,
+				provenance: "measured",
+				reasoningTokens: 3,
+				source: "copilot_otel_chat_span",
+			})
+		).toBe(
+			"Reported by copilot_otel_chat_span: input 12, output 4, cached 3, reasoning 3."
+		);
+		expect(
+			usageCopy({
+				cachedTokens: null,
+				inputTokens: 12,
+				outputTokens: 4,
+				provenance: "measured",
+				reasoningTokens: null,
+				source: "copilot_otel_chat_span",
+			})
+		).toContain("Partial vendor report");
+		expect(
+			usageCopy({
+				cachedTokens: null,
+				inputTokens: 12,
+				outputTokens: 4,
+				provenance: "measured",
+				reasoningTokens: null,
+				source: "copilot_otel_chat_span",
+			})
+		).not.toContain("null");
 	});
 });

@@ -36,6 +36,17 @@ function usagePayload(event: IngestBatch["events"][number]): Packed {
 			"invalid_usage"
 		);
 	}
+	if (
+		event.provenance === "measured" &&
+		event.source !== "copilot_otel_chat_span" &&
+		event.source !== "cursor_admin_api"
+	) {
+		throw new CaptureLimitError(
+			"measured usage must come from copilot_otel_chat_span or cursor_admin_api.",
+			400,
+			"invalid_usage"
+		);
+	}
 	return {
 		kind: "usage",
 		payload: {
@@ -45,6 +56,7 @@ function usagePayload(event: IngestBatch["events"][number]): Packed {
 			operationId: event.operationId ?? "unknown",
 			outputTokens: event.outputTokens ?? null,
 			provenance: event.provenance ?? "missing",
+			reasoningTokens: event.reasoningTokens ?? null,
 			source: event.source ?? "none",
 		},
 	};
@@ -134,6 +146,7 @@ async function writeUsageRow(
 			outputTokens: asBigInt(payload.outputTokens),
 			provenance:
 				typeof payload.provenance === "string" ? payload.provenance : "missing",
+			reasoningTokens: asBigInt(payload.reasoningTokens),
 			source: typeof payload.source === "string" ? payload.source : "none",
 			taskId,
 		},
@@ -257,6 +270,8 @@ export async function listDeviceTasks(db: MatiDb, deviceId: string) {
 			inputTokens: row.inputTokens === null ? null : Number(row.inputTokens),
 			outputTokens: row.outputTokens === null ? null : Number(row.outputTokens),
 			provenance: row.provenance,
+			reasoningTokens:
+				row.reasoningTokens === null ? null : Number(row.reasoningTokens),
 			source: row.source,
 		})),
 	}));

@@ -3,9 +3,11 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import {
+	installCopilotHooks,
 	installCursorHooks,
 	mergeMatiHooks,
 	removeMatiHooks,
+	uninstallCopilotHooks,
 	uninstallCursorHooks,
 } from "./install-hooks";
 
@@ -72,5 +74,26 @@ describe("Cursor hooks.json merge", () => {
 		};
 		expect(cleaned.hooks.beforeSubmitPrompt).toBeUndefined();
 		expect(cleaned.hooks.stop?.[0]?.command).toBe("keep-me");
+	});
+
+	it("writes ~/.copilot/hooks/mati.json for both Copilot event names", () => {
+		const dir = mkdtempSync(path.join(tmpdir(), "mati-copilot-hooks-"));
+		const hooksPath = path.join(dir, "mati.json");
+		const source = path.resolve(import.meta.dirname, "../hooks/copilot.mjs");
+		installCopilotHooks({
+			hookScriptSource: source,
+			hooksPath,
+			matiHome: path.join(dir, ".mati"),
+		});
+		const installed = JSON.parse(readFileSync(hooksPath, "utf8")) as {
+			hooks: Record<string, Array<{ bash: string; type: string }>>;
+		};
+		expect(installed.hooks.userPromptSubmitted?.[0]?.type).toBe("command");
+		expect(installed.hooks.UserPromptSubmit?.[0]?.bash).toContain(
+			"copilot.mjs"
+		);
+		expect(installed.hooks.Stop?.[0]?.bash).toContain("copilot.mjs");
+		uninstallCopilotHooks({ hooksPath });
+		expect(() => readFileSync(hooksPath, "utf8")).toThrow();
 	});
 });

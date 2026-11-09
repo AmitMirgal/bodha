@@ -406,6 +406,8 @@ Check: fixture test file of secrets; viewer shows estimate copy, not a naked num
 **Phase 3 — VS Code Copilot.** Copilot harness hooks + OTel file exporter join. Accept both payload shapes. If OTel already configured, leave it and keep usage `missing`.  
 Check: VS Code Copilot Agent session shows measured tokens from a recorded `chat` span fixture; `captureContent` remains false.
 
+Phase 3 implementation notes (2026-11-09): Copilot user hooks are a dedicated `~/.copilot/hooks/mati.json` with both Preview camelCase and Local PascalCase event keys. The command hook replies `{}` and always exits 0. OTel join uses `gen_ai.conversation.id` as `EditorTaskId`, the same field Copilot hooks call `sessionId` / `session_id`. That join is proven against recorded span fixtures in this repo, not yet against a live Copilot Agent session. If those ids diverge in the wild, store both. `github.copilot.chat.otel.captureContent` is written `false` whenever Mati owns the file exporter; content attributes on a span are ignored even if a user later turns capture on.
+
 **Phase 4 — claim, deletion, live RLS.** Pairing code, `user_id` backfill, `DELETE` wipe, authenticated `/progress` still empty until Phase 5.  
 Check: `MATI_LIVE_PRISMA_RLS` style test: device A cannot `SELECT` device B; after claim, `auth.uid()` sees the rows; delete leaves zero rows for that device.
 
@@ -448,4 +450,4 @@ Check: `vsce package` produces a `.vsix` that installs in VS Code and Cursor; af
 
 **B (rejected): ghost `profiles` row per device, reuse `sessions`.** Would reuse Progress and reports sooner, but `sessions.exercise_id`, `exercise_snapshots`, and report `snapshot_id` are mandatory. Anonymous Auth is explicitly off. Mixing editor traffic into trainer RLS would make “unclaimed isolation” a synthetic user hack.
 
-Phase 1 implements A only as far as Cursor prompts + viewer.
+Phase 3 implements Copilot hooks + OTel file-export join on top of A.

@@ -1,4 +1,6 @@
-const FALLBACK = "/";
+import { DEFAULT_POST_LOGIN_PATH } from "./post-login";
+
+const FALLBACK = DEFAULT_POST_LOGIN_PATH;
 
 export function safeNextPath(
 	raw: string | null | undefined,

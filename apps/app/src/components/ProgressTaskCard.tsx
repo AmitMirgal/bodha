@@ -56,7 +56,7 @@ export function TokenMeter({ task }: { task: ProgressTask }) {
 					/>
 				))}
 			</div>
-			<div className="flex flex-wrap gap-x-3 gap-y-1 text-muted-foreground text-xs">
+			<div className="flex flex-wrap gap-x-3 gap-y-1 text-muted-foreground text-sm">
 				{segments.map((segment) => (
 					<span className="inline-flex items-center gap-1.5" key={segment.key}>
 						<span
@@ -67,7 +67,7 @@ export function TokenMeter({ task }: { task: ProgressTask }) {
 					</span>
 				))}
 			</div>
-			<p className="text-muted-foreground text-xs">
+			<p className="text-muted-foreground text-sm">
 				{usageCopy(task.usage, task.source)}
 			</p>
 		</div>
@@ -86,7 +86,7 @@ export function ProgressTaskCard({ task }: { task: ProgressTask }) {
 				<div className="flex flex-wrap items-center gap-2">
 					<CardTitle className="text-base">
 						<a
-							className="underline-offset-4 hover:underline"
+							className="inline-flex min-h-11 items-center underline-offset-4 hover:underline"
 							href={task.reportHref}
 						>
 							{task.exerciseId}
@@ -103,7 +103,7 @@ export function ProgressTaskCard({ task }: { task: ProgressTask }) {
 			</CardHeader>
 			<CardContent className="grid gap-4 text-sm">
 				{task.prompts[0] ? (
-					<pre className="overflow-x-auto whitespace-pre-wrap rounded-lg bg-muted/60 p-3 font-mono text-xs">
+					<pre className="overflow-x-auto whitespace-pre-wrap rounded-lg bg-muted/60 p-3 font-mono text-sm">
 						{task.prompts[0]}
 					</pre>
 				) : (

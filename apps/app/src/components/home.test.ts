@@ -20,14 +20,12 @@ const settingsPage = readFileSync(
 );
 
 describe("marketing page is public", () => {
-	it("renders the restored landing at / without auth", () => {
+	it("renders the restored landing at / without forcing login", () => {
 		expect(marketingPage).toMatch(/MarketingHome/);
-		expect(marketingPage).not.toMatch(/requireUser/);
 		expect(marketingPage).not.toMatch(/redirect/);
 		expect(home).toMatch(/Mati/);
 		expect(home).toMatch(/Get started/);
 		expect(home).toMatch(/href="\/login\?next=\/exercises"/);
-		expect(home).toMatch(/href="\/login"/);
 	});
 
 	it("keeps trainer, Progress, and Settings behind auth redirects", () => {

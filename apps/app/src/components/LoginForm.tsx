@@ -10,8 +10,14 @@ import {
 } from "@repo/design-system/components/ui/card";
 import { Input } from "@repo/design-system/components/ui/input";
 import { Label } from "@repo/design-system/components/ui/label";
+import {
+	Tabs,
+	TabsContent,
+	TabsList,
+	TabsTrigger,
+} from "@repo/design-system/components/ui/tabs";
 import { useSearchParams } from "next/navigation";
-import { type FormEvent, useState } from "react";
+import { type FormEvent, useId, useState } from "react";
 import {
 	type AuthIntent,
 	loginStatusCopy,
@@ -26,12 +32,15 @@ const CALLBACK_ERROR: Record<string, string> = {
 	missing_code: "That email link was incomplete. Request a new one.",
 };
 
-function submitterIntent(event: FormEvent<HTMLFormElement>): string | null {
-	const native = event.nativeEvent;
-	if ("submitter" in native && native.submitter instanceof HTMLButtonElement) {
-		return native.submitter.value;
+function parseAuthIntent(value: string): AuthIntent {
+	switch (value) {
+		case "signin":
+		case "signup":
+		case "magic":
+			return value;
+		default:
+			return "signin";
 	}
-	return null;
 }
 
 function heading(mode: AuthIntent): string {
@@ -82,6 +91,8 @@ export function LoginForm() {
 	const search = useSearchParams();
 	const next = safeNextPath(search.get("next"));
 	const callbackError = search.get("error");
+	const errorId = useId();
+	const statusId = useId();
 	const [mode, setMode] = useState<AuthIntent>("signup");
 	const [status, setStatus] = useState(() =>
 		callbackError && callbackError in CALLBACK_ERROR
@@ -93,7 +104,6 @@ export function LoginForm() {
 
 	async function onSubmit(event: FormEvent<HTMLFormElement>) {
 		event.preventDefault();
-		const intent = submitterIntent(event) ?? mode;
 		setBusy(true);
 		setError("");
 		setStatus("");
@@ -103,7 +113,7 @@ export function LoginForm() {
 				new FormData(event.currentTarget),
 				{
 					emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`,
-					submitterIntent: intent,
+					submitterIntent: mode,
 				}
 			);
 			if (result.kind === "error") {
@@ -124,11 +134,16 @@ export function LoginForm() {
 		}
 	}
 
+	const describedBy =
+		[error ? errorId : null, status ? statusId : null]
+			.filter(Boolean)
+			.join(" ") || undefined;
+
 	return (
-		<main className="mx-auto flex min-h-[100dvh] w-full max-w-md items-center px-4 py-8">
+		<main className="mx-auto flex min-h-[100dvh] w-full max-w-md items-center px-4 py-10">
 			<Card className="w-full border-border shadow-lg">
 				<CardHeader className="gap-3">
-					<p className="font-mono text-muted-foreground text-xs tracking-wide">
+					<p className="font-mono text-muted-foreground text-sm tracking-wide">
 						mati
 					</p>
 					<CardTitle className="text-2xl tracking-tight">
@@ -139,126 +154,157 @@ export function LoginForm() {
 					</CardDescription>
 				</CardHeader>
 				<CardContent>
-					<form
-						className="grid gap-4"
-						onSubmit={(event) => runBackground(onSubmit(event))}
+					<Tabs
+						className="gap-6"
+						onValueChange={(value) => {
+							setMode(parseAuthIntent(value));
+							setError("");
+						}}
+						value={mode}
 					>
-						<div aria-label="Account action" className="seg" role="tablist">
-							<button
-								aria-selected={mode === "signin"}
-								className={mode === "signin" ? "on" : undefined}
-								onClick={() => setMode("signin")}
-								role="tab"
-								type="button"
-							>
+						<TabsList
+							aria-label="Sign-in method"
+							className="grid h-auto w-full grid-cols-3"
+						>
+							<TabsTrigger className="min-h-10 px-2" value="signin">
 								Sign in
-							</button>
-							<button
-								aria-selected={mode === "signup"}
-								className={mode === "signup" ? "on" : undefined}
-								onClick={() => setMode("signup")}
-								role="tab"
-								type="button"
-							>
+							</TabsTrigger>
+							<TabsTrigger className="min-h-10 px-2" value="signup">
 								Create account
-							</button>
-							<button
-								aria-selected={mode === "magic"}
-								className={mode === "magic" ? "on" : undefined}
-								onClick={() => setMode("magic")}
-								role="tab"
-								type="button"
-							>
+							</TabsTrigger>
+							<TabsTrigger className="min-h-10 px-2" value="magic">
 								Email link
-							</button>
-						</div>
-						<div className="grid gap-2">
-							<Label htmlFor="email">Email</Label>
-							<Input
-								autoCapitalize="none"
-								autoComplete="email"
-								id="email"
-								name="email"
-								required
-								spellCheck={false}
-								type="email"
-							/>
-						</div>
-						<div className={mode === "magic" ? "hidden" : "grid gap-2"}>
-							<Label htmlFor="password">Password</Label>
-							<Input
-								autoComplete={
-									mode === "signup" ? "new-password" : "current-password"
-								}
-								id="password"
-								minLength={6}
-								name="password"
-								required={mode !== "magic"}
-								type="password"
-							/>
-						</div>
+							</TabsTrigger>
+						</TabsList>
 						{error ? (
-							<p className="text-destructive text-sm" role="alert">
+							<p className="text-destructive text-sm" id={errorId} role="alert">
 								{error}
 							</p>
 						) : null}
 						{status ? (
-							<output className="text-muted-foreground text-sm">
+							<output className="text-muted-foreground text-sm" id={statusId}>
 								{status}
 							</output>
 						) : null}
-						<div className="grid gap-2">
-							<Button
-								aria-busy={busy}
-								className="w-full"
-								disabled={busy}
-								name="intent"
-								type="submit"
-								value={mode}
+						<TabsContent className="mt-0" value="signin">
+							<form
+								aria-describedby={describedBy}
+								className="grid gap-6"
+								onSubmit={(event) => runBackground(onSubmit(event))}
 							>
-								{actionLabel(mode, busy)}
-							</Button>
-							{mode === "signup" ? (
+								<input name="intent" type="hidden" value="signin" />
+								<div className="grid gap-2">
+									<Label htmlFor="email-signin">Email</Label>
+									<Input
+										aria-invalid={Boolean(error)}
+										autoCapitalize="none"
+										autoComplete="email"
+										id="email-signin"
+										name="email"
+										required
+										spellCheck={false}
+										type="email"
+									/>
+								</div>
+								<div className="grid gap-2">
+									<Label htmlFor="password-signin">Password</Label>
+									<Input
+										aria-invalid={Boolean(error)}
+										autoComplete="current-password"
+										id="password-signin"
+										minLength={6}
+										name="password"
+										required
+										type="password"
+									/>
+								</div>
 								<Button
+									aria-busy={busy}
 									className="w-full"
 									disabled={busy}
-									name="intent"
 									type="submit"
-									value="signin"
-									variant="secondary"
 								>
-									Sign in
+									{actionLabel("signin", busy)}
 								</Button>
-							) : (
+							</form>
+						</TabsContent>
+						<TabsContent className="mt-0" value="signup">
+							<form
+								aria-describedby={describedBy}
+								className="grid gap-6"
+								onSubmit={(event) => runBackground(onSubmit(event))}
+							>
+								<input name="intent" type="hidden" value="signup" />
+								<div className="grid gap-2">
+									<Label htmlFor="email-signup">Email</Label>
+									<Input
+										aria-invalid={Boolean(error)}
+										autoCapitalize="none"
+										autoComplete="email"
+										id="email-signup"
+										name="email"
+										required
+										spellCheck={false}
+										type="email"
+									/>
+								</div>
+								<div className="grid gap-2">
+									<Label htmlFor="password-signup">Password</Label>
+									<Input
+										aria-invalid={Boolean(error)}
+										autoComplete="new-password"
+										id="password-signup"
+										minLength={6}
+										name="password"
+										required
+										type="password"
+									/>
+								</div>
 								<Button
+									aria-busy={busy}
 									className="w-full"
 									disabled={busy}
-									name="intent"
 									type="submit"
-									value="signup"
-									variant="secondary"
 								>
-									Create account
+									{actionLabel("signup", busy)}
 								</Button>
-							)}
-							{mode === "magic" ? null : (
+								<p className="text-muted-foreground text-sm">
+									After you create an account we may ask you to confirm that
+									email before you can sign in.
+								</p>
+							</form>
+						</TabsContent>
+						<TabsContent className="mt-0" value="magic">
+							<form
+								aria-describedby={describedBy}
+								className="grid gap-6"
+								onSubmit={(event) => runBackground(onSubmit(event))}
+							>
+								<input name="intent" type="hidden" value="magic" />
+								<div className="grid gap-2">
+									<Label htmlFor="email-magic">Email</Label>
+									<Input
+										aria-invalid={Boolean(error)}
+										autoCapitalize="none"
+										autoComplete="email"
+										id="email-magic"
+										name="email"
+										required
+										spellCheck={false}
+										type="email"
+									/>
+								</div>
 								<Button
+									aria-busy={busy}
 									className="w-full"
 									disabled={busy}
-									name="intent"
 									type="submit"
-									value="magic"
-									variant="outline"
 								>
-									Send email link
+									{actionLabel("magic", busy)}
 								</Button>
-							)}
-						</div>
-						<p className="text-muted-foreground text-xs">
-							After you create an account we may ask you to confirm that email
-							before you can sign in.
-						</p>
-					</form>
+							</form>
+						</TabsContent>
+					</Tabs>
 				</CardContent>
 			</Card>
 		</main>

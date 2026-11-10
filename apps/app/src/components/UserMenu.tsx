@@ -46,7 +46,7 @@ export function UserMenu({ email }: { email: string }) {
 			</DropdownMenuTrigger>
 			<DropdownMenuContent align="end" className="min-w-56">
 				<DropdownMenuLabel className="font-normal">
-					<span className="block truncate text-muted-foreground text-xs">
+					<span className="block truncate text-muted-foreground text-sm">
 						Signed in
 					</span>
 					<span className="block truncate">{email}</span>

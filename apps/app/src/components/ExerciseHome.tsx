@@ -78,8 +78,8 @@ export function ExerciseHome({ challenges }: { challenges: ChallengeMeta[] }) {
 	}
 
 	return (
-		<main className="mx-auto grid max-w-5xl gap-6 px-4 py-8">
-			<section className="grid gap-2">
+		<main className="mx-auto grid max-w-5xl gap-10 px-4 py-10">
+			<section className="grid gap-3">
 				<p className="text-muted-foreground text-sm uppercase tracking-wide">
 					Individual learning
 				</p>

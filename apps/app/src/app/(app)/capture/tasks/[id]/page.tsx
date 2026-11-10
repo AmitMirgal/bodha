@@ -26,6 +26,7 @@ export default async function CaptureTaskPage({
 		const task = await db.captureTask.findFirst({
 			include: {
 				events: { orderBy: { occurredAt: "asc" } },
+				reports: { orderBy: { version: "desc" }, take: 1 },
 				usage: true,
 			},
 			where: { id, userId },
@@ -71,6 +72,13 @@ export default async function CaptureTaskPage({
 					}),
 				startedAt: isoRequired(task.startedAt),
 				status: task.status,
+				storedReport: task.reports[0]
+					? {
+							body: task.reports[0].body,
+							error: task.reports[0].error,
+							status: task.reports[0].status,
+						}
+					: null,
 				usage,
 			},
 			iso(task.finishedAt) ?? isoRequired(task.startedAt)

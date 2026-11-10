@@ -22,6 +22,7 @@ model Profile {
   captureTasks        CaptureTask[]
   captureEvents       CaptureEvent[]
   captureUsage        CaptureUsage[]
+  captureReports      CaptureReport[]
 
   @@map("profiles")
 }
@@ -202,10 +203,11 @@ model Device {
   consent       Json
   createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
-  claimedUser Profile?       @relation(fields: [claimedUserId], references: [id], onDelete: SetNull)
+  claimedUser Profile?           @relation(fields: [claimedUserId], references: [id], onDelete: SetNull)
   tasks       CaptureTask[]
   events      CaptureEvent[]
   usage       CaptureUsage[]
+  claimTokens DeviceClaimToken[]
 
   @@index([createdAt], map: "devices_unclaimed_created_idx")
   @@map("devices")
@@ -251,10 +253,11 @@ model CaptureTask {
   workspaceHash String    @map("workspace_hash")
   createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
 
-  device Device         @relation(fields: [deviceId], references: [id], onDelete: Cascade)
-  user   Profile?       @relation(fields: [userId], references: [id], onDelete: SetNull)
-  events CaptureEvent[]
-  usage  CaptureUsage[]
+  device  Device          @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  user    Profile?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+  events  CaptureEvent[]
+  usage   CaptureUsage[]
+  reports CaptureReport[]
 
   @@unique([deviceId, editor, editorTaskId])
   @@index([deviceId, startedAt(sort: Desc)], map: "capture_tasks_device_idx")
@@ -304,4 +307,36 @@ model CaptureUsage {
   @@unique([taskId, operationId])
   @@index([taskId], map: "capture_usage_task_idx")
   @@map("capture_usage")
+}
+
+model DeviceClaimToken {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  deviceId   String    @map("device_id") @db.Uuid
+  tokenHash  String    @unique @map("token_hash")
+  expiresAt  DateTime  @map("expires_at") @db.Timestamptz(6)
+  consumedAt DateTime? @map("consumed_at") @db.Timestamptz(6)
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  device Device @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+
+  @@index([deviceId], map: "device_claim_tokens_device_idx")
+  @@map("device_claim_tokens")
+}
+
+model CaptureReport {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  taskId    String   @map("task_id") @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  version   Int      @default(1)
+  status    String
+  body      Json?
+  error     String?
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  task CaptureTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user Profile     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([taskId, version])
+  @@index([taskId, version], map: "capture_reports_task_idx")
+  @@map("capture_reports")
 }

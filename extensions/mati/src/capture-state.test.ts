@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+	activateCapturePlan,
 	captureStatus,
 	idleMinutesFromSetting,
 	planAfterCommand,
@@ -91,6 +92,21 @@ describe("workspace consent and auto-start", () => {
 		expect(statusBarLabel("not_consented").command).toBe(
 			"mati.capture.consent"
 		);
+	});
+
+	it("re-arms a consented unpaused workspace on activate even if the gate is empty", () => {
+		expect(
+			activateCapturePlan({ paused: false, workspaceConsented: true })
+		).toBe("start");
+		expect(shouldAutoStart({ paused: false, workspaceConsented: true })).toBe(
+			true
+		);
+		expect(
+			activateCapturePlan({ paused: true, workspaceConsented: true })
+		).toBe("idle");
+		expect(
+			activateCapturePlan({ paused: false, workspaceConsented: false })
+		).toBe("prompt");
 	});
 
 	it("does not show capturing when the gate is off or hooks are missing", () => {

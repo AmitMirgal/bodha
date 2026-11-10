@@ -71,6 +71,8 @@ alter table public.capture_events force row level security;
 alter table public.capture_usage force row level security;
 alter table public.pairing_codes force row level security;
 alter table public.cursor_admin_settings force row level security;
+alter table public.device_claim_tokens force row level security;
+alter table public.capture_reports force row level security;
 `;
 
 export const CREATE_ROLES = `

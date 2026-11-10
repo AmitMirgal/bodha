@@ -1,4 +1,5 @@
-import { mkdirSync, writeFileSync } from "node:fs";
+import { execFileSync } from "node:child_process";
+import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { emptyProgressView, seededProgressView } from "./fixture";
 import {
@@ -51,6 +52,8 @@ describe("progressDocument", () => {
 		expect(detail).toContain("Prompt timeline");
 		expect(detail).toContain("Per-prompt vendor tokens were not stored");
 		expect(detail).toContain("Which test fails first?");
+		expect(detail).toContain("Coaching");
+		expect(detailDark).toContain('data-theme="dark"');
 		const dir = "/opt/cursor/artifacts";
 		mkdirSync(dir, { recursive: true });
 		writeFileSync(`${dir}/progress-empty.html`, empty);
@@ -63,4 +66,46 @@ describe("progressDocument", () => {
 		writeFileSync(`${dir}/progress-task-detail.html`, detail);
 		writeFileSync(`${dir}/progress-task-detail-dark.html`, detailDark);
 	});
+
+	it("screenshots light and dark report UI when Chrome is installed", () => {
+		try {
+			execFileSync("google-chrome", ["--version"], {
+				stdio: "pipe",
+				timeout: 3000,
+			});
+		} catch {
+			return;
+		}
+		const dir = "/opt/cursor/artifacts";
+		for (const name of [
+			"progress-task-detail",
+			"progress-task-detail-dark",
+			"progress-seeded",
+			"progress-seeded-dark",
+		]) {
+			const htmlPath = `${dir}/${name}.html`;
+			const pngPath = `${dir}/${name}.png`;
+			try {
+				execFileSync(
+					"timeout",
+					[
+						"--kill-after=1",
+						"5",
+						"google-chrome",
+						"--headless=old",
+						`--user-data-dir=/tmp/chrome-${name}`,
+						"--disable-gpu",
+						"--remote-debugging-port=0",
+						"--window-size=1280,900",
+						`--screenshot=${pngPath}`,
+						`file://${htmlPath}`,
+					],
+					{ stdio: "pipe", timeout: 8000 }
+				);
+			} catch {
+				// Chrome still writes the PNG when DBus is missing.
+			}
+			expect(existsSync(pngPath)).toBe(true);
+		}
+	}, 30_000);
 });

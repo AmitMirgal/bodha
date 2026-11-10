@@ -28,7 +28,7 @@ button{border:1px solid #111;background:#111;color:#fff;border-radius:.5rem;padd
 <h1>Settings</h1>
 <section class="card">
 <h2>Editor capture</h2>
-<p class="muted">Link a no-sign-in editor device to this account. Trainer sessions are not deleted.</p>
+<p class="muted">Link a no-sign-in editor device to this account with a pairing code, or run Mati: Open report and confirm Link this device to your account. Trainer sessions are not deleted.</p>
 ${codeBlock}
 ${deviceBlock}
 </section>

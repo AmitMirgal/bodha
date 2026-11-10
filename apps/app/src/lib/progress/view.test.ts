@@ -260,6 +260,85 @@ describe("assembleProgressView", () => {
 			view.chart.find((point) => point.date === "2026-11-09")
 				?.measuredInputTokens
 		).toBeNull();
+		expect(editorTask.needsKey).toBe(true);
+		expect(editorTask.suggestions).toEqual([]);
+	});
+
+	it("uses stored coached capture reports and keeps facts-only coaching empty", () => {
+		const view = assembleProgressView([], "UTC", [
+			{
+				deviceId: "dddddddd-dddd-4ddd-8ddd-dddddddddddd",
+				editor: "cursor",
+				editorTaskId: "conv-coached",
+				events: [
+					{
+						id: promptId,
+						kind: "prompt",
+						occurredAt: "2026-11-10T11:00:00.000Z",
+						payload: { text: "Fix the flaky test" },
+					},
+				],
+				finishedAt: "2026-11-10T11:10:00.000Z",
+				id: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+				prompts: ["Fix the flaky test"],
+				startedAt: "2026-11-10T11:00:00.000Z",
+				status: "closed",
+				storedReport: {
+					body: {
+						...completeBody,
+						kind: "coached",
+						insufficientEvidence: [
+							"Token counts are estimated from text length. They are not vendor-reported.",
+						],
+						observations: {
+							tests: {
+								failed: null,
+								fatal: null,
+								found: false,
+								passed: null,
+								provenance: "insufficient_evidence",
+								total: null,
+							},
+						},
+						outcome: {
+							observed: "Editor task closed (stop).",
+							verification:
+								"The server did not independently execute editor code. Suggestions below are not a measured result.",
+							verificationProvenance: "insufficient_evidence",
+						},
+						usage: {
+							...completeBody.usage,
+							editor: {
+								cachedTokens: null,
+								coverage: "partial",
+								inputTokens: 20,
+								outputTokens: 5,
+								provenance: "estimated",
+								source: "text_estimate",
+							},
+						},
+					},
+					error: null,
+					status: "complete",
+				},
+				usage: [
+					{
+						cachedTokens: null,
+						inputTokens: 20,
+						outputTokens: 5,
+						provenance: "estimated",
+						source: "text_estimate",
+					},
+				],
+			},
+		]);
+		const editorTask = view.editor.days[0]?.tasks[0];
+		expect(editorTask?.needsKey).toBe(false);
+		expect(editorTask?.coachingSummary).toBe("The learner ran tests.");
+		expect(editorTask?.suggestions[0]?.improvedExample).toBe(
+			"Which test fails first?"
+		);
+		expect(editorTask?.usage.label).toBe("estimated");
 	});
 
 	it("does not treat a missing measured field as zero in totals or the chart", () => {

@@ -27,8 +27,16 @@ export interface ProgressPromptTurn {
 	usage: ProgressUsage;
 }
 
+export interface ProgressResponseTurn {
+	occurredAt: string;
+	text: string;
+}
+
 export interface ProgressTask {
+	coachingSummary: string | null;
 	exerciseId: string;
+	filePaths: string[];
+	needsKey: boolean;
 	occurredAt: string;
 	origin: ProgressOrigin;
 	outcome: {
@@ -38,8 +46,10 @@ export interface ProgressTask {
 	} | null;
 	prompts: string[];
 	promptTurns: ProgressPromptTurn[];
+	reportError: string | null;
 	reportHref: string;
 	reportStatus: "none" | "complete" | "pending" | "error";
+	responses: ProgressResponseTurn[];
 	sessionId: string;
 	source: "trainer" | "editor";
 	status: string;
@@ -149,6 +159,7 @@ export interface ProgressEditorInput {
 	prompts: string[];
 	startedAt: string;
 	status: string;
+	storedReport?: { body: unknown; error: string | null; status: string } | null;
 	usage: Array<{
 		cachedTokens: number | null;
 		inputTokens: number | null;

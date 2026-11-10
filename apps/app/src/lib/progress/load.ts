@@ -80,6 +80,7 @@ export async function loadProgressView(
 	const captureRows = await db.captureTask.findMany({
 		include: {
 			events: { orderBy: { occurredAt: "asc" } },
+			reports: { orderBy: { version: "desc" }, take: 1 },
 			usage: true,
 		},
 		orderBy: { startedAt: "desc" },
@@ -107,6 +108,13 @@ export async function loadProgressView(
 			occurredAt: isoRequired(event.occurredAt),
 			payload: event.payload,
 		})),
+		storedReport: task.reports[0]
+			? {
+					body: task.reports[0].body,
+					error: task.reports[0].error,
+					status: task.reports[0].status,
+				}
+			: null,
 		usage: task.usage.map((row) => ({
 			cachedTokens: asInt(row.cachedTokens),
 			inputTokens: asInt(row.inputTokens),

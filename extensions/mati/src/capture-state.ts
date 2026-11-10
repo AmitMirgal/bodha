@@ -57,6 +57,21 @@ export function shouldAutoStart(input: {
 	return input.workspaceConsented && !input.paused;
 }
 
+export type ActivateCapturePlan = "idle" | "prompt" | "start";
+
+export function activateCapturePlan(input: {
+	paused: boolean;
+	workspaceConsented: boolean;
+}): ActivateCapturePlan {
+	if (shouldAutoStart(input)) {
+		return "start";
+	}
+	if (shouldPromptConsent(input.workspaceConsented)) {
+		return "prompt";
+	}
+	return "idle";
+}
+
 export function shouldPromptConsent(workspaceConsented: boolean): boolean {
 	return !workspaceConsented;
 }

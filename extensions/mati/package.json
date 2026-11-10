@@ -1,90 +1,115 @@
 {
-	"name": "mati",
-	"displayName": "Mati",
-	"description": "Capture Cursor Agent prompts for a per-task learning report. No sign-in.",
-	"version": "0.0.1",
-	"private": true,
-	"publisher": "mati",
-	"license": "Apache-2.0",
-	"engines": {
-		"vscode": "^1.90.0"
-	},
-	"categories": [
-		"Other"
-	],
-	"activationEvents": [
-		"onStartupFinished"
-	],
-	"icon": "media/icon.png",
-	"main": "./dist/extension.js",
-	"contributes": {
-		"configuration": {
-			"title": "Mati",
-			"properties": {
-				"mati.serverUrl": {
-					"type": "string",
-					"default": "",
-					"description": "Mati app origin used for capture registration and uploads. Leave empty to use MATI_APP_ORIGIN, a stored origin, or http://127.0.0.1:3000. Trailing slashes are stripped. Changes apply on the next command without reloading."
-				},
-				"mati.idleMinutes": {
-					"type": "number",
-					"default": 30,
-					"minimum": 1,
-					"maximum": 1440,
-					"description": "Start a new Mati task when this many minutes pass with no captured Agent events. Branch and workspace switches also start a new task. Use Mati: New task and Mati: End task to override."
-				}
-			}
-		},
-		"commands": [
-			{
-				"command": "mati.capture.consent",
-				"title": "Mati: Start capturing"
-			},
-			{
-				"command": "mati.capture.statusToggle",
-				"title": "Mati: Pause or resume capturing"
-			},
-			{
-				"command": "mati.capture.newTask",
-				"title": "Mati: New task"
-			},
-			{
-				"command": "mati.capture.endTask",
-				"title": "Mati: End task"
-			},
-			{
-				"command": "mati.capture.openReport",
-				"title": "Mati: Open report"
-			},
-			{
-				"command": "mati.capture.stop",
-				"title": "Mati: Stop capturing"
-			},
-			{
-				"command": "mati.capture.claim",
-				"title": "Mati: Claim this device"
-			},
-			{
-				"command": "mati.capture.deleteData",
-				"title": "Mati: Delete my capture data"
-			},
-			{
-				"command": "mati.capture.diagnose",
-				"title": "Mati: Diagnose capture"
-			}
-		]
-	},
-	"scripts": {
-		"typecheck": "tsc --noEmit --emitDeclarationOnly false",
-		"test": "vitest run",
-		"compile": "tsc -p tsconfig.build.json",
-		"build": "tsc --noEmit --emitDeclarationOnly false",
-		"package": "pnpm compile && vsce package --allow-missing-repository --no-dependencies --no-rewrite-relative-links"
-	},
-	"devDependencies": {
-		"@types/node": "^24.19.2",
-		"@vscode/vsce": "^4.1.0",
-		"typescript": "^5.9.3",
-		"vitest": "^4.0.18"
-	}
+  "name": "mati",
+  "displayName": "Mati",
+  "description": "Capture Cursor Agent and Copilot Chat prompts for a per-task learning report. Capture stays anonymous on the device; sign in on the web to keep tasks on your account.",
+  "version": "0.0.1",
+  "private": true,
+  "publisher": "replace-with-amit-publisher",
+  "license": "Apache-2.0",
+  "homepage": "https://github.com/AmitMirgal/mati",
+  "bugs": {
+    "url": "https://github.com/AmitMirgal/mati/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/AmitMirgal/mati.git"
+  },
+  "qna": "marketplace",
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "categories": [
+    "Education",
+    "Machine Learning",
+    "Other"
+  ],
+  "keywords": [
+    "mati",
+    "cursor",
+    "copilot",
+    "agent",
+    "prompts",
+    "capture",
+    "learning",
+    "tokens"
+  ],
+  "galleryBanner": {
+    "color": "#171c14",
+    "theme": "dark"
+  },
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "icon": "media/icon.png",
+  "main": "./dist/extension.js",
+  "contributes": {
+    "configuration": {
+      "title": "Mati",
+      "properties": {
+        "mati.serverUrl": {
+          "type": "string",
+          "default": "https://mati-tau.vercel.app",
+          "description": "Mati app origin for capture registration and uploads. Released builds default to https://mati-tau.vercel.app. Override with MATI_APP_ORIGIN or this setting (use http://127.0.0.1:3000 only for local app development). Trailing slashes are stripped. Changes apply on the next command without reloading."
+        },
+        "mati.idleMinutes": {
+          "type": "number",
+          "default": 30,
+          "minimum": 1,
+          "maximum": 1440,
+          "description": "Start a new Mati task when this many minutes pass with no captured Agent events. Branch and workspace switches also start a new task. Use Mati: New task and Mati: End task to override."
+        }
+      }
+    },
+    "commands": [
+      {
+        "command": "mati.capture.consent",
+        "title": "Mati: Start capturing"
+      },
+      {
+        "command": "mati.capture.statusToggle",
+        "title": "Mati: Pause or resume capturing"
+      },
+      {
+        "command": "mati.capture.newTask",
+        "title": "Mati: New task"
+      },
+      {
+        "command": "mati.capture.endTask",
+        "title": "Mati: End task"
+      },
+      {
+        "command": "mati.capture.openReport",
+        "title": "Mati: Open report"
+      },
+      {
+        "command": "mati.capture.stop",
+        "title": "Mati: Stop capturing"
+      },
+      {
+        "command": "mati.capture.claim",
+        "title": "Mati: Claim this device"
+      },
+      {
+        "command": "mati.capture.deleteData",
+        "title": "Mati: Delete my capture data"
+      },
+      {
+        "command": "mati.capture.diagnose",
+        "title": "Mati: Diagnose capture"
+      }
+    ]
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit --emitDeclarationOnly false",
+    "test": "vitest run",
+    "compile": "tsc -p tsconfig.build.json",
+    "build": "tsc --noEmit --emitDeclarationOnly false",
+    "package": "pnpm compile && vsce package --no-dependencies --no-rewrite-relative-links"
+  },
+  "devDependencies": {
+    "@types/node": "^24.19.2",
+    "@vscode/vsce": "^4.1.0",
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.18"
+  }
 }

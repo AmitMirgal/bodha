@@ -43,6 +43,21 @@ function provenanceLabel(label: ProgressTask["usage"]["label"]): string {
 	}
 }
 
+function tokenSourceCopy(task: ProgressTask): string {
+	switch (task.usage.label) {
+		case "estimated":
+			return "text_estimate (labelled estimate from text length, not vendor-measured)";
+		case "measured":
+			return `vendor-measured (${task.usage.source ?? "provider"})`;
+		case "missing":
+			return "not reported (omitted, not shown as 0)";
+		default: {
+			const exhaustive: never = task.usage.label;
+			throw new Error(`Unhandled token label: ${String(exhaustive)}`);
+		}
+	}
+}
+
 function tokenCell(task: ProgressTask): string {
 	if (task.usage.label === "missing") {
 		return "Not reported";
@@ -299,12 +314,33 @@ export function progressTaskDocument(
 </section>`
 					)
 					.join("");
+	const files =
+		task.filePaths.length === 0
+			? '<p class="muted">No edited file paths were stored for this task.</p>'
+			: `<ul>${task.filePaths.map((path) => `<li>${escapeHtml(path)}</li>`).join("")}</ul>`;
+	const responses =
+		task.responses.length === 0
+			? '<p class="muted">No assistant responses were stored for this task.</p>'
+			: task.responses
+					.map(
+						(response) =>
+							`<section class="card"><p class="muted">${escapeHtml(response.occurredAt)}</p><pre class="prompt">${escapeHtml(response.text)}</pre></section>`
+					)
+					.join("");
+	const tokenSource = tokenSourceCopy(task);
+	const coaching = task.coachingSummary
+		? `<p>${escapeHtml(task.coachingSummary)}</p>`
+		: '<p class="muted">No coaching stored yet.</p>';
 	const body = `<main>
 <p class="muted"><a href="/progress">Progress</a> · ${escapeHtml(originLabel(task.origin))}</p>
 <h1>${escapeHtml(task.exerciseId)}</h1>
 <p>${escapeHtml(usageCopy(task.usage, task.source))}</p>
-<p><strong>Outcome:</strong> ${escapeHtml(task.outcome?.observed ?? "No outcome stored yet.")}</p>
+<p class="muted">Token source · ${escapeHtml(tokenSource)}</p>
+<p><strong>Observed:</strong> ${escapeHtml(task.outcome?.observed ?? "No outcome stored yet.")}</p>
 <section class="card"><h2>Prompt timeline</h2>${prompts}</section>
+<section class="card"><h2>Responses</h2>${responses}</section>
+<section class="card"><h2>Edited files</h2>${files}</section>
+<section class="card"><h2>Coaching</h2><p class="muted">Suggestions are recommendations, not skill scores.</p>${coaching}</section>
 ${suggestions}
 </main>`;
 	return shell(title, theme, body);

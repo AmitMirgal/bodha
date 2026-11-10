@@ -25,7 +25,12 @@ describe("resolveMatiOrigin", () => {
 				secretOrigin: "https://secret.example/",
 			})
 		).toBe("https://secret.example");
-		expect(resolveMatiOrigin({})).toBe("http://127.0.0.1:3000");
+		expect(resolveMatiOrigin({})).toBe("https://mati-tau.vercel.app");
+		expect(
+			resolveMatiOrigin({
+				envOrigin: "http://127.0.0.1:3000",
+			})
+		).toBe("http://127.0.0.1:3000");
 	});
 
 	it("strips trailing slashes", () => {

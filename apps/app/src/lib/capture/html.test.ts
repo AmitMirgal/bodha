@@ -43,6 +43,8 @@ describe("capture viewer document", () => {
 		const empty = captureViewerDocument([]);
 		expect(empty).toContain("No captured Agent prompts yet.");
 		expect(empty).toContain("text-length estimate and undercounts");
+		expect(empty).toContain("Sign in to keep this and get your report");
+		expect(empty).toContain("Device preview");
 		const seeded = captureViewerDocument([
 			{
 				editor: "cursor",

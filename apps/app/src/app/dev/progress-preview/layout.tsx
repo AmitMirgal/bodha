@@ -1,6 +1,4 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
-import { progressFixtureEnabled } from "../../../lib/progress/preview-gate";
 
 export const dynamic = "force-dynamic";
 
@@ -14,8 +12,5 @@ export default function ProgressPreviewLayout({
 }: {
 	children: React.ReactNode;
 }) {
-	if (!progressFixtureEnabled()) {
-		notFound();
-	}
 	return children;
 }

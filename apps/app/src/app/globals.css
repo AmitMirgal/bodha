@@ -27,7 +27,7 @@
 	--card: #ffffff;
 	--card-foreground: #0d0d0f;
 	--primary: #3f5a00;
-	--primary-foreground: #f2f0e8;
+	--primary-foreground: #ffffff;
 	--secondary: #e7e5dc;
 	--secondary-foreground: #0d0d0f;
 	--muted: #e7e5dc;
@@ -102,7 +102,7 @@ p {
 	color: inherit;
 	cursor: pointer;
 }
-a {
+a:not([data-slot]) {
 	color: inherit;
 }
 ::selection {
@@ -214,6 +214,9 @@ kbd {
 	padding: 0;
 	font: 800 19px var(--display);
 	letter-spacing: -0.02em;
+	color: var(--foreground);
+	text-decoration: none;
+	cursor: pointer;
 	background: none;
 	border: 0;
 }
@@ -241,8 +244,9 @@ kbd {
 }
 .home-nav .logo {
 	margin-right: auto;
+	color: var(--foreground);
 }
-.home-nav a,
+.home-nav a:not(.logo),
 .home-nav button {
 	display: inline-flex;
 	min-height: 44px;
@@ -257,7 +261,7 @@ kbd {
 	border: 0;
 	border-radius: 8px;
 }
-.home-nav a:hover,
+.home-nav a:not(.logo):hover,
 .home-nav button:hover {
 	color: var(--lime-text);
 }

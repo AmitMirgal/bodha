@@ -14,6 +14,7 @@ import {
 import { loadAiWidth, saveAiWidth } from "../lib/storage";
 import { type Challenge, isReadOnly } from "../lib/types";
 import AiPanel from "./AiPanel";
+import { Logo } from "./Logo";
 
 interface Props {
 	challenge: Challenge;
@@ -227,14 +228,7 @@ export default function Round({
 			style={{ ["--ai-w" as string]: `${aiWidth}px` }}
 		>
 			<header className="bar">
-				<button
-					className="logo"
-					onClick={onExit}
-					title="Back to exercises (progress is saved)"
-					type="button"
-				>
-					<span>{"//"}</span> Mati
-				</button>
+				<Logo onClick={onExit} title="Back to exercises (progress is saved)" />
 				<div className="bar-title">{challenge.title}</div>
 				<div className={`clock ${urgent ? "urgent" : ""}`}>
 					{fmtClock(left)}

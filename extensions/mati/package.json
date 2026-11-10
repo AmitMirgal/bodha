@@ -4,7 +4,7 @@
   "description": "Capture Cursor Agent and Copilot Chat prompts for a per-task learning report. Capture stays anonymous on the device; sign in on the web to keep tasks on your account.",
   "version": "0.0.1",
   "private": true,
-  "publisher": "replace-with-amit-publisher",
+  "publisher": "amitmirgal",
   "license": "Apache-2.0",
   "homepage": "https://github.com/AmitMirgal/mati",
   "bugs": {

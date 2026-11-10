@@ -15,7 +15,9 @@ const progressScreen = readFileSync(
 describe("avatar account menu", () => {
 	it("opens from an initials avatar with an accessible label", () => {
 		expect(menu).toMatch(/DropdownMenuTrigger/);
-		expect(menu).toMatch(/aria-label=\{`Account menu for \$\{email\}`\}/);
+		expect(menu).toMatch(
+			/aria-label=\{`\$\{initials\}, account menu for \$\{email\}`\}/
+		);
 		expect(menu).toMatch(/emailInitials/);
 		expect(menu).toMatch(/AvatarFallback/);
 	});

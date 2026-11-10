@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { signOutRequest } from "../lib/auth/sign-out";
 import { runBackground } from "../lib/background";
+import { Logo } from "./Logo";
 
 export function MarketingHeader({ email }: { email?: string | null }) {
 	const router = useRouter();
@@ -16,9 +17,7 @@ export function MarketingHeader({ email }: { email?: string | null }) {
 
 	return (
 		<nav className="home-nav">
-			<div className="logo static">
-				<span>{"//"}</span> Mati
-			</div>
+			<Logo />
 			<a href="#how">how it works</a>
 			<a href="#rounds">pick a round</a>
 			{signedIn ? (

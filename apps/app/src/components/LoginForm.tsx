@@ -26,6 +26,7 @@ import {
 import { runBackground } from "../lib/background";
 import { safeNextPath } from "../lib/http/safe-next";
 import { createBrowserSupabase } from "../lib/supabase/client";
+import { Logo } from "./Logo";
 
 const CALLBACK_ERROR: Record<string, string> = {
 	link: "That email link is invalid or expired. Create an account or sign in again.",
@@ -143,9 +144,7 @@ export function LoginForm() {
 		<main className="mx-auto flex min-h-[100dvh] w-full max-w-md items-center px-4 py-10">
 			<Card className="w-full border-border shadow-lg">
 				<CardHeader className="gap-3">
-					<p className="font-mono text-muted-foreground text-sm tracking-wide">
-						mati
-					</p>
+					<Logo />
 					<CardTitle className="text-2xl tracking-tight">
 						{heading(mode)}
 					</CardTitle>

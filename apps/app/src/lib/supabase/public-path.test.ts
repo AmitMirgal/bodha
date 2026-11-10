@@ -5,6 +5,7 @@ describe("isPublicPath", () => {
 	it("keeps the marketing page public without making every path public", () => {
 		expect(isPublicPath("/")).toBe(true);
 		expect(isPublicPath("/login")).toBe(true);
+		expect(isPublicPath("/dev/exercises-preview")).toBe(true);
 		expect(isPublicPath("/progress")).toBe(false);
 		expect(isPublicPath("/settings")).toBe(false);
 		expect(isPublicPath("/exercises")).toBe(false);

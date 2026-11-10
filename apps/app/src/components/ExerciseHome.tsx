@@ -20,7 +20,7 @@ import type { ChallengeMeta } from "../lib/types";
 import { markNavigating } from "./NavigationProgress";
 import { NavLink } from "./NavLink";
 
-interface SessionRow {
+export interface SessionRow {
 	exercise_id: string;
 	finished_at: string | null;
 	id: string;
@@ -35,20 +35,29 @@ const DISCLOSURE = [
 	"Provider-reported token usage when the endpoint returns it",
 ];
 
-export function ExerciseHome({ challenges }: { challenges: ChallengeMeta[] }) {
+export function ExerciseHome({
+	challenges,
+	fixtureSessions,
+}: {
+	challenges: ChallengeMeta[];
+	fixtureSessions?: SessionRow[];
+}) {
 	const router = useRouter();
-	const [sessions, setSessions] = useState<SessionRow[]>([]);
+	const [sessions, setSessions] = useState<SessionRow[]>(fixtureSessions ?? []);
 	const [pending, setPending] = useState<ChallengeMeta | null>(null);
 	const [error, setError] = useState("");
 
 	useEffect(() => {
+		if (fixtureSessions) {
+			return;
+		}
 		runBackground(
 			fetch("/api/sessions")
 				.then((response) => response.json())
 				.then((body) => setSessions(body.sessions ?? []))
 				.catch(() => setSessions([]))
 		);
-	}, []);
+	}, [fixtureSessions]);
 
 	const latestFor = (exerciseId: string) =>
 		sessions.find((session) => session.exercise_id === exerciseId);

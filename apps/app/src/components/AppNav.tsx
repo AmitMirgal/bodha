@@ -19,6 +19,7 @@ import {
 import { Skeleton } from "@repo/design-system/components/ui/skeleton";
 import { Menu } from "lucide-react";
 import { usePathname } from "next/navigation";
+import { Logo } from "./Logo";
 import { NavLink } from "./NavLink";
 import { UserMenu } from "./UserMenu";
 
@@ -99,18 +100,11 @@ export function AppNav({
 	pending?: boolean;
 }) {
 	const pathname = usePathname();
-	const homeActive = pathname === "/";
 
 	return (
 		<header className="sticky top-0 z-40 border-b bg-background/95 px-4 py-3 backdrop-blur-sm">
 			<div className="mx-auto flex max-w-6xl items-center justify-between gap-3">
-				<NavLink
-					aria-current={homeActive ? "page" : undefined}
-					className="font-semibold text-base tracking-tight"
-					href="/"
-				>
-					Mati
-				</NavLink>
+				<Logo />
 				<NavigationMenu className="hidden md:flex" viewport={false}>
 					<NavigationMenuList>
 						<NavItems pathname={pathname} />
@@ -131,7 +125,9 @@ export function AppNav({
 						</SheetTrigger>
 						<SheetContent side="left">
 							<SheetHeader>
-								<SheetTitle>Mati</SheetTitle>
+								<SheetTitle className="p-0 font-normal">
+									<Logo />
+								</SheetTitle>
 							</SheetHeader>
 							<nav aria-label="Mobile" className="grid gap-2 px-4">
 								{APP_NAV_LINKS.map((link) => {

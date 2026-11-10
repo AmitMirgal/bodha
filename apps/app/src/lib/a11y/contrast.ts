@@ -28,6 +28,25 @@ export function contrastRatio(foreground: string, background: string): number {
 	return (lighter + 0.05) / (darker + 0.05);
 }
 
+export function mixHex(
+	base: string,
+	overlay: string,
+	overlayAmount: number
+): string {
+	const [baseR, baseG, baseB] = hexToRgb(base);
+	const [overR, overG, overB] = hexToRgb(overlay);
+	const mixChannel = (from: number, to: number) =>
+		Math.round(from * (1 - overlayAmount) + to * overlayAmount);
+	const mixed = [
+		mixChannel(baseR, overR),
+		mixChannel(baseG, overG),
+		mixChannel(baseB, overB),
+	];
+	return `#${mixed
+		.map((channel) => channel.toString(16).padStart(2, "0"))
+		.join("")}`;
+}
+
 export const LIGHT_BG = "#f2f0e8";
 export const DARK_BG = "#0d0d0f";
 export const LIGHT_PANEL = "#ffffff";
@@ -44,6 +63,14 @@ export const DESTRUCTIVE_LIGHT = "#b00040";
 export const DESTRUCTIVE_DARK = "#ff4d8d";
 export const RING_LIGHT = "#3f5a00";
 export const RING_DARK = "#c6ff3d";
+export const PRIMARY_FILL_LIGHT = "#3f5a00";
+export const PRIMARY_FG_LIGHT = "#ffffff";
+export const PRIMARY_FILL_DARK = "#c6ff3d";
+export const PRIMARY_FG_DARK = "#0d0d0f";
+export const PRIMARY_HOVER_LIGHT = mixHex(PRIMARY_FILL_LIGHT, LIGHT_PANEL, 0.1);
+export const PRIMARY_HOVER_DARK = mixHex(PRIMARY_FILL_DARK, DARK_BG, 0.1);
+export const PRIMARY_ACTIVE_LIGHT = PRIMARY_HOVER_LIGHT;
+export const PRIMARY_ACTIVE_DARK = PRIMARY_HOVER_DARK;
 
 export interface ContrastRow {
 	darkBg: string;
@@ -118,5 +145,41 @@ export const CONTRAST_ROWS: ContrastRow[] = [
 		lightBg: LIGHT_BG,
 		darkFg: DESTRUCTIVE_DARK,
 		darkBg: DARK_BG,
+	},
+	{
+		token: "--primary-foreground on --primary (default button)",
+		lightFg: PRIMARY_FG_LIGHT,
+		lightBg: PRIMARY_FILL_LIGHT,
+		darkFg: PRIMARY_FG_DARK,
+		darkBg: PRIMARY_FILL_DARK,
+	},
+	{
+		token: "--primary-foreground on --primary/90 hover",
+		lightFg: PRIMARY_FG_LIGHT,
+		lightBg: PRIMARY_HOVER_LIGHT,
+		darkFg: PRIMARY_FG_DARK,
+		darkBg: PRIMARY_HOVER_DARK,
+	},
+	{
+		token: "--primary-foreground on --primary/90 active",
+		lightFg: PRIMARY_FG_LIGHT,
+		lightBg: PRIMARY_ACTIVE_LIGHT,
+		darkFg: PRIMARY_FG_DARK,
+		darkBg: PRIMARY_ACTIVE_DARK,
+	},
+	{
+		token: "button link variant --primary on --background",
+		lightFg: PRIMARY_FILL_LIGHT,
+		lightBg: LIGHT_BG,
+		darkFg: PRIMARY_FILL_DARK,
+		darkBg: DARK_BG,
+	},
+	{
+		token: "logo // mark --lime-text on --background (graphic 3:1)",
+		lightFg: LIME_TEXT_LIGHT,
+		lightBg: LIGHT_BG,
+		darkFg: LIME_TEXT_DARK,
+		darkBg: DARK_BG,
+		ui: true,
 	},
 ];

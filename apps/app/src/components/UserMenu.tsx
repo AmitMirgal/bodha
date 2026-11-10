@@ -33,7 +33,7 @@ export function UserMenu({ email }: { email: string }) {
 		<DropdownMenu>
 			<DropdownMenuTrigger asChild>
 				<Button
-					aria-label={`Account menu for ${email}`}
+					aria-label={`${initials}, account menu for ${email}`}
 					className="rounded-full"
 					size="icon"
 					type="button"

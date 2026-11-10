@@ -28,6 +28,16 @@ describe("marketing page is public", () => {
 		expect(home).toMatch(/href="\/login\?next=\/exercises"/);
 	});
 
+	it("seeds a local exercises preview with a Resume session", () => {
+		const preview = readFileSync(
+			new URL("../app/dev/exercises-preview/page.tsx", import.meta.url),
+			"utf8"
+		);
+		expect(preview).toMatch(/fixtureSessions/);
+		expect(preview).toMatch(/status: "running"/);
+		expect(preview).toMatch(/ExerciseHome/);
+	});
+
 	it("keeps trainer, Progress, and Settings behind auth redirects", () => {
 		expect(exercisesPage).toMatch(/requireUser/);
 		expect(exercisesPage).toMatch(/redirect\("\/login\?next=\/exercises"\)/);

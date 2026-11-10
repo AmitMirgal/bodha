@@ -10,17 +10,28 @@ export const SNAP_A = "33333333-3333-4333-8333-333333333333";
 export const EVIDENCE_A = "44444444-4444-4444-8444-444444444444";
 
 const MIGRATIONS_DIR = fileURLToPath(
-	new URL("../../../../../supabase/migrations/", import.meta.url)
+	new URL("../../../prisma/migrations/", import.meta.url)
 );
-const PGCRYPTO_EXT = /create extension if not exists pgcrypto;/i;
-const AUTH_USER_TRIGGER = /create trigger on_auth_user_created[\s\S]*?;/;
+const PGCRYPTO_EXT = /create extension if not exists pgcrypto;/gi;
+const AUTH_USER_TRIGGER =
+	/-- MATI_AUTH_TRIGGER_BEGIN[\s\S]*?-- MATI_AUTH_TRIGGER_END/g;
+const MIGRATION_DIR_NAME = /^\d{14}_/;
+
+export function prismaMigrationNames(): string[] {
+	return readdirSync(MIGRATIONS_DIR, { withFileTypes: true })
+		.filter((entry) => entry.isDirectory())
+		.map((entry) => entry.name)
+		.filter((name) => MIGRATION_DIR_NAME.test(name))
+		.sort();
+}
+
+export function prismaMigrationSql(name: string): string {
+	return readFileSync(path.join(MIGRATIONS_DIR, name, "migration.sql"), "utf8");
+}
 
 export function migrationSql(): string {
-	const files = readdirSync(MIGRATIONS_DIR)
-		.filter((name) => name.endsWith(".sql"))
-		.sort();
-	return files
-		.map((name) => readFileSync(path.join(MIGRATIONS_DIR, name), "utf8"))
+	return prismaMigrationNames()
+		.map((name) => prismaMigrationSql(name))
 		.join("\n")
 		.replace(PGCRYPTO_EXT, "")
 		.replace(AUTH_USER_TRIGGER, "");

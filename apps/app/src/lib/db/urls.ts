@@ -142,7 +142,7 @@ export function prismaCliKind(argv: readonly string[]): PrismaCliKind {
 }
 
 const CONNECTING_CLI_HINT =
-	"DIRECT_URL is required for Prisma migrate / db pull / db push. Set the session-mode pooler (port 5432). Generate can run without it. Mati schema changes are supabase/migrations/*.sql — do not prisma migrate against a Mati database.";
+	"DIRECT_URL is required for Prisma migrate / db pull / db push. Set the session-mode pooler (port 5432). Generate can run without it. Apply schema with `prisma migrate deploy` from apps/app/prisma/migrations. Do not prisma db push.";
 
 export function resolvePrismaCliDatasourceUrl(
 	env: PrismaCliEnv,

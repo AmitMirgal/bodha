@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { homedir } from "node:os";
 import path from "node:path";
 import {
@@ -9,10 +10,17 @@ import {
 	window,
 	workspace,
 } from "vscode";
-import { writeCaptureGate } from "./capture-gate";
+import {
+	captureGatePath,
+	claimCaptureHolder,
+	clearCaptureGate,
+	readCaptureGate,
+	releaseCaptureHolder,
+} from "./capture-gate";
 import {
 	BOUNDARY_KEY,
 	CONSENT_KEY,
+	captureStatus,
 	idleMinutesFromSetting,
 	PAUSED_KEY,
 	planAfterCommand,
@@ -20,11 +28,20 @@ import {
 	shouldPromptConsent,
 	statusBarLabel,
 } from "./capture-state";
+import {
+	collectCaptureDiagnosis,
+	formatDiagnosis,
+	writeLastUpload,
+} from "./diagnose";
 import { readGitBranch } from "./git-branch";
 import {
+	defaultHooksPath,
 	defaultMatiHome,
+	ensureCursorHooks,
+	hooksFileHasMati,
 	installCopilotHooks,
 	installCursorHooks,
+	readHooksFile,
 	uninstallCopilotHooks,
 	uninstallCursorHooks,
 } from "./install-hooks";
@@ -50,6 +67,8 @@ const SECRET_ID = "mati.deviceId";
 const SECRET_TOKEN = "mati.deviceSecret";
 const SECRET_ORIGIN = "mati.appOrigin";
 const OTEL_MANAGED = "mati.otel.managed";
+
+let activeHolderId: string | null = null;
 
 const CONSENT_HTML = `<!doctype html>
 <html><body style="font-family:sans-serif;padding:1.5rem;max-width:40rem">
@@ -179,19 +198,30 @@ function uninstallHooks(context: ExtensionContext | null) {
 }
 
 export async function activate(context: ExtensionContext) {
+	activeHolderId = randomUUID();
 	let drainTimer: ReturnType<typeof setInterval> | undefined;
+	let hookWriteErrorShown = false;
 	const status = window.createStatusBarItem(StatusBarAlignment.Right, 80);
-	context.subscriptions.push(status);
+	const output = window.createOutputChannel("Mati");
+	context.subscriptions.push(status, output);
 
 	const refreshStatus = () => {
+		const consented = workspaceConsented(context);
+		const paused = isPaused(context);
+		const live = shouldAutoStart({
+			paused,
+			workspaceConsented: consented,
+		});
+		const gate = readCaptureGate(captureGatePath());
+		const { existing } = readHooksFile(defaultHooksPath());
 		const label = statusBarLabel(
-			planAfterCommand(
-				{
-					paused: isPaused(context),
-					workspaceConsented: workspaceConsented(context),
-				},
-				isPaused(context) ? "pause" : "resume"
-			).status
+			captureStatus({
+				gateCapturing: gate?.capturing === true,
+				hooksInstalled: hooksFileHasMati(existing),
+				paused,
+				sessionActive: live,
+				workspaceConsented: consented,
+			})
 		);
 		status.text = label.text;
 		status.tooltip = label.tooltip;
@@ -206,13 +236,27 @@ export async function activate(context: ExtensionContext) {
 		}
 	};
 
-	const writeGate = async (capturing: boolean) => {
+	const claimThisWindow = async () => {
+		if (!activeHolderId) {
+			return;
+		}
 		const deviceId = await context.secrets.get(SECRET_ID);
-		writeCaptureGate({
-			capturing,
-			deviceId: deviceId ?? undefined,
-			workspaceHash: workspaceHashFromFolders(workspaceFolders()),
-		});
+		const workspaceHash = workspaceHashFromFolders(workspaceFolders());
+		claimCaptureHolder(
+			{
+				id: activeHolderId,
+				updatedAt: Date.now(),
+				workspaceHash,
+			},
+			{ deviceId: deviceId ?? undefined, workspaceHash }
+		);
+	};
+
+	const releaseThisWindow = () => {
+		if (!activeHolderId) {
+			return;
+		}
+		releaseCaptureHolder(activeHolderId);
 	};
 
 	let boundary = readBoundary(context);
@@ -246,6 +290,27 @@ export async function activate(context: ExtensionContext) {
 			if (!live) {
 				return;
 			}
+			try {
+				ensureCursorHooks({
+					hookScriptSource: path.join(
+						context.extensionPath,
+						"hooks",
+						"cursor.mjs"
+					),
+				});
+			} catch (error) {
+				refreshStatus();
+				if (!hookWriteErrorShown) {
+					hookWriteErrorShown = true;
+					await window.showErrorMessage(
+						error instanceof Error
+							? error.message
+							: "Mati could not keep Cursor hooks.json installed."
+					);
+				}
+				return;
+			}
+			await claimThisWindow();
 			const origin = await currentOrigin(context);
 			const folders = workspaceFolders();
 			const workspaceHash = workspaceHashFromFolders(folders);
@@ -265,7 +330,17 @@ export async function activate(context: ExtensionContext) {
 					workspaceHash,
 				}),
 			]).then(
-				() => context.workspaceState.update(BOUNDARY_KEY, boundary),
+				([queueResult, otelResult]) => {
+					writeLastUpload({
+						at: new Date().toISOString(),
+						failed: queueResult.failed + otelResult.failed,
+						ok: queueResult.failed + otelResult.failed === 0,
+						origin,
+						posted: queueResult.posted + otelResult.posted,
+					});
+					refreshStatus();
+					return context.workspaceState.update(BOUNDARY_KEY, boundary);
+				},
 				() => undefined
 			);
 		};
@@ -294,8 +369,8 @@ export async function activate(context: ExtensionContext) {
 
 	const startCapturing = async () => {
 		await context.workspaceState.update(PAUSED_KEY, false);
-		await writeGate(true);
 		const otel = await installHooks();
+		await claimThisWindow();
 		await startDrain();
 		refreshStatus();
 		return otel;
@@ -303,9 +378,8 @@ export async function activate(context: ExtensionContext) {
 
 	const pauseCapturing = async () => {
 		await context.workspaceState.update(PAUSED_KEY, true);
-		await writeGate(false);
+		releaseThisWindow();
 		stopDrain();
-		uninstallHooks(context);
 		refreshStatus();
 	};
 
@@ -374,10 +448,19 @@ export async function activate(context: ExtensionContext) {
 			return;
 		}
 		if (plan.autoStart) {
-			await startCapturing();
-			await window.showInformationMessage(
-				"Mati is capturing prompts in this workspace."
-			);
+			try {
+				await startCapturing();
+				await window.showInformationMessage(
+					"Mati is capturing prompts in this workspace."
+				);
+			} catch (error) {
+				refreshStatus();
+				await window.showErrorMessage(
+					error instanceof Error
+						? error.message
+						: "Could not start Mati capture."
+				);
+			}
 			return;
 		}
 		await pauseCapturing();
@@ -530,6 +613,40 @@ export async function activate(context: ExtensionContext) {
 				);
 			}
 		}),
+		commands.registerCommand("mati.capture.diagnose", async () => {
+			if (
+				shouldAutoStart({
+					paused: isPaused(context),
+					workspaceConsented: workspaceConsented(context),
+				})
+			) {
+				try {
+					await installHooks();
+					await claimThisWindow();
+				} catch (error) {
+					await window.showErrorMessage(
+						error instanceof Error
+							? error.message
+							: "Could not repair Mati hooks."
+					);
+				}
+			}
+			refreshStatus();
+			const origin = await currentOrigin(context);
+			const text = formatDiagnosis(
+				collectCaptureDiagnosis({
+					deviceId: await context.secrets.get(SECRET_ID),
+					serverUrl: origin,
+					workspaceHash: workspaceHashFromFolders(workspaceFolders()),
+				})
+			);
+			output.clear();
+			output.appendLine(text);
+			output.show(true);
+			await window.showInformationMessage(
+				text.split("\n").slice(0, 3).join(" · ")
+			);
+		}),
 		commands.registerCommand("mati.capture.deleteData", async () => {
 			const secret = await context.secrets.get(SECRET_TOKEN);
 			const confirm = await window.showWarningMessage(
@@ -564,7 +681,7 @@ export async function activate(context: ExtensionContext) {
 			}
 			stopDrain();
 			uninstallHooks(context);
-			await writeGate(false);
+			clearCaptureGate();
 			await context.secrets.delete(SECRET_ID);
 			await context.secrets.delete(SECRET_TOKEN);
 			await context.workspaceState.update(CONSENT_KEY, false);
@@ -582,8 +699,9 @@ export async function activate(context: ExtensionContext) {
 					workspaceConsented: workspaceConsented(context),
 				})
 			) {
-				return writeGate(true);
+				return claimThisWindow();
 			}
+			releaseThisWindow();
 			return undefined;
 		})
 	);
@@ -595,16 +713,23 @@ export async function activate(context: ExtensionContext) {
 			workspaceConsented: workspaceConsented(context),
 		})
 	) {
-		await startCapturing();
+		try {
+			await startCapturing();
+		} catch (error) {
+			refreshStatus();
+			await window.showErrorMessage(
+				error instanceof Error ? error.message : "Could not start Mati capture."
+			);
+		}
 		return;
 	}
-	await writeGate(false);
-	if (workspaceConsented(context) && isPaused(context)) {
-		uninstallHooks(context);
-	}
+	releaseThisWindow();
 	await promptConsentIfNeeded();
 }
 
 export function deactivate() {
-	writeCaptureGate({ capturing: false });
+	if (activeHolderId) {
+		releaseCaptureHolder(activeHolderId);
+		activeHolderId = null;
+	}
 }

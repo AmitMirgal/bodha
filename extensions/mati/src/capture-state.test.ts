@@ -92,4 +92,28 @@ describe("workspace consent and auto-start", () => {
 			"mati.capture.consent"
 		);
 	});
+
+	it("does not show capturing when the gate is off or hooks are missing", () => {
+		expect(
+			captureStatus({
+				gateCapturing: false,
+				hooksInstalled: true,
+				paused: false,
+				sessionActive: true,
+				workspaceConsented: true,
+			})
+		).toBe("misconfigured");
+		expect(
+			captureStatus({
+				gateCapturing: true,
+				hooksInstalled: false,
+				paused: false,
+				sessionActive: true,
+				workspaceConsented: true,
+			})
+		).toBe("misconfigured");
+		expect(statusBarLabel("misconfigured").command).toBe(
+			"mati.capture.diagnose"
+		);
+	});
 });

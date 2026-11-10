@@ -46,7 +46,13 @@ declare module "vscode" {
 			callback: (...args: never[]) => unknown
 		): Disposable;
 	};
+	export interface OutputChannel extends Disposable {
+		appendLine(value: string): void;
+		clear(): void;
+		show(preserveFocus?: boolean): void;
+	}
 	export const window: {
+		createOutputChannel(name: string): OutputChannel;
 		createStatusBarItem(alignment?: number, priority?: number): StatusBarItem;
 		createWebviewPanel(
 			viewType: string,

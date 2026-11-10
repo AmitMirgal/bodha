@@ -67,6 +67,10 @@
 			{
 				"command": "mati.capture.deleteData",
 				"title": "Mati: Delete my capture data"
+			},
+			{
+				"command": "mati.capture.diagnose",
+				"title": "Mati: Diagnose capture"
 			}
 		]
 	},

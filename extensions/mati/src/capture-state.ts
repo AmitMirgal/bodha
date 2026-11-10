@@ -1,4 +1,9 @@
-export type CaptureStatus = "capturing" | "not_consented" | "off" | "paused";
+export type CaptureStatus =
+	| "capturing"
+	| "misconfigured"
+	| "not_consented"
+	| "off"
+	| "paused";
 
 export const CONSENT_KEY = "mati.consent.v1";
 export const PAUSED_KEY = "mati.paused";
@@ -24,6 +29,8 @@ export function idleMinutesFromSetting(value: unknown): number {
 }
 
 export function captureStatus(input: {
+	gateCapturing?: boolean;
+	hooksInstalled?: boolean;
 	paused: boolean;
 	sessionActive: boolean;
 	workspaceConsented: boolean;
@@ -34,10 +41,13 @@ export function captureStatus(input: {
 	if (input.paused) {
 		return "paused";
 	}
-	if (input.sessionActive) {
-		return "capturing";
+	if (!input.sessionActive) {
+		return "off";
 	}
-	return "off";
+	if (input.hooksInstalled === false || input.gateCapturing === false) {
+		return "misconfigured";
+	}
+	return "capturing";
 }
 
 export function shouldAutoStart(input: {
@@ -122,7 +132,10 @@ export function planAfterCommand(
 }
 
 export function statusBarLabel(status: CaptureStatus): {
-	command: "mati.capture.consent" | "mati.capture.statusToggle";
+	command:
+		| "mati.capture.consent"
+		| "mati.capture.diagnose"
+		| "mati.capture.statusToggle";
 	text: string;
 	tooltip: string;
 } {
@@ -138,6 +151,13 @@ export function statusBarLabel(status: CaptureStatus): {
 				command: "mati.capture.statusToggle",
 				text: "$(debug-pause) Mati paused",
 				tooltip: "Mati is paused in this workspace. Click to resume.",
+			};
+		case "misconfigured":
+			return {
+				command: "mati.capture.diagnose",
+				text: "$(warning) Mati",
+				tooltip:
+					"This workspace consented, but hooks.json or the capture gate is not armed. Click to diagnose.",
 			};
 		case "not_consented":
 			return {

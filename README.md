@@ -1,4 +1,8 @@
-# Mati
+<div align="center" id="mati">
+<h1 align="center" style="display: flex; align-items: center; justify-content: center; gap: 10px; line-height: 1;">
+<a href="#mati"><img src="apps/app/src/app/icon.svg" alt="" width="32" height="32" align="absmiddle"></a>&nbsp;&nbsp;Mati
+</h1>
+</div>
 
 Open-source individual learning trainer (renamed from BODHA). Learners sign in, run two manually maintained browser-JavaScript exercises, chat with a server-side Mastra coach, and revisit evidence-grounded reports plus personal progress.
 

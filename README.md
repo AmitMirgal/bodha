@@ -1,6 +1,6 @@
 <div id="mati">
 <h1>
-<a href="#mati"><img src="apps/app/src/app/icon.svg" alt="" width="32" height="32" align="absmiddle"></a>&nbsp;&nbsp;Mati
+<a href="#mati"><img src="apps/app/src/app/icon.svg" alt="" width="32" height="32"></a>&nbsp;&nbsp;Mati
 </h1>
 </div>
 

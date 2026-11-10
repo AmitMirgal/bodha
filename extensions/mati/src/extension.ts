@@ -15,6 +15,7 @@ import {
 	uninstallCopilotHooks,
 	uninstallCursorHooks,
 } from "./install-hooks";
+import { describeFetchError, resolveMatiOrigin } from "./origin";
 import {
 	defaultOtelOutfile,
 	installCopilotOtel,
@@ -45,22 +46,63 @@ document.getElementById("accept").addEventListener("click", () => vscode.postMes
 </script>
 </body></html>`;
 
+async function currentOrigin(context: ExtensionContext): Promise<string> {
+	const setting = workspace.getConfiguration("mati").get<string>("serverUrl");
+	return resolveMatiOrigin({
+		envOrigin: process.env.MATI_APP_ORIGIN,
+		secretOrigin: await context.secrets.get(SECRET_ORIGIN),
+		settingOrigin: typeof setting === "string" ? setting : undefined,
+	});
+}
+
+async function fetchCapture(
+	origin: string,
+	pathname: string,
+	init: RequestInit,
+	action: string,
+	fetchImpl: typeof fetch
+): Promise<Response> {
+	let response: Response;
+	try {
+		response = await fetchImpl(`${origin}${pathname}`, init);
+	} catch (error) {
+		throw new Error(
+			describeFetchError(action, origin, {
+				kind: "network",
+				message: error instanceof Error ? error.message : String(error),
+			})
+		);
+	}
+	if (!response.ok) {
+		throw new Error(
+			describeFetchError(action, origin, {
+				kind: "http",
+				status: response.status,
+			})
+		);
+	}
+	return response;
+}
+
 async function registerDevice(
 	origin: string,
 	fetchImpl: typeof fetch
 ): Promise<{ deviceId: string; secret: string; viewerUrl: string }> {
-	const response = await fetchImpl(`${origin}/api/capture/v1/devices`, {
-		method: "POST",
-		headers: { "content-type": "application/json" },
-		body: JSON.stringify({
-			version: 1,
-			grantedAt: new Date().toISOString(),
-			scopes: ["prompt_text", "response_text", "file_edit_paths", "usage"],
-		}),
-	});
-	if (!response.ok) {
-		throw new Error("Could not register this device.");
-	}
+	const response = await fetchCapture(
+		origin,
+		"/api/capture/v1/devices",
+		{
+			method: "POST",
+			headers: { "content-type": "application/json" },
+			body: JSON.stringify({
+				version: 1,
+				grantedAt: new Date().toISOString(),
+				scopes: ["prompt_text", "response_text", "file_edit_paths", "usage"],
+			}),
+		},
+		"register this device",
+		fetchImpl
+	);
 	return (await response.json()) as {
 		deviceId: string;
 		secret: string;
@@ -77,10 +119,6 @@ function stopCapture(context: ExtensionContext | null) {
 }
 
 export async function activate(context: ExtensionContext) {
-	const origin =
-		process.env.MATI_APP_ORIGIN ||
-		(await context.secrets.get(SECRET_ORIGIN)) ||
-		"http://127.0.0.1:3000";
 	context.subscriptions.push(
 		commands.registerCommand("mati.capture.consent", () => {
 			const panel = window.createWebviewPanel(
@@ -95,6 +133,7 @@ export async function activate(context: ExtensionContext) {
 					return;
 				}
 				try {
+					const origin = await currentOrigin(context);
 					const registered = await registerDevice(origin, fetch);
 					await context.secrets.store(SECRET_ID, registered.deviceId);
 					await context.secrets.store(SECRET_TOKEN, registered.secret);
@@ -140,16 +179,25 @@ export async function activate(context: ExtensionContext) {
 				);
 				return;
 			}
-			const response = await fetch(`${origin}/api/capture/v1/devices`, {
-				headers: { Authorization: `Bearer ${secret}` },
-			});
-			if (!response.ok) {
-				await window.showErrorMessage("Could not open the device viewer.");
-				return;
-			}
-			const body = (await response.json()) as { viewerUrl?: string };
-			if (body.viewerUrl) {
-				await env.openExternal(Uri.parse(body.viewerUrl));
+			try {
+				const origin = await currentOrigin(context);
+				const response = await fetchCapture(
+					origin,
+					"/api/capture/v1/devices",
+					{ headers: { Authorization: `Bearer ${secret}` } },
+					"open the device viewer",
+					fetch
+				);
+				const body = (await response.json()) as { viewerUrl?: string };
+				if (body.viewerUrl) {
+					await env.openExternal(Uri.parse(body.viewerUrl));
+				}
+			} catch (error) {
+				await window.showErrorMessage(
+					error instanceof Error
+						? error.message
+						: "Could not open the device viewer."
+				);
 			}
 		}),
 		commands.registerCommand("mati.capture.stop", async () => {
@@ -174,23 +222,32 @@ export async function activate(context: ExtensionContext) {
 			if (!code) {
 				return;
 			}
-			const response = await fetch(`${origin}/api/capture/v1/pair/claim`, {
-				method: "POST",
-				headers: {
-					Authorization: `Bearer ${secret}`,
-					"content-type": "application/json",
-				},
-				body: JSON.stringify({ code }),
-			});
-			if (!response.ok) {
-				await window.showErrorMessage(
-					"Could not claim this device. Check the code and try again."
+			try {
+				const origin = await currentOrigin(context);
+				await fetchCapture(
+					origin,
+					"/api/capture/v1/pair/claim",
+					{
+						method: "POST",
+						headers: {
+							Authorization: `Bearer ${secret}`,
+							"content-type": "application/json",
+						},
+						body: JSON.stringify({ code }),
+					},
+					"claim this device",
+					fetch
 				);
-				return;
+				await window.showInformationMessage(
+					"This device is linked to your Mati account."
+				);
+			} catch (error) {
+				await window.showErrorMessage(
+					error instanceof Error
+						? error.message
+						: "Could not claim this device. Check the code and try again."
+				);
 			}
-			await window.showInformationMessage(
-				"This device is linked to your Mati account."
-			);
 		}),
 		commands.registerCommand("mati.capture.deleteData", async () => {
 			const secret = await context.secrets.get(SECRET_TOKEN);
@@ -203,10 +260,26 @@ export async function activate(context: ExtensionContext) {
 				return;
 			}
 			if (secret) {
-				await fetch(`${origin}/api/capture/v1/device`, {
-					method: "DELETE",
-					headers: { Authorization: `Bearer ${secret}` },
-				});
+				try {
+					const origin = await currentOrigin(context);
+					await fetchCapture(
+						origin,
+						"/api/capture/v1/device",
+						{
+							method: "DELETE",
+							headers: { Authorization: `Bearer ${secret}` },
+						},
+						"delete capture data",
+						fetch
+					);
+				} catch (error) {
+					await window.showErrorMessage(
+						error instanceof Error
+							? error.message
+							: "Could not delete capture data on the server."
+					);
+					return;
+				}
 			}
 			stopCapture(context);
 			await context.secrets.delete(SECRET_ID);
@@ -233,7 +306,8 @@ export async function activate(context: ExtensionContext) {
 	const folders = workspace.workspaceFolders?.map(
 		(folder) => folder.uri.fsPath
 	) ?? [homedir()];
-	const tick = () => {
+	const tick = async () => {
+		const origin = await currentOrigin(context);
 		const workspaceHash = workspaceHashFromFolders(folders);
 		return Promise.all([
 			drainQueueFile({

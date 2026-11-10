@@ -17,6 +17,16 @@
 	],
 	"main": "./dist/extension.js",
 	"contributes": {
+		"configuration": {
+			"title": "Mati",
+			"properties": {
+				"mati.serverUrl": {
+					"type": "string",
+					"default": "",
+					"description": "Mati app origin used for capture registration and uploads. Leave empty to use MATI_APP_ORIGIN, a stored origin, or http://127.0.0.1:3000. Trailing slashes are stripped. Changes apply on the next command without reloading."
+				}
+			}
+		},
 		"commands": [
 			{
 				"command": "mati.capture.consent",

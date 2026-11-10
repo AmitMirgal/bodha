@@ -16,12 +16,15 @@ Prisma schema cannot express roles, `FORCE ROW LEVEL SECURITY`, policies, grants
 
 Product queries never use the raw Prisma client. `withUserDb` / `withAnonDb` / `withDeviceDb` / `withCaptureRegisterDb` / `withCaptureJanitorDb` wrap `$transaction`, set JWT claim GUCs from a server-verified identity, `SET LOCAL ROLE authenticated|anon|device|capture_register|capture_janitor`, and abort unless `pg_roles` for `current_user` is non-superuser and **`rolbypassrls` is false**. `FORCE ROW LEVEL SECURITY` does not constrain `BYPASSRLS` roles. That is required because the pooler login is often `postgres`, which bypasses RLS.
 
+`applyRlsContext` calls `auth.uid()` only for `authenticated` / `anon`. Hosted Supabase owns schema `auth` as `supabase_auth_admin`; `GRANT USAGE ON SCHEMA auth` to `device` / `capture_register` / `capture_janitor` as `postgres` can report success and still leave `has_schema_privilege` false. Those roles check an empty JWT subject via `current_setting('request.jwt.claim.sub')` / `request.jwt.claims` and use `public.mati_device_id()` / `mati_consume_pairing_code` (no `auth.*`).
+
 ## Empty database
 
 `prisma migrate deploy` applies:
 
 1. `20261110120000_init` — tables generated from `schema.prisma`, then the security overlay.
 2. `20261110120100_repair_existing_supabase` — idempotent no-op after init (`CREATE TABLE IF NOT EXISTS`, drop/create policies).
+3. `20261110140000_capture_roles_without_auth_schema` — harmless retry of auth grants (no-op on hosted) plus public grants the migrate login owns.
 
 The database must have `auth.users` and `auth.uid()` (hosted Supabase already does). Empty local Postgres: the overlay creates a stub when those objects are missing.
 

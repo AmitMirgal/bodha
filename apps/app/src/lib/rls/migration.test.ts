@@ -7,6 +7,9 @@ const initName = names.find((name) => name.endsWith("_init"));
 const repairName = names.find((name) =>
 	name.endsWith("_repair_existing_supabase")
 );
+const grantAuthName = names.find((name) =>
+	name.endsWith("_capture_roles_without_auth_schema")
+);
 const allSql = migrationSql();
 const initSql = initName
 	? readFileSync(
@@ -35,6 +38,9 @@ describe("Mati Prisma Migrate source of truth", () => {
 	it("keeps Prisma Migrate history under apps/app/prisma/migrations", () => {
 		expect(initName).toBe("20261110120000_init");
 		expect(repairName).toBe("20261110120100_repair_existing_supabase");
+		expect(grantAuthName).toBe(
+			"20261110140000_capture_roles_without_auth_schema"
+		);
 		expect(
 			existsSync(
 				new URL(
@@ -148,6 +154,29 @@ describe("Mati Prisma Migrate source of truth", () => {
 		expect(repairSql).not.toMatch(/^\s*truncate /im);
 		expect(repairSql).toMatch(/create role device /i);
 		expect(repairSql).toMatch(/force row level security/i);
+	});
+
+	it("keeps capture-role policies and helpers off schema auth", () => {
+		const capturePolicies = [
+			...allSql.matchAll(
+				/CREATE POLICY\s+\S+\s+ON\s+\S+\s+FOR\s+\S+\s+TO\s+(device|capture_register|capture_janitor)\b[\s\S]*?;/gi
+			),
+		].map((match) => match[0] ?? "");
+		expect(capturePolicies.length).toBeGreaterThan(8);
+		for (const policy of capturePolicies) {
+			expect(policy).not.toMatch(/\bauth\./);
+		}
+		const deviceIdFn = allSql.match(
+			/CREATE OR REPLACE FUNCTION public\.mati_device_id\(\)[\s\S]*?\$\$;/i
+		)?.[0];
+		const consumeFn = allSql.match(
+			/CREATE OR REPLACE FUNCTION public\.mati_consume_pairing_code\([\s\S]*?\$\$;/i
+		)?.[0];
+		expect(deviceIdFn).toBeTruthy();
+		expect(consumeFn).toBeTruthy();
+		expect(deviceIdFn).not.toMatch(/\bauth\./);
+		expect(consumeFn).not.toMatch(/\bauth\./);
+		expect(allSql).toMatch(/EXCEPTION WHEN insufficient_privilege THEN NULL/);
 	});
 
 	it("points prisma.config.ts at DIRECT_URL and Prisma migrations", () => {

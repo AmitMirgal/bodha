@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { withRequestDevice } from "../../../../../lib/capture/auth";
+import { logCaptureRouteError } from "../../../../../lib/capture/log-route-error";
 import { consentSchema } from "../../../../../lib/capture/schema";
 import {
 	generateDeviceSecret,
@@ -49,7 +50,8 @@ export async function POST(request: Request) {
 			secret,
 			viewerUrl: `${origin}/capture/d/${device.id}?v=${viewer}`,
 		});
-	} catch {
+	} catch (error) {
+		logCaptureRouteError("POST /api/capture/v1/devices", error);
 		return NextResponse.json(
 			{ error: "Could not register device." },
 			{ status: 500 }
@@ -77,7 +79,8 @@ export async function GET(request: Request) {
 			return NextResponse.json({ error: "Unknown device." }, { status: 401 });
 		}
 		return NextResponse.json(result);
-	} catch {
+	} catch (error) {
+		logCaptureRouteError("GET /api/capture/v1/devices", error);
 		return NextResponse.json(
 			{ error: "Could not mint viewer URL." },
 			{ status: 500 }

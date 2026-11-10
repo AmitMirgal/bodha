@@ -160,13 +160,11 @@ export async function applyRlsContext(
 		Array<{
 			role_name: string;
 			super: string;
-			uid: string | null;
 			rolsuper: unknown;
 			rolbypassrls: unknown;
 		}>
 	>`SELECT current_user::text AS role_name,
     current_setting('is_superuser') AS super,
-    auth.uid()::text AS uid,
     r.rolsuper AS rolsuper,
     r.rolbypassrls AS rolbypassrls
     FROM pg_roles r
@@ -185,32 +183,65 @@ export async function applyRlsContext(
 			"Refusing to run product queries: SET LOCAL ROLE did not drop to a non-bypass RLS role."
 		);
 	}
-	if (safe.role === "authenticated" && row.uid !== safe.userId) {
-		throw new RlsContextError(
-			"Refusing to run product queries: auth.uid() does not match the verified user."
-		);
-	}
-	if (safe.role === "anon" && row.uid) {
-		throw new RlsContextError(
-			"Refusing anonymous Prisma access while auth.uid() is set."
-		);
-	}
-	if (
-		(safe.role === "device" ||
-			safe.role === "capture_register" ||
-			safe.role === "capture_janitor") &&
-		row.uid
-	) {
-		throw new RlsContextError(
-			"Refusing device Prisma access while auth.uid() is set."
-		);
-	}
-	if (safe.role === "device") {
-		const deviceRows = await db.$queryRaw<Array<{ device_id: string | null }>>`
-      SELECT public.mati_device_id()::text AS device_id`;
-		if (deviceRows[0]?.device_id !== safe.deviceId) {
+	switch (safe.role) {
+		case "authenticated": {
+			const uidRows = await db.$queryRaw<Array<{ uid: string | null }>>`
+        SELECT auth.uid()::text AS uid`;
+			if (uidRows[0]?.uid !== safe.userId) {
+				throw new RlsContextError(
+					"Refusing to run product queries: auth.uid() does not match the verified user."
+				);
+			}
+			break;
+		}
+		case "anon": {
+			const uidRows = await db.$queryRaw<Array<{ uid: string | null }>>`
+        SELECT auth.uid()::text AS uid`;
+			if (uidRows[0]?.uid) {
+				throw new RlsContextError(
+					"Refusing anonymous Prisma access while auth.uid() is set."
+				);
+			}
+			break;
+		}
+		case "device":
+		case "capture_register":
+		case "capture_janitor": {
+			// Hosted Supabase: schema auth is owned by supabase_auth_admin.
+			// GRANT USAGE ON SCHEMA auth to these roles is a no-op, so these
+			// identities must not query that schema. Policies/functions they
+			// execute use mati_device_id() / JWT GUCs, not auth.*.
+			const claimRows = await db.$queryRaw<
+				Array<{ claim_sub: string | null; claims_sub: string | null }>
+			>`SELECT nullif(current_setting('request.jwt.claim.sub', true), '') AS claim_sub,
+        nullif(
+          coalesce(
+            nullif(current_setting('request.jwt.claims', true), ''),
+            '{}'
+          )::json->>'sub',
+          ''
+        ) AS claims_sub`;
+			if (claimRows[0]?.claim_sub || claimRows[0]?.claims_sub) {
+				throw new RlsContextError(
+					"Refusing device Prisma access while a user subject is set in JWT claims."
+				);
+			}
+			if (safe.role === "device") {
+				const deviceRows = await db.$queryRaw<
+					Array<{ device_id: string | null }>
+				>`SELECT public.mati_device_id()::text AS device_id`;
+				if (deviceRows[0]?.device_id !== safe.deviceId) {
+					throw new RlsContextError(
+						"Refusing to run product queries: mati_device_id() does not match the verified device."
+					);
+				}
+			}
+			break;
+		}
+		default: {
+			const exhaustive: never = safe;
 			throw new RlsContextError(
-				"Refusing to run product queries: mati_device_id() does not match the verified device."
+				`Unhandled RLS identity: ${JSON.stringify(exhaustive)}`
 			);
 		}
 	}

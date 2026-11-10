@@ -4,6 +4,7 @@ import {
 	CaptureLimitError,
 	ingestBatch,
 } from "../../../../../lib/capture/ingest";
+import { logCaptureRouteError } from "../../../../../lib/capture/log-route-error";
 import { takeDeviceSlot } from "../../../../../lib/capture/rate-limit";
 import { ingestBatchSchema } from "../../../../../lib/capture/schema";
 
@@ -48,6 +49,7 @@ export async function POST(request: Request) {
 				{ status: error.status }
 			);
 		}
+		logCaptureRouteError("POST /api/capture/v1/events", error);
 		return NextResponse.json(
 			{ error: "Could not ingest events." },
 			{ status: 500 }

@@ -58,7 +58,11 @@ declare module "vscode" {
 	export const env: {
 		openExternal(target: { toString(): string }): Thenable<boolean>;
 	};
+	export interface WorkspaceConfiguration {
+		get<T>(section: string): T | undefined;
+	}
 	export const workspace: {
+		getConfiguration(section: string): WorkspaceConfiguration;
 		workspaceFolders?: Array<{ uri: { fsPath: string } }>;
 	};
 	export const Uri: {

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { logCaptureRouteError } from "../../../../../../lib/capture/log-route-error";
 import { listClaimedDevices } from "../../../../../../lib/capture/pair";
 import { withUserDb } from "../../../../../../lib/db/client";
 import { requireUser } from "../../../../../../lib/supabase/server";
@@ -18,7 +19,8 @@ export async function GET() {
 				id: device.id,
 			})),
 		});
-	} catch {
+	} catch (error) {
+		logCaptureRouteError("GET /api/capture/v1/account/devices", error);
 		return NextResponse.json(
 			{ error: "Could not list claimed devices." },
 			{ status: 500 }

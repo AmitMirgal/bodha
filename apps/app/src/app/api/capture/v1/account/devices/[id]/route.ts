@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { logCaptureRouteError } from "../../../../../../../lib/capture/log-route-error";
 import { deleteClaimedDevice } from "../../../../../../../lib/capture/pair";
 import { withUserDb } from "../../../../../../../lib/db/client";
 import { requireUser } from "../../../../../../../lib/supabase/server";
@@ -26,7 +27,8 @@ export async function DELETE(
 			return NextResponse.json({ error: "Unknown device." }, { status: 404 });
 		}
 		return NextResponse.json({ deleted: true, deviceId: id });
-	} catch {
+	} catch (error) {
+		logCaptureRouteError("DELETE /api/capture/v1/account/devices/[id]", error);
 		return NextResponse.json(
 			{ error: "Could not delete editor capture for this device." },
 			{ status: 500 }

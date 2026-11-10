@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { logCaptureRouteError } from "../../../../../../../../lib/capture/log-route-error";
 import { assembleEditorLearningReport } from "../../../../../../../../lib/capture/report";
 import { withUserDb } from "../../../../../../../../lib/db/client";
 import { asInt, isoRequired } from "../../../../../../../../lib/db/rows";
@@ -56,7 +57,11 @@ export async function GET(
 			return NextResponse.json({ error: assembled.error }, { status: 400 });
 		}
 		return NextResponse.json({ report: assembled.report });
-	} catch {
+	} catch (error) {
+		logCaptureRouteError(
+			"GET /api/capture/v1/account/tasks/[id]/report",
+			error
+		);
 		return NextResponse.json(
 			{ error: "Could not assemble this editor report." },
 			{ status: 500 }

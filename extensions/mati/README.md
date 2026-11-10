@@ -30,6 +30,16 @@ Signed-in users can store an optional Cursor team Admin API key on Settings. It 
 
 CI builds a `.vsix` and runs tests; the publish jobs are disabled (`if: false`). Do not run `vsce publish` or `ovsx publish` from this repo until Amit approves.
 
+## Local testing
+
+Point the extension at a local or preview app without launching Cursor from a terminal:
+
+1. Start the app (`pnpm --filter app dev` from the repo root, or your preview URL).
+2. In Cursor: **Settings → Extensions → Mati → Server URL** (`mati.serverUrl`) to `http://127.0.0.1:3000` or the preview origin. Trailing slashes are stripped. The next command reads the setting; you do not need to reload the window.
+3. Run **Mati: Start capturing**.
+
+Origin precedence: `MATI_APP_ORIGIN` env, then `mati.serverUrl`, then a stored `mati.appOrigin` secret, then `http://127.0.0.1:3000`. Failures show the URL tried and the HTTP status or network error (for example `Could not register this device at https://example (HTTP 500).`).
+
 ## Install notes
 
 A Cursor plugin (`.cursor-plugin`) is not used in this phase. Cursor does not document an API for a VS Code-compatible extension to register Agent hooks, so the extension writes `~/.cursor/hooks.json` only after explicit consent and removes that block on stop/uninstall.

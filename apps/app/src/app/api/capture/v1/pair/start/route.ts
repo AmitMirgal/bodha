@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { logCaptureRouteError } from "../../../../../../lib/capture/log-route-error";
 import { PairingError, startPairing } from "../../../../../../lib/capture/pair";
 import { withUserDb } from "../../../../../../lib/db/client";
 import { requireUser } from "../../../../../../lib/supabase/server";
@@ -18,6 +19,7 @@ export async function POST() {
 				{ status: error.status }
 			);
 		}
+		logCaptureRouteError("POST /api/capture/v1/pair/start", error);
 		return NextResponse.json(
 			{ error: "Could not create a pairing code." },
 			{ status: 500 }

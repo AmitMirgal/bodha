@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { deviceIdFromRequest } from "../../../../../../lib/capture/auth";
+import { logCaptureRouteError } from "../../../../../../lib/capture/log-route-error";
 import { claimDevice, PairingError } from "../../../../../../lib/capture/pair";
 import { takeDeviceSlot } from "../../../../../../lib/capture/rate-limit";
 import { withDeviceDb } from "../../../../../../lib/db/client";
@@ -45,6 +46,7 @@ export async function POST(request: Request) {
 				{ status: error.status }
 			);
 		}
+		logCaptureRouteError("POST /api/capture/v1/pair/claim", error);
 		return NextResponse.json(
 			{ error: "Could not claim this device." },
 			{ status: 500 }

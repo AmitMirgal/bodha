@@ -1,43 +1,42 @@
-<div id="mati">
-<h1>
-<a href="#mati"><img src="apps/app/src/app/icon.svg" alt="" width="32" height="32"></a>&nbsp;&nbsp;Mati
-</h1>
-</div>
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/brand/mati-wordmark-dark.svg">
+    <img src="docs/brand/mati-wordmark-light.svg" alt="Mati" height="48" align="absmiddle">
+  </picture>
+</p>
 
-Open-source individual learning trainer (renamed from BODHA). Learners sign in, run two manually maintained browser-JavaScript exercises, chat with a server-side Mastra coach, and revisit evidence-grounded reports plus personal progress.
+<p align="center"><strong>Learn from how you use AI on coding tasks.</strong></p>
 
-This is **not** a Google interview replica and does not claim feature parity with any other product. Runtime is **browser JavaScript** via `public/harness.js`. There is no Node, Python, or ML execution sandbox.
+Mati captures the prompts you send in Cursor or Copilot, then turns each closed task into a learning report on your Progress page. Reports stay grounded in stored prompts, responses, edited file names, and labelled token counts. Coaching is an AI suggestion, not a skill score.
 
-Product code lives in `apps/app`. Longer setup notes: [`docs/mati-mvp.md`](docs/mati-mvp.md). Editor capture lives in [`extensions/mati`](extensions/mati/README.md). Design notes: [`docs/extension-design.md`](docs/extension-design.md). Later capture PRs should edit only their own section in those files, not this paragraph.
+Open-source. Individual. Browser JavaScript exercises plus editor capture. This is not a Google interview replica and does not claim feature parity with any other product.
 
-The rest of this monorepo is a next-forge workspace template (unrelated apps and packages). Mati auth is **Supabase Auth**. Mati data is **Supabase PostgreSQL** accessed at runtime through **Prisma 7** with per-request RLS. Do not use Clerk, Neon, Cursor-hosted Postgres, or `packages/database` for Mati.
+Product code lives in `apps/app`. Editor capture lives in [`extensions/mati`](extensions/mati/README.md). Design notes: [`docs/mati-mvp.md`](docs/mati-mvp.md), [`docs/extension-design.md`](docs/extension-design.md). The rest of this monorepo is a next-forge workspace template.
 
-There is no `@bodha/*` or `@mati/*` workspace scope. Product packages stay `@repo/*` (for example `@repo/ai`, `@repo/design-system`).
+Mati auth is **Supabase Auth**. Mati data is **Supabase PostgreSQL** accessed at runtime through **Prisma 7** with per-request RLS. Do not use Clerk, Neon, Cursor-hosted Postgres, or `packages/database` for Mati. There is no `@bodha/*` or `@mati/*` workspace scope; product packages stay `@repo/*`.
 
-## What this MVP does
+## How it works
 
-1. Supabase email/password accounts (no anonymous sign-ins, no auto-confirm in this repo).
-2. Two manually authored exercises (shelf, cache) with Monaco and a browser test runner.
-3. Trainer chat using the learner's own model settings.
-4. Capture of prompts, replies, provider-reported usage, test runs, and verification outcome.
-5. A post-task learning report from a Mastra agent that only reads that learner's evidence.
-6. A day-by-day progress view of that learner's stored sessions.
-7. Bring-your-own-key: provider, model, API key, and base URL, encrypted server-side. The key is never returned after save.
+1. **Capture.** After one-time workspace consent, the editor extension records Agent / Copilot Chat prompts on this device. Capture stays anonymous in the editor. Cursor hooks have no vendor token counts; any number is a labelled `text_estimate` and undercounts. Copilot Chat can report vendor-measured tokens from OpenTelemetry chat spans when Mati is allowed to write a file exporter.
+2. **Link.** **Mati: Open report** opens a short device preview. Sign in (existing email auth; no anonymous sign-in) and confirm **Link this device to your account**. A short-lived claim code is used; the long-lived device secret is never placed in a URL. Past and future tasks from that device then appear under the account.
+3. **Per-task report.** Each closed capture task gets a dashboard: prompt count, labelled input/output tokens, files edited, duration when known, a token chart, prompt timeline, responses, edited files, and coaching (what worked, concrete improvements, original vs improved prompt). Generate or regenerate with your saved BYOK key. With no key, the report is facts-only plus a Settings CTA.
+4. **Progress.** Signed-in Progress lists task cards (source, date, prompt count, token figures with estimate/measured, status, report-ready or facts-only) and a day-by-day view across trainer and claimed editor devices.
 
-## What it does not do
+Trainer exercises still exist: two manually maintained browser-JavaScript challenges (shelf, cache) with Monaco and `public/harness.js`. There is no Node, Python, or ML execution sandbox.
 
-Corporate/team/manager views, org dashboards, employee comparisons, billing, analytics, AI-generated exercises, a CMS, autonomous agent actions, and extra integrations.
+## Screenshots
 
-## Architecture
+Progress list (task cards and day-by-day) and a Cursor capture task with coaching. Seeded test data.
 
-- **Auth:** Supabase Auth (cookie session). Server routes verify identity with `auth.getUser()`, not decode-only JWT claims.
-- **Database:** Supabase PostgreSQL. Versioned Prisma migrations in `apps/app/prisma/migrations/` are the **authoritative schema, roles, RLS, policies, grants, and SQL functions**. Apply with `prisma migrate deploy`. `schema.prisma` must stay aligned with those migrations. Do not `prisma db push`.
-- **Runtime queries:** Prisma 7.4.2 + `@prisma/adapter-pg` on `DATABASE_URL` (transaction-mode pooler, port **6543**, `pgbouncer=true`). Each product operation runs in a short transaction that `SET LOCAL ROLE authenticated|anon` and sets `request.jwt.claims` / `request.jwt.claim.sub` from the verified user. After `SET LOCAL ROLE`, the request **fails closed** if `current_user` is not `authenticated`/`anon`, `is_superuser` is on, `pg_roles.rolsuper` is true, or **`pg_roles.rolbypassrls` is true**.
-- **CLI / generate:** `DIRECT_URL` (session-mode pooler, port **5432**). `prisma.config.ts` uses this URL (placeholder only for `generate` if unset). Migrate / db pull fail without `DIRECT_URL`.
-- **Transactions:** Default wait is 15s (`MATI_PRISMA_TX_MAX_WAIT_MS`); the pg pool connection timeout defaults to 10s (`MATI_PG_CONNECTION_TIMEOUT_MS`). Prisma's stock 2s `maxWait` is too short for a first cross-region pooler connection and surfaces as P2028.
-- **Models:** Five fixed providers (OpenAI, Anthropic, Sarvam AI, xAI Grok, Google Gemini) via Mastra's model router. Official endpoints live in adapters. Learners pick provider + model and paste a key. No user-supplied base URL. Missing capabilities fail closed with a visible message; usage is never invented.
+<p align="center">
+  <img src="docs/screenshots/progress-list-light.png" alt="Progress list with task cards, light" width="800">
+</p>
 
-## Package manager
+<p align="center">
+  <img src="docs/screenshots/task-detail-light.png" alt="Task detail with token chart and coaching, light" width="800">
+</p>
+
+## Quickstart
 
 pnpm workspaces (`packageManager`: `pnpm@10.33.4`). Install from the **repository root**.
 
@@ -50,9 +49,7 @@ pnpm --filter app dev
 
 Apply Prisma migrations against an isolated non-production project (`pnpm --filter app prisma:migrate:deploy`, `DIRECT_URL` on port 5432). Do not `prisma db push`. Local stack: `pnpm dlx supabase start` (uses `supabase/config.toml`; `project_id` remains `bodha-dev` so existing volumes keep working), then `prisma migrate deploy`.
 
-## Environment
-
-Copy `apps/app/.env.example`. Never commit real values. Names are `MATI_*` only; `BODHA_*` is not read. Encode reserved password characters (`p@ss` → `p%40ss`).
+Copy `apps/app/.env.example`. Never commit real values. Names are `MATI_*` only; `BODHA_*` is not read. Encode reserved password characters (`p@ss` → `p%40ss`). Preview and production must use **separate** Supabase projects, pooler URLs, and encryption keys.
 
 | Variable | Required | Where | Role |
 | --- | --- | --- | --- |
@@ -65,34 +62,47 @@ Copy `apps/app/.env.example`. Never commit real values. Names are `MATI_*` only;
 | `MATI_OPERATOR_LLM_MODEL` | no | server | Optional operator default model id |
 | `MATI_OPERATOR_LLM_API_KEY` | no | server | Optional operator default key |
 | `MATI_PROGRESS_TIMEZONE` | no | server | Day-bucket timezone (default `UTC`) |
-| `MATI_PRISMA_TX_MAX_WAIT_MS` | no | server | Interactive transaction acquire wait |
-| `MATI_PG_CONNECTION_TIMEOUT_MS` | no | server | pg Pool first-connection timeout |
-
-Preview and production must use **separate** Supabase projects, pooler URLs, and encryption keys.
-
-## Commands
 
 ```bash
-pnpm --filter app dev
-pnpm --filter app prisma:generate
-pnpm --filter app prisma:migrate:deploy
 pnpm --filter app test
 pnpm --filter app typecheck
 pnpm --filter app build
 pnpm --filter app lint:mati
-pnpm --filter app validate
-pnpm --filter @repo/ai test
-pnpm --filter @repo/ai typecheck
-pnpm check   # Ultracite/Biome at repo root (includes unused next-forge packages)
 ```
 
-`lint:mati` is the product lint. Root `pnpm check` is **not** a Mati-clean signal; the unused template packages report thousands of findings.
+`lint:mati` is the product lint. Root `pnpm check` is **not** a Mati-clean signal; unused next-forge packages report thousands of findings.
 
-Default tests run Prisma request-path RLS against **PGlite** with stub `auth.uid()`. They do not open a remote pooler. Opt-in live PrismaPg: `MATI_LIVE_PRISMA_RLS=1` and `MATI_LIVE_ISOLATED_TARGET=1` plus an isolated `:6543` URL. Live PostgREST still needs `MATI_LIVE_SUPABASE_*` plus two user access tokens.
+## Editor extension
 
-## Preview and production
+The VS Code-compatible extension in [`extensions/mati`](extensions/mati/README.md) captures Cursor Agent and Copilot Chat after explicit workspace consent. It is not published to the Marketplace or Open VSX yet.
 
-Cursor **Build Live Apps** is not used: it provisions Cursor Postgres and Cursor SSO, which would replace Supabase Auth/Postgres. Use a Vercel **preview** with a non-production Supabase project. Do not run remote migrations from this agent. **Production, custom domains, and package publish need Amit's explicit approval.**
+```bash
+pnpm --filter mati package
+```
+
+Install the `.vsix` with **Extensions: Install from VSIX**. Point `mati.serverUrl` at `http://127.0.0.1:3000` while developing the app locally. After consent, capture re-arms on reload of an unpaused workspace. **Mati: Open report** shows a device preview until you sign in and link the device.
+
+## Privacy
+
+- Workspace consent is explicit and one-time per workspace. Pause persists until you resume. **Mati: Delete my capture data** removes hooks, the device token, and this workspace's consent.
+- File contents are not uploaded; edited **paths** can be.
+- Known secret patterns are replaced with `[redacted:class]` on the device before upload. That is not a guarantee.
+- Token totals are omitted when missing, never shown as zero. Estimates are labelled `text_estimate` and are not mixed into vendor-measured charts.
+- Coaching is stored as AI suggestions grounded in captured prompts. It is not a measured skill score or a causal claim.
+- Each account only sees its own devices and tasks (RLS). Trainer sessions are not deleted by editor claim/delete commands.
+
+## What this MVP does not do
+
+Corporate/team/manager views, org dashboards, employee comparisons, billing, analytics, AI-generated exercises, a CMS, autonomous agent actions, extra integrations, and Marketplace/Open VSX publish from this repo.
+
+## Architecture
+
+- **Auth:** Supabase Auth (cookie session). Server routes verify identity with `auth.getUser()`, not decode-only JWT claims.
+- **Database:** Supabase PostgreSQL. Versioned Prisma migrations in `apps/app/prisma/migrations/` are the **authoritative schema, roles, RLS, policies, grants, and SQL functions**. Apply with `prisma migrate deploy`. Do not `prisma db push`.
+- **Runtime queries:** Prisma 7.4.2 + `@prisma/adapter-pg` on `DATABASE_URL` (transaction-mode pooler, port **6543**, `pgbouncer=true`). Each product operation runs in a short transaction that `SET LOCAL ROLE authenticated|anon` and sets `request.jwt.claims` / `request.jwt.claim.sub` from the verified user, then fails closed if role/bypass-RLS checks fail.
+- **Models:** Five fixed providers (OpenAI, Anthropic, Sarvam AI, xAI Grok, Google Gemini) via Mastra's model router. Learners pick provider + model and paste a key. No user-supplied base URL.
+
+Cursor **Build Live Apps** is not used. Production, custom domains, and package publish need Amit's explicit approval.
 
 ## License
 

@@ -1,4 +1,4 @@
-import { usageCopy } from "./aggregate";
+import { groupTasksByDay, usageCopy } from "./aggregate";
 import type { ProgressChartPoint, ProgressTask, ProgressView } from "./types";
 
 function escapeHtml(value: string): string {
@@ -24,6 +24,21 @@ function originLabel(origin: ProgressTask["origin"]): string {
 		default: {
 			const exhaustive: never = origin;
 			throw new Error(`Unhandled origin: ${String(exhaustive)}`);
+		}
+	}
+}
+
+function reportKindLabel(kind: ProgressTask["reportKind"]): string {
+	switch (kind) {
+		case "coached":
+			return "Report ready";
+		case "facts_only":
+			return "Facts only";
+		case "none":
+			return "No report";
+		default: {
+			const exhaustive: never = kind;
+			throw new Error(`Unhandled report kind: ${String(exhaustive)}`);
 		}
 	}
 }
@@ -185,8 +200,8 @@ function taskCardHtml(task: ProgressTask): string {
 			'<p class="muted">No learning report yet. Close the editor task to assemble one from captured prompts.</p>';
 	}
 	return `<article class="card task">
-<div class="row"><h3><a href="${escapeHtml(task.reportHref)}">${escapeHtml(task.exerciseId)}</a></h3><span class="badge">${escapeHtml(originLabel(task.origin))}</span><span class="badge">${escapeHtml(provenanceLabel(task.usage.label))}</span></div>
-<p class="muted">${task.prompts.length} ${task.prompts.length === 1 ? "prompt" : "prompts"} · ${escapeHtml(task.status)}</p>
+<div class="row"><h3><a href="${escapeHtml(task.reportHref)}">${escapeHtml(task.exerciseId)}</a></h3><span class="badge">${escapeHtml(originLabel(task.origin))}</span><span class="badge">${escapeHtml(task.occurredAt.slice(0, 10))}</span><span class="badge">${escapeHtml(provenanceLabel(task.usage.label))}</span><span class="badge">${escapeHtml(reportKindLabel(task.reportKind))}</span></div>
+<p class="muted">${task.prompts.length} ${task.prompts.length === 1 ? "prompt" : "prompts"} · ${escapeHtml(tokenCell(task))} · ${escapeHtml(task.status)}</p>
 ${
 	task.prompts[0]
 		? `<pre class="prompt">${escapeHtml(task.prompts[0])}</pre>`
@@ -267,10 +282,16 @@ export function progressDocument(
 		view.summary.missingTaskCount > 0
 			? `<p class="card callout" role="status">${view.summary.missingTaskCount} ${view.summary.missingTaskCount === 1 ? "task" : "tasks"} had no vendor token count. Those totals are omitted, not shown as 0.</p>`
 			: "";
+	const days = groupTasksByDay(view.tasks, view.timezone);
 	const tasks =
 		view.tasks.length === 0
 			? ""
-			: `<section aria-label="Tasks"><h2>Tasks</h2><div class="cards">${view.tasks.map(taskCardHtml).join("")}</div></section>${tableHtml(view.tasks)}`;
+			: `<section aria-label="By day"><h2>By day</h2>${days
+					.map(
+						(day) =>
+							`<section><h3>${escapeHtml(day.date)}</h3><div class="cards">${day.tasks.map(taskCardHtml).join("")}</div></section>`
+					)
+					.join("")}</section>${tableHtml(view.tasks)}`;
 	const body = `<main>
 <h1>Progress</h1>
 <p class="muted">How you used AI, and what to try next. Days use ${escapeHtml(view.timezone)}. Measured totals never mix in estimates. Missing counts are labeled, not shown as zero. This page is not a skill score.</p>
@@ -301,16 +322,18 @@ export function progressTaskDocument(
 						return `<li class="card"><p class="muted">${escapeHtml(turn.occurredAt ?? "time not stored")}</p><pre class="prompt">${escapeHtml(turn.text)}</pre><p class="muted">${escapeHtml(tokens)}</p></li>`;
 					})
 					.join("")}</ol>`;
+	const original = task.prompts[0] ?? "";
 	const suggestions =
 		task.suggestions.length === 0
-			? '<p class="muted">No learning report yet.</p>'
+			? '<p class="muted">No prompt improvement stored for this task.</p>'
 			: task.suggestions
 					.map(
 						(suggestion) => `<section class="card">
 <h2>${escapeHtml(suggestion.title)}</h2>
-<p><strong>Improved example:</strong> ${escapeHtml(suggestion.improvedExample)}</p>
-<p><strong>Why it helps:</strong> ${escapeHtml(suggestion.whyItHelps)}</p>
-<p class="muted">${suggestion.illustrative ? "Illustrative recommendation" : "Recommendation grounded in stored evidence"}</p>
+<p class="muted">AI suggestion</p>
+${suggestion.detail ? `<p>${escapeHtml(suggestion.detail)}</p>` : ""}
+<div class="charts"><div class="card"><p class="muted">Original prompt</p><pre class="prompt">${escapeHtml(original || "No original prompt stored.")}</pre></div><div class="card"><p class="muted">Improved example</p><pre class="prompt">${escapeHtml(suggestion.improvedExample)}</pre></div></div>
+<p><strong>Why it may help:</strong> ${escapeHtml(suggestion.whyItHelps)}</p>
 </section>`
 					)
 					.join("");
@@ -331,17 +354,27 @@ export function progressTaskDocument(
 	const coaching = task.coachingSummary
 		? `<p>${escapeHtml(task.coachingSummary)}</p>`
 		: '<p class="muted">No coaching stored yet.</p>';
+	const duration =
+		task.startedAt && task.finishedAt
+			? `${escapeHtml(task.startedAt)} → ${escapeHtml(task.finishedAt)}`
+			: "Not stored";
 	const body = `<main>
 <p class="muted"><a href="/progress">Progress</a> · ${escapeHtml(originLabel(task.origin))}</p>
 <h1>${escapeHtml(task.exerciseId)}</h1>
+<section class="stats" aria-label="Task summary">
+<div class="card"><h2>Prompts</h2><p class="stat">${task.prompts.length}</p></div>
+<div class="card"><h2>Input tokens</h2><p class="stat">${escapeHtml(tokenAmount(task.usage.inputTokens))}</p><p class="muted">${escapeHtml(provenanceLabel(task.usage.label))}</p></div>
+<div class="card"><h2>Output tokens</h2><p class="stat">${escapeHtml(tokenAmount(task.usage.outputTokens))}</p><p class="muted">${escapeHtml(provenanceLabel(task.usage.label))}</p></div>
+<div class="card"><h2>Files edited</h2><p class="stat">${task.filePaths.length}</p></div>
+<div class="card"><h2>Duration</h2><p class="stat">${duration}</p></div>
+</section>
+<section class="card"><h2>Tokens per prompt</h2><p class="muted">${escapeHtml(tokenSource)}. This chart never splits a task total across prompts.</p></section>
 <p>${escapeHtml(usageCopy(task.usage, task.source))}</p>
-<p class="muted">Token source · ${escapeHtml(tokenSource)}</p>
 <p><strong>Observed:</strong> ${escapeHtml(task.outcome?.observed ?? "No outcome stored yet.")}</p>
+<section class="card"><h2>Coaching</h2><p class="muted">AI suggestions. Recommendations, not skill scores.</p><p class="muted">What worked</p>${coaching}${suggestions}</section>
 <section class="card"><h2>Prompt timeline</h2>${prompts}</section>
 <section class="card"><h2>Responses</h2>${responses}</section>
 <section class="card"><h2>Edited files</h2>${files}</section>
-<section class="card"><h2>Coaching</h2><p class="muted">Suggestions are recommendations, not skill scores.</p>${coaching}</section>
-${suggestions}
 </main>`;
 	return shell(title, theme, body);
 }

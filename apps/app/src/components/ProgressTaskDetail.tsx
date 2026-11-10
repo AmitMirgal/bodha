@@ -1,43 +1,69 @@
+import {
+	Alert,
+	AlertDescription,
+	AlertTitle,
+} from "@repo/design-system/components/ui/alert";
 import { Badge } from "@repo/design-system/components/ui/badge";
 import { Button } from "@repo/design-system/components/ui/button";
 import {
 	Card,
-	CardContent,
 	CardDescription,
 	CardHeader,
 	CardTitle,
 } from "@repo/design-system/components/ui/card";
-import { Separator } from "@repo/design-system/components/ui/separator";
+import { Activity, Clock, Files, MessageSquare } from "lucide-react";
+import type { ReactNode } from "react";
 import {
+	durationLabel,
+	formatTaskDate,
+	isFixtureTestData,
 	originLabel,
 	provenanceLabel,
+	reportKindLabel,
+	reportKindVariant,
+	tokenAmount,
 	tokenCell,
+	tokenSourceLabel,
 } from "../lib/progress/display";
 import type { ProgressTask } from "../lib/progress/types";
 import { GenerateCaptureReportButton } from "./GenerateCaptureReportButton";
 import { TokenMeter } from "./ProgressTaskCard";
+import { ProgressTaskChart } from "./ProgressTaskChart";
+import { ProgressTaskCoaching } from "./ProgressTaskCoaching";
 
-function tokenSourceLabel(task: ProgressTask): string {
-	switch (task.usage.label) {
-		case "estimated":
-			return "text_estimate (labelled estimate from text length, not vendor-measured)";
-		case "measured":
-			return `vendor-measured (${task.usage.source ?? "provider"})`;
-		case "missing":
-			return "not reported (omitted, not shown as 0)";
-		default: {
-			const exhaustive: never = task.usage.label;
-			throw new Error(`Unhandled token label: ${exhaustive}`);
-		}
-	}
+function StatTile({
+	detail,
+	icon,
+	label,
+	value,
+}: {
+	detail: string;
+	icon: ReactNode;
+	label: string;
+	value: string;
+}) {
+	return (
+		<Card className="shadow-sm">
+			<CardHeader className="gap-3">
+				<div className="flex items-center gap-2 text-muted-foreground">
+					{icon}
+					<CardDescription>{label}</CardDescription>
+				</div>
+				<CardTitle className="font-semibold text-3xl tabular-nums tracking-tight">
+					{value}
+				</CardTitle>
+				<p className="text-muted-foreground text-sm">{detail}</p>
+			</CardHeader>
+		</Card>
+	);
 }
 
 export function ProgressTaskDetail({ task }: { task: ProgressTask }) {
-	const original = task.prompts[0] ?? task.promptTurns[0]?.text ?? "";
 	const generateLabel =
 		task.reportStatus === "complete" ? "Regenerate report" : "Generate report";
+	const duration = durationLabel(task.startedAt, task.finishedAt);
 	return (
-		<main className="mx-auto grid max-w-4xl gap-10 px-4 py-10">
+		<main className="mx-auto grid max-w-6xl gap-8 px-4 py-10">
 			<p className="text-muted-foreground text-sm">
 				<a className="underline-offset-4 hover:underline" href="/progress">
 					Progress
@@ -50,16 +76,17 @@ export function ProgressTaskDetail({ task }: { task: ProgressTask }) {
 						{task.exerciseId}
 					</h1>
 					<Badge variant="secondary">{originLabel(task.origin)}</Badge>
-					<Badge variant="outline">{provenanceLabel(task.usage.label)}</Badge>
-					<Badge variant="outline">
-						{task.prompts.length}{" "}
-						{task.prompts.length === 1 ? "prompt" : "prompts"}
+					<Badge variant="outline">{formatTaskDate(task.occurredAt)}</Badge>
+					<Badge className="capitalize" variant="outline">
+						{task.status}
 					</Badge>
+					<Badge variant={reportKindVariant(task.reportKind)}>
+						{reportKindLabel(task.reportKind)}
+					</Badge>
+					{isFixtureTestData(task) ? (
+						<Badge variant="outline">Test data</Badge>
+					) : null}
 				</div>
-				<TokenMeter task={task} />
-				<p className="text-muted-foreground text-sm">
-					Token source · {tokenSourceLabel(task)}
-				</p>
 				<p>
 					<span className="text-muted-foreground">Observed · </span>
 					{task.outcome?.observed ?? "No outcome stored yet."}
@@ -69,21 +96,27 @@ export function ProgressTaskDetail({ task }: { task: ProgressTask }) {
 						{task.outcome.verification} ({task.outcome.verificationProvenance})
 					</p>
 				) : null}
-				{task.source === "editor" ? (
-					<GenerateCaptureReportButton
-						label={generateLabel}
-						taskId={task.sessionId}
-					/>
-				) : null}
+				<div className="flex flex-wrap items-center gap-3">
+					{task.source === "editor" ? (
+						<GenerateCaptureReportButton
+							label={generateLabel}
+							taskId={task.sessionId}
+						/>
+					) : null}
+					{task.needsKey ? (
+						<Button asChild variant="outline">
+							<a href="/settings">Add a key in Settings</a>
+						</Button>
+					) : null}
+				</div>
 				{task.needsKey ? (
-					<p className="text-muted-foreground text-sm">
-						Facts below are stored observations and labelled estimates. Coaching
-						needs your saved BYOK key.{" "}
-						<a className="underline-offset-4 hover:underline" href="/settings">
-							Add a key in Settings
-						</a>
-						.
-					</p>
+					<Alert>
+						<AlertTitle>Facts only until a key is saved</AlertTitle>
+						<AlertDescription>
+							Token figures stay labelled estimates or vendor-measured counts.
+							Coaching is omitted until you add a BYOK key in Settings.
+						</AlertDescription>
+					</Alert>
 				) : null}
 				{task.reportError ? (
 					<p className="text-destructive text-sm" role="alert">
@@ -91,9 +124,52 @@ export function ProgressTaskDetail({ task }: { task: ProgressTask }) {
 					</p>
 				) : null}
 			</header>
-			<Separator />
+			<section
+				aria-label="Task summary"
+				className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5"
+			>
+				<StatTile
+					detail="Stored user prompts in this task."
+					icon={<MessageSquare aria-hidden className="size-4" />}
+					label="Prompts"
+					value={String(task.prompts.length)}
+				/>
+				<StatTile
+					detail={`Input · ${provenanceLabel(task.usage.label)}`}
+					icon={<Activity aria-hidden className="size-4" />}
+					label="Input tokens"
+					value={tokenAmount(task.usage.inputTokens)}
+				/>
+				<StatTile
+					detail={`Output · ${provenanceLabel(task.usage.label)}`}
+					icon={<Activity aria-hidden className="size-4" />}
+					label="Output tokens"
+					value={tokenAmount(task.usage.outputTokens)}
+				/>
+				<StatTile
+					detail="Paths captured from file_edit events."
+					icon={<Files aria-hidden className="size-4" />}
+					label="Files edited"
+					value={String(task.filePaths.length)}
+				/>
+				<StatTile
+					detail={
+						duration
+							? "Elapsed from startedAt to finishedAt."
+							: "Duration was not stored for this task."
+					}
+					icon={<Clock aria-hidden className="size-4" />}
+					label="Duration"
+					value={duration ?? "Not stored"}
+				/>
+			</section>
+			<ProgressTaskChart task={task} />
+			<ProgressTaskCoaching task={task} />
 			<section aria-labelledby="prompt-timeline" className="grid gap-4">
-				<h2 className="font-medium text-lg" id="prompt-timeline">
+				<h2
+					className="font-semibold text-xl tracking-tight"
+					id="prompt-timeline"
+				>
 					Prompt timeline
 				</h2>
 				{task.promptTurns.length === 0 ? (
@@ -125,7 +201,7 @@ export function ProgressTaskDetail({ task }: { task: ProgressTask }) {
 									<p className="text-muted-foreground text-sm">
 										{turn.usage.label === "missing"
 											? "Per-prompt vendor tokens were not stored. Task totals are labelled above."
-											: tokenCell(turn.usage)}
+											: `${tokenCell(turn.usage)} · ${provenanceLabel(turn.usage.label)}`}
 									</p>
 								</div>
 							</li>
@@ -134,7 +210,10 @@ export function ProgressTaskDetail({ task }: { task: ProgressTask }) {
 				)}
 			</section>
 			<section aria-labelledby="responses-summary" className="grid gap-4">
-				<h2 className="font-medium text-lg" id="responses-summary">
+				<h2
+					className="font-semibold text-xl tracking-tight"
+					id="responses-summary"
+				>
 					Responses
 				</h2>
 				{task.responses.length === 0 ? (
@@ -160,7 +239,7 @@ export function ProgressTaskDetail({ task }: { task: ProgressTask }) {
 				)}
 			</section>
 			<section aria-labelledby="edited-files" className="grid gap-4">
-				<h2 className="font-medium text-lg" id="edited-files">
+				<h2 className="font-semibold text-xl tracking-tight" id="edited-files">
 					Edited files
 				</h2>
 				{task.filePaths.length === 0 ? (
@@ -170,13 +249,15 @@ export function ProgressTaskDetail({ task }: { task: ProgressTask }) {
 				) : (
 					<ul className="grid gap-2 font-mono text-sm">
 						{task.filePaths.map((path) => (
-							<li key={path}>{path}</li>
+							<li className="rounded-lg border bg-card px-3 py-2" key={path}>
+								{path}
+							</li>
 						))}
 					</ul>
 				)}
 			</section>
 			<section aria-labelledby="token-usage" className="grid gap-4">
-				<h2 className="font-medium text-lg" id="token-usage">
+				<h2 className="font-semibold text-xl tracking-tight" id="token-usage">
 					Token usage
 				</h2>
 				<p className="text-muted-foreground text-sm">
@@ -184,76 +265,6 @@ export function ProgressTaskDetail({ task }: { task: ProgressTask }) {
 				</p>
 				<TokenMeter task={task} />
 			</section>
-			<section aria-labelledby="coaching" className="grid gap-4">
-				<h2 className="font-medium text-lg" id="coaching">
-					Coaching
-				</h2>
-				<p className="text-muted-foreground text-sm">
-					Suggestions are recommendations grounded in the stored prompts, not
-					measured skill scores or causal claims.
-				</p>
-				{task.coachingSummary ? (
-					<p>{task.coachingSummary}</p>
-				) : (
-					<p className="text-muted-foreground text-sm">
-						No coaching stored yet.
-					</p>
-				)}
-			</section>
-			<section aria-labelledby="prompt-improvements" className="grid gap-4">
-				<h2 className="font-medium text-lg" id="prompt-improvements">
-					Prompt improvements
-				</h2>
-				{task.suggestions.length === 0 ? (
-					<p className="text-muted-foreground text-sm">
-						No prompt improvement stored for this task.
-					</p>
-				) : (
-					task.suggestions.map((suggestion) => (
-						<Card className="shadow-sm" key={suggestion.title}>
-							<CardHeader>
-								<CardTitle>{suggestion.title}</CardTitle>
-								<CardDescription>
-									{suggestion.illustrative
-										? "Illustrative recommendation"
-										: "Recommendation grounded in stored evidence"}
-								</CardDescription>
-							</CardHeader>
-							<CardContent className="grid gap-4 md:grid-cols-2">
-								<div className="grid gap-2 rounded-xl bg-muted/50 p-4">
-									<p className="font-medium text-muted-foreground text-sm uppercase tracking-wide">
-										Original
-									</p>
-									<pre className="whitespace-pre-wrap font-mono text-sm">
-										{original || "No original prompt stored."}
-									</pre>
-								</div>
-								<div className="grid gap-2 rounded-xl border border-[color-mix(in_oklch,var(--chart-2)_40%,transparent)] bg-card p-4">
-									<p className="font-medium text-muted-foreground text-sm uppercase tracking-wide">
-										Improved example
-									</p>
-									<pre className="whitespace-pre-wrap font-mono text-sm">
-										{suggestion.improvedExample}
-									</pre>
-								</div>
-								<p className="md:col-span-2">
-									<span className="text-muted-foreground">
-										Why it may help ·{" "}
-									</span>
-									{suggestion.whyItHelps}
-								</p>
-							</CardContent>
-						</Card>
-					))
-				)}
-			</section>
-			{task.source === "editor" && task.needsKey ? (
-				<p>
-					<Button asChild variant="outline">
-						<a href="/settings">Add a key in Settings</a>
-					</Button>
-				</p>
-			) : null}
 		</main>
 	);
 }

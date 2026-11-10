@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
 	emptyProgressView,
 	seededDetailTask,
+	seededFactsOnlyTask,
 	seededProgressView,
 } from "./fixture";
 
@@ -31,8 +32,17 @@ describe("progress fixtures", () => {
 					point.promptCount > 0
 			)
 		).toBe(true);
-		expect(seededDetailTask().suggestions[0]?.improvedExample).toBe(
-			"Which test fails first?"
+		const detail = seededDetailTask();
+		expect(detail.origin).toBe("cursor");
+		expect(detail.reportKind).toBe("coached");
+		expect(detail.filePaths).toEqual(["src/auth.test.ts", "src/session.ts"]);
+		expect(detail.suggestions[0]?.improvedExample).toContain(
+			"src/auth.test.ts"
 		);
+		expect(detail.needsKey).toBe(false);
+		const factsOnly = seededFactsOnlyTask();
+		expect(factsOnly.reportKind).toBe("facts_only");
+		expect(factsOnly.needsKey).toBe(true);
+		expect(factsOnly.suggestions).toEqual([]);
 	});
 });

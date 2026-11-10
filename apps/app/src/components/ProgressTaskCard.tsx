@@ -9,10 +9,15 @@ import {
 import { Sparkles } from "lucide-react";
 import { usageCopy } from "../lib/progress/aggregate";
 import {
+	formatTaskDate,
+	isFixtureTestData,
 	originLabel,
 	provenanceLabel,
+	reportKindLabel,
+	reportKindVariant,
 	type TokenMeterSegment,
 	tokenAmount,
+	tokenCell,
 	tokenMeterSegments,
 } from "../lib/progress/display";
 import type { ProgressTask } from "../lib/progress/types";
@@ -84,21 +89,23 @@ export function ProgressTaskCard({ task }: { task: ProgressTask }) {
 		<Card className="shadow-sm transition-shadow hover:shadow-md">
 			<CardHeader className="gap-3">
 				<div className="flex flex-wrap items-center gap-2">
-					<CardTitle className="text-base">
-						<a
-							className="inline-flex min-h-11 items-center underline-offset-4 hover:underline"
-							href={task.reportHref}
-						>
-							{task.exerciseId}
-						</a>
-					</CardTitle>
 					<Badge variant="secondary">{originLabel(task.origin)}</Badge>
-					<Badge variant="outline">{provenanceLabel(task.usage.label)}</Badge>
-					<Badge variant="outline">
-						{task.prompts.length}{" "}
-						{task.prompts.length === 1 ? "prompt" : "prompts"}
+					<Badge variant="outline">{formatTaskDate(task.occurredAt)}</Badge>
+					{isFixtureTestData(task) ? (
+						<Badge variant="outline">Test data</Badge>
+					) : null}
+					<Badge variant={reportKindVariant(task.reportKind)}>
+						{reportKindLabel(task.reportKind)}
 					</Badge>
 				</div>
+				<CardTitle className="text-base">
+					<a
+						className="inline-flex min-h-11 items-center underline-offset-4 hover:underline"
+						href={task.reportHref}
+					>
+						{task.exerciseId}
+					</a>
+				</CardTitle>
 				<CardDescription className="capitalize">{task.status}</CardDescription>
 			</CardHeader>
 			<CardContent className="grid gap-4 text-sm">
@@ -111,7 +118,14 @@ export function ProgressTaskCard({ task }: { task: ProgressTask }) {
 						No prompts were stored for this task.
 					</p>
 				)}
-				<TokenMeter task={task} />
+				<div className="flex flex-wrap gap-2">
+					<Badge variant="outline">
+						{task.prompts.length}{" "}
+						{task.prompts.length === 1 ? "prompt" : "prompts"}
+					</Badge>
+					<Badge variant="outline">{tokenCell(task.usage)}</Badge>
+					<Badge variant="outline">{provenanceLabel(task.usage.label)}</Badge>
+				</div>
 				<p>
 					<span className="text-muted-foreground">Outcome · </span>
 					{task.outcome?.observed ?? "No outcome stored yet."}

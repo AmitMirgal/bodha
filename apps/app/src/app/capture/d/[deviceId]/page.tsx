@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
+import { AppNav } from "../../../../components/AppNav";
 import { CaptureClaimForm } from "../../../../components/CaptureClaimForm";
 import { CaptureViewerPreview } from "../../../../components/CaptureViewerPreview";
 import { listDeviceTasks } from "../../../../lib/capture/ingest";
@@ -40,7 +41,10 @@ export default async function CaptureViewerPage({
 	if (!(secret && v && verifyViewerToken(deviceId, v, secret))) {
 		notFound();
 	}
-	const { userId } = await requireUser();
+	const { supabase, userId } = await requireUser();
+	const email = userId
+		? ((await supabase.auth.getUser()).data.user?.email ?? null)
+		: null;
 	const device = await withDeviceDb(deviceId, (db) =>
 		db.device.findFirst({
 			select: { claimedUserId: true, id: true },
@@ -65,45 +69,52 @@ export default async function CaptureViewerPage({
 	);
 	if (userId && device.claimedUserId && device.claimedUserId !== userId) {
 		return (
-			<main className="mx-auto grid max-w-3xl gap-4 px-4 py-10">
-				<h1 className="font-semibold text-3xl tracking-tight">
-					This device is linked to another account
-				</h1>
-				<p className="text-muted-foreground">
-					Sign in with the account that already claimed this editor, or capture
-					from a device that is not linked yet.
-				</p>
-			</main>
+			<>
+				<AppNav email={email} />
+				<main className="mx-auto grid max-w-3xl gap-4 px-4 py-10">
+					<h1 className="font-semibold text-3xl tracking-tight">
+						This device is linked to another account
+					</h1>
+					<p className="text-muted-foreground">
+						Sign in with the account that already claimed this editor, or
+						capture from a device that is not linked yet.
+					</p>
+				</main>
+			</>
 		);
 	}
 	if (userId && claim) {
 		return (
-			<main className="mx-auto grid max-w-3xl gap-8 px-4 py-10">
-				<p className="font-medium text-muted-foreground text-sm uppercase tracking-wide">
-					<span>{"//"}</span> Mati
-				</p>
+			<>
+				<AppNav email={email} />
 				<CaptureClaimForm token={claim} />
-			</main>
+			</>
 		);
 	}
 	if (userId && !claim) {
 		return (
-			<main className="mx-auto grid max-w-3xl gap-6 px-4 py-10">
-				<h1 className="font-semibold text-3xl tracking-tight">
-					Link this device
-				</h1>
-				<p className="text-muted-foreground">
-					You are signed in. Run <strong>Mati: Open report</strong> again from
-					the editor so Mati can pass a short-lived claim code. The device
-					secret is never placed in this URL.
-				</p>
-			</main>
+			<>
+				<AppNav email={email} />
+				<main className="mx-auto grid max-w-3xl gap-6 px-4 py-10">
+					<h1 className="font-semibold text-3xl tracking-tight">
+						Link this device
+					</h1>
+					<p className="text-muted-foreground">
+						You are signed in. Run <strong>Mati: Open report</strong> again from
+						the editor so Mati can pass a short-lived claim code. The device
+						secret is never placed in this URL.
+					</p>
+				</main>
+			</>
 		);
 	}
 	return (
-		<CaptureViewerPreview
-			loginHref={loginHref(deviceId, v, claim)}
-			tasks={tasks}
-		/>
+		<>
+			<AppNav email={null} />
+			<CaptureViewerPreview
+				loginHref={loginHref(deviceId, v, claim)}
+				tasks={tasks}
+			/>
+		</>
 	);
 }

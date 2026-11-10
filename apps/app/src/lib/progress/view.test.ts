@@ -339,6 +339,61 @@ describe("assembleProgressView", () => {
 			"Which test fails first?"
 		);
 		expect(editorTask?.usage.label).toBe("estimated");
+		expect(editorTask?.reportKind).toBe("coached");
+		expect(editorTask?.startedAt).toBe("2026-11-10T11:00:00.000Z");
+	});
+
+	it("uses per-prompt payload tokens only when stored, and does not copy task totals", () => {
+		const view = assembleProgressView([], "UTC", [
+			{
+				deviceId: "dddddddd-dddd-4ddd-8ddd-dddddddddddd",
+				editor: "cursor",
+				editorTaskId: "conv-per-prompt",
+				events: [
+					{
+						id: promptId,
+						kind: "prompt",
+						occurredAt: "2026-11-10T11:00:00.000Z",
+						payload: {
+							inputTokens: 7,
+							outputTokens: 2,
+							text: "Name the failing assertion",
+							tokenLabel: "estimated",
+							tokenSource: "text_estimate",
+						},
+					},
+					{
+						id: "22222222-2222-4222-8222-222222222222",
+						kind: "prompt",
+						occurredAt: "2026-11-10T11:04:00.000Z",
+						payload: { text: "just make it pass" },
+					},
+				],
+				finishedAt: "2026-11-10T11:10:00.000Z",
+				id: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+				prompts: ["Name the failing assertion", "just make it pass"],
+				startedAt: "2026-11-10T11:00:00.000Z",
+				status: "closed",
+				usage: [
+					{
+						cachedTokens: null,
+						inputTokens: 48,
+						outputTokens: 19,
+						provenance: "estimated",
+						source: "text_estimate",
+					},
+				],
+			},
+		]);
+		const turns = view.editor.days[0]?.tasks[0]?.promptTurns;
+		expect(turns?.[0]?.usage).toMatchObject({
+			inputTokens: 7,
+			label: "estimated",
+			outputTokens: 2,
+			source: "text_estimate",
+		});
+		expect(turns?.[1]?.usage.label).toBe("missing");
+		expect(turns?.[1]?.usage.inputTokens).toBeNull();
 	});
 
 	it("does not treat a missing measured field as zero in totals or the chart", () => {

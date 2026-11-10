@@ -87,10 +87,26 @@ export default async function ReportPage({
 		label: "missing",
 		outputTokens: null,
 	};
+	const suggestions = body
+		? body.suggestions.map((suggestion) => ({
+				detail: suggestion.detail,
+				illustrative: suggestion.illustrative,
+				improvedExample: suggestion.improvedExample,
+				title: suggestion.title,
+				whyItHelps: suggestion.whyItHelps,
+			}))
+		: [];
+	let reportKind: ProgressTask["reportKind"] = "none";
+	if (suggestions.length > 0) {
+		reportKind = "coached";
+	} else if (latest?.status === "complete") {
+		reportKind = "facts_only";
+	}
 	const task: ProgressTask = {
 		coachingSummary: body?.summary ?? null,
 		exerciseId: session.exercise_id,
 		filePaths: [],
+		finishedAt: session.finished_at,
 		needsKey: false,
 		occurredAt: session.finished_at ?? session.started_at ?? session.created_at,
 		origin: "trainer",
@@ -109,19 +125,14 @@ export default async function ReportPage({
 		})),
 		reportError: null,
 		reportHref: `/session/${id}/report`,
+		reportKind,
 		reportStatus: reportStatus(latest?.status),
 		responses: [],
 		sessionId: session.id,
 		source: "trainer",
+		startedAt: session.started_at,
 		status: session.status,
-		suggestions: body
-			? body.suggestions.map((suggestion) => ({
-					illustrative: suggestion.illustrative,
-					improvedExample: suggestion.improvedExample,
-					title: suggestion.title,
-					whyItHelps: suggestion.whyItHelps,
-				}))
-			: [],
+		suggestions,
 		tests: body
 			? {
 					failed: body.observations.tests.failed,

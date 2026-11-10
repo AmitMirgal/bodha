@@ -319,7 +319,7 @@ Limits (unclaimed, enforced in the route before insert):
 
 Over limit: `429` or `413` with a stable error code. No partial silent drop inside a batch; reject the batch or accept all new keys.
 
-### Tables (new, additive SQL under `supabase/migrations/`)
+### Tables (Prisma migrations under `apps/app/prisma/migrations/`)
 
 Do not put capture rows in `sessions` / `evidence_events` / `usage_records`. Those require `user_id` + `exercise_id` and FORCE RLS tied to `auth.uid()`.
 

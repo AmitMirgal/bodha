@@ -137,7 +137,7 @@ describe("Prisma CLI datasource URL", () => {
 			]);
 		} catch (error) {
 			const message = error instanceof Error ? error.message : "";
-			expect(message).toMatch(/supabase\/migrations/);
+			expect(message).toMatch(/prisma migrate deploy/);
 			expect(message).not.toMatch(/postgresql:\/\//);
 		}
 	});

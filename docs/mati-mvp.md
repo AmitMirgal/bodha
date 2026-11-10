@@ -2,7 +2,7 @@
 
 Open-source individual learning product in `apps/app`. Learners sign in, run two manually maintained exercises, chat with a server-side Mastra trainer, and revisit evidence-grounded reports plus personal progress.
 
-This is not a Google interview replica. The product was renamed from BODHA; user-facing copy says **Mati**. Database table names and existing `supabase/migrations/*.sql` filenames are unchanged.
+This is not a Google interview replica. The product was renamed from BODHA; user-facing copy says **Mati**. Database table names are unchanged. Schema history lives in `apps/app/prisma/migrations/`.
 
 ## What it does / does not
 
@@ -30,7 +30,7 @@ Root `pnpm check` lints the whole next-forge template and is not a Mati-clean si
 
 1. Copy `apps/app/.env.example` to `apps/app/.env.local`.
 2. Create an isolated non-production Supabase project (or `pnpm dlx supabase start`).
-3. Apply `supabase/migrations/*.sql` (SQL editor or `pnpm dlx supabase db push`) on **that** project only.
+3. Apply Prisma migrations on **that** project only: `pnpm --filter app prisma:migrate:deploy` with `DIRECT_URL` (session-mode pooler, port 5432). Do not `prisma db push`.
 4. Set `NEXT_PUBLIC_SUPABASE_*`, `DATABASE_URL` (`:6543?pgbouncer=true`), `DIRECT_URL` (`:5432`), `MATI_CREDENTIALS_ENCRYPTION_KEY` (`openssl rand -hex 32`). Percent-encode passwords (`p@ss` → `p%40ss`).
 5. Add `{APP_ORIGIN}/auth/callback` to the Auth redirect allowlist. Enable Email auth. Do not enable anonymous sign-ins.
 6. `pnpm --filter app prisma:generate` then `pnpm --filter app dev`.
@@ -49,13 +49,15 @@ Vercel env should use `MATI_*` names. Do not keep `BODHA_*`, `MATI_ALLOWED_LLM_H
 
 ## Migration workflow
 
-**Single source of truth:** `supabase/migrations/*.sql`.
+**Single source of truth:** `apps/app/prisma/migrations/`, applied with `prisma migrate deploy`.
 
-`apps/app/prisma.config.ts` sets `datasource.url` from `DIRECT_URL` (generate-only placeholder if unset) and includes Prisma 7 `migrations.path = prisma/migrations`. That folder is intentionally absent. Do not `prisma migrate` / `prisma db push`. Do not rename historical files such as `20251108120000_bodha_mvp.sql`. Additive schema changes belong in a new SQL file under `supabase/migrations/`.
+`apps/app/prisma.config.ts` sets `datasource.url` from `DIRECT_URL` (generate-only placeholder if unset) and `migrations.path = prisma/migrations`. Additive schema changes are a new Prisma migration under that folder (generated from `schema.prisma` where possible; roles / FORCE RLS / policies / grants / functions stay as raw SQL in `migration.sql`). Do not `prisma db push`. `supabase/migrations/` is retired.
+
+Empty database: `pnpm --filter app prisma:migrate:deploy`. Existing production database that already has tables but no `_prisma_migrations`: `prisma migrate resolve --applied 20261110120000_init`, then `prisma migrate deploy` (applies the idempotent repair migration). Details: [`apps/app/prisma/README.md`](../apps/app/prisma/README.md).
 
 Runtime Prisma uses `DATABASE_URL` via `@prisma/adapter-pg`. CLI uses `DIRECT_URL`. Interactive transactions wait 15s by default (Prisma's 2s `maxWait` otherwise surfaces as P2028 on a slow first pooler connection). `SET LOCAL ROLE` stays inside each `$transaction`.
 
-`llm_settings.base_url` is unused. A new additive migration makes it nullable and adds a `NOT VALID` check that new rows use one of the five providers. The column is not dropped.
+`llm_settings.base_url` is unused. It is nullable and has a `NOT VALID` check that new rows use one of the five providers. The column is not dropped.
 
 ## How to add an exercise
 
@@ -92,7 +94,7 @@ Retries use per-request idempotency keys. A retried chat turn does not silently 
 
 ## Security model
 
-- RLS on every product table; owner is `auth.uid()`. FORCE RLS is additive SQL. Runtime Prisma must `SET LOCAL ROLE` and refuse `BYPASSRLS`.
+- RLS on every product table; owner is `auth.uid()`. FORCE RLS is part of the Prisma migrations. Runtime Prisma must `SET LOCAL ROLE` and refuse `BYPASSRLS`.
 - Encrypted BYOK keys live in `llm_settings`. The status view hides ciphertext. APIs return a masked fingerprint only.
 - Learners cannot supply a base URL. Official endpoints are defined in adapters.
 - Server-only env must not appear in `"use client"` modules (enforced by `client-env-leak.test.ts`).

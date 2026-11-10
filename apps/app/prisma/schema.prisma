@@ -1,6 +1,7 @@
-// Mapping of the Mati product schema that already lives in
-// supabase/migrations/*.sql. This file is not an independent migration
-// source. Do not run `prisma migrate` against a Mati database.
+// Prisma mapping of the Mati product schema. Authoritative history is
+// apps/app/prisma/migrations (applied with `prisma migrate deploy`).
+// Roles, FORCE RLS, policies, grants, and SQL functions live in those
+// migration.sql files because Prisma schema cannot express them.
 
 generator client {
   provider = "prisma-client"
@@ -13,7 +14,14 @@ datasource db {
 
 model Profile {
   id        String   @id @db.Uuid
-  createdAt DateTime @default(dbgenerated("now()")) @map("created_at") @db.Timestamptz(6)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  devices             Device[]
+  pairingCodes        PairingCode[]
+  cursorAdminSettings CursorAdminSettings?
+  captureTasks        CaptureTask[]
+  captureEvents       CaptureEvent[]
+  captureUsage        CaptureUsage[]
 
   @@map("profiles")
 }
@@ -22,14 +30,15 @@ model LlmSettings {
   userId          String   @id @map("user_id") @db.Uuid
   provider        String
   model           String
+  /// Unused by Mati. Official provider endpoints live in adapters.
   baseUrl         String?  @map("base_url")
   encryptedApiKey String   @map("encrypted_api_key")
   encryptionIv    String   @map("encryption_iv")
   encryptionTag   String   @map("encryption_tag")
   keyFingerprint  String   @map("key_fingerprint")
-  capabilities    Json
-  createdAt       DateTime @default(dbgenerated("now()")) @map("created_at") @db.Timestamptz(6)
-  updatedAt       DateTime @default(dbgenerated("now()")) @map("updated_at") @db.Timestamptz(6)
+  capabilities    Json     @default("{\"tools\": \"unknown\", \"streaming\": \"unknown\", \"usageReporting\": \"unknown\", \"structuredOutput\": \"unknown\"}")
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
 
   @@map("llm_settings")
 }
@@ -45,8 +54,8 @@ model Session {
   startedAt   DateTime? @map("started_at") @db.Timestamptz(6)
   finishedAt  DateTime? @map("finished_at") @db.Timestamptz(6)
   saveError   String?   @map("save_error")
-  createdAt   DateTime  @default(dbgenerated("now()")) @map("created_at") @db.Timestamptz(6)
-  updatedAt   DateTime  @default(dbgenerated("now()")) @map("updated_at") @db.Timestamptz(6)
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
 
   snapshots ExerciseSnapshot[]
   evidence  EvidenceEvent[]
@@ -71,11 +80,13 @@ model ExerciseSnapshot {
   testsSource   String   @map("tests_source")
   starter       Json
   meta          Json
-  createdAt     DateTime @default(dbgenerated("now()")) @map("created_at") @db.Timestamptz(6)
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
-  session  Session   @relation(fields: [sessionId, userId], references: [id, userId], onDelete: Cascade)
-  testRuns TestRun[]
-  reports  Report[]
+  session        Session   @relation(fields: [sessionId, userId], references: [id, userId], onDelete: Cascade)
+  testRuns       TestRun[] @relation("TestRunSnapshotSession")
+  testRunsByUser TestRun[] @relation("TestRunSnapshotUser")
+  reports        Report[]  @relation("ReportSnapshotSession")
+  reportsByUser  Report[]  @relation("ReportSnapshotUser")
 
   @@unique([sessionId])
   @@unique([id, userId])
@@ -93,7 +104,7 @@ model EvidenceEvent {
   observationType  String   @map("observation_type")
   payload          Json
   idempotencyKey   String   @map("idempotency_key")
-  createdAt        DateTime @default(dbgenerated("now()")) @map("created_at") @db.Timestamptz(6)
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
   session  Session   @relation(fields: [sessionId, userId], references: [id, userId], onDelete: Cascade)
   messages Message[]
@@ -114,7 +125,7 @@ model Message {
   evidenceId String?  @map("evidence_id") @db.Uuid
   role       String
   content    String
-  createdAt  DateTime @default(dbgenerated("now()")) @map("created_at") @db.Timestamptz(6)
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
   session  Session        @relation(fields: [sessionId, userId], references: [id, userId], onDelete: Cascade)
   evidence EvidenceEvent? @relation(fields: [evidenceId, sessionId], references: [id, sessionId], onDelete: SetNull)
@@ -133,11 +144,12 @@ model TestRun {
   results           Json
   fatal             String?
   provenance        String   @default("browser_harness")
-  createdAt         DateTime @default(dbgenerated("now()")) @map("created_at") @db.Timestamptz(6)
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
-  session  Session           @relation(fields: [sessionId, userId], references: [id, userId], onDelete: Cascade)
-  snapshot ExerciseSnapshot  @relation(fields: [snapshotId, sessionId], references: [id, sessionId])
-  evidence EvidenceEvent?    @relation(fields: [evidenceId, sessionId], references: [id, sessionId])
+  session        Session           @relation(fields: [sessionId, userId], references: [id, userId], onDelete: Cascade)
+  snapshot       ExerciseSnapshot  @relation("TestRunSnapshotSession", fields: [snapshotId, sessionId], references: [id, sessionId])
+  snapshotByUser ExerciseSnapshot  @relation("TestRunSnapshotUser", fields: [snapshotId, userId], references: [id, userId])
+  evidence       EvidenceEvent?    @relation(fields: [evidenceId, sessionId], references: [id, sessionId])
 
   @@index([sessionId, createdAt], map: "test_runs_session_idx")
   @@map("test_runs")
@@ -152,10 +164,11 @@ model Report {
   status     String
   body       Json?
   error      String?
-  createdAt  DateTime @default(dbgenerated("now()")) @map("created_at") @db.Timestamptz(6)
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
-  session  Session          @relation(fields: [sessionId, userId], references: [id, userId], onDelete: Cascade)
-  snapshot ExerciseSnapshot @relation(fields: [snapshotId, sessionId], references: [id, sessionId])
+  session        Session          @relation(fields: [sessionId, userId], references: [id, userId], onDelete: Cascade)
+  snapshot       ExerciseSnapshot @relation("ReportSnapshotSession", fields: [snapshotId, sessionId], references: [id, sessionId])
+  snapshotByUser ExerciseSnapshot @relation("ReportSnapshotUser", fields: [snapshotId, userId], references: [id, userId])
 
   @@unique([sessionId, version])
   @@index([sessionId, version], map: "reports_session_idx")
@@ -174,7 +187,7 @@ model UsageRecord {
   cachedIncludedInInput Boolean? @map("cached_included_in_input")
   coverage              String
   native                Json?
-  createdAt             DateTime @default(dbgenerated("now()")) @map("created_at") @db.Timestamptz(6)
+  createdAt             DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
   session Session @relation(fields: [sessionId, userId], references: [id, userId], onDelete: Cascade)
 
@@ -183,16 +196,18 @@ model UsageRecord {
 }
 
 model Device {
-  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tokenHash      String   @unique @map("token_hash")
-  claimedUserId  String?  @map("claimed_user_id") @db.Uuid
-  consent        Json
-  createdAt      DateTime @default(dbgenerated("now()")) @map("created_at") @db.Timestamptz(6)
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tokenHash     String   @unique @map("token_hash")
+  claimedUserId String?  @map("claimed_user_id") @db.Uuid
+  consent       Json
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
-  tasks CaptureTask[]
-  events CaptureEvent[]
-  usage  CaptureUsage[]
+  claimedUser Profile?       @relation(fields: [claimedUserId], references: [id], onDelete: SetNull)
+  tasks       CaptureTask[]
+  events      CaptureEvent[]
+  usage       CaptureUsage[]
 
+  @@index([createdAt], map: "devices_unclaimed_created_idx")
   @@map("devices")
 }
 
@@ -202,8 +217,10 @@ model CursorAdminSettings {
   encryptionIv    String   @map("encryption_iv")
   encryptionTag   String   @map("encryption_tag")
   keyFingerprint  String   @map("key_fingerprint")
-  createdAt       DateTime @default(dbgenerated("now()")) @map("created_at") @db.Timestamptz(6)
-  updatedAt       DateTime @default(dbgenerated("now()")) @map("updated_at") @db.Timestamptz(6)
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+
+  user Profile @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("cursor_admin_settings")
 }
@@ -214,7 +231,9 @@ model PairingCode {
   codeHash   String    @map("code_hash")
   expiresAt  DateTime  @map("expires_at") @db.Timestamptz(6)
   consumedAt DateTime? @map("consumed_at") @db.Timestamptz(6)
-  createdAt  DateTime  @default(dbgenerated("now()")) @map("created_at") @db.Timestamptz(6)
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user Profile @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([codeHash], map: "pairing_codes_hash_idx")
   @@map("pairing_codes")
@@ -227,12 +246,13 @@ model CaptureTask {
   editor        String
   editorTaskId  String    @map("editor_task_id")
   status        String
-  startedAt     DateTime  @default(dbgenerated("now()")) @map("started_at") @db.Timestamptz(6)
+  startedAt     DateTime  @default(now()) @map("started_at") @db.Timestamptz(6)
   finishedAt    DateTime? @map("finished_at") @db.Timestamptz(6)
   workspaceHash String    @map("workspace_hash")
-  createdAt     DateTime  @default(dbgenerated("now()")) @map("created_at") @db.Timestamptz(6)
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
 
   device Device         @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  user   Profile?       @relation(fields: [userId], references: [id], onDelete: SetNull)
   events CaptureEvent[]
   usage  CaptureUsage[]
 
@@ -250,10 +270,11 @@ model CaptureEvent {
   payload        Json
   idempotencyKey String   @map("idempotency_key")
   occurredAt     DateTime @map("occurred_at") @db.Timestamptz(6)
-  createdAt      DateTime @default(dbgenerated("now()")) @map("created_at") @db.Timestamptz(6)
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
   device Device      @relation(fields: [deviceId], references: [id], onDelete: Cascade)
   task   CaptureTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user   Profile?    @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   @@unique([deviceId, idempotencyKey])
   @@index([taskId, occurredAt], map: "capture_events_task_idx")
@@ -261,23 +282,24 @@ model CaptureEvent {
 }
 
 model CaptureUsage {
-  id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  taskId           String   @map("task_id") @db.Uuid
-  deviceId         String   @map("device_id") @db.Uuid
-  userId           String?  @map("user_id") @db.Uuid
-  operationId      String   @map("operation_id")
-  provenance       String
-  source           String
-  inputTokens      BigInt?  @map("input_tokens")
-  outputTokens     BigInt?  @map("output_tokens")
-  cachedTokens     BigInt?  @map("cached_tokens")
-  reasoningTokens  BigInt?  @map("reasoning_tokens")
-  model            String?
-  native           Json?
-  createdAt        DateTime @default(dbgenerated("now()")) @map("created_at") @db.Timestamptz(6)
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  taskId          String   @map("task_id") @db.Uuid
+  deviceId        String   @map("device_id") @db.Uuid
+  userId          String?  @map("user_id") @db.Uuid
+  operationId     String   @map("operation_id")
+  provenance      String
+  source          String
+  inputTokens     BigInt?  @map("input_tokens")
+  outputTokens    BigInt?  @map("output_tokens")
+  cachedTokens    BigInt?  @map("cached_tokens")
+  reasoningTokens BigInt?  @map("reasoning_tokens")
+  model           String?
+  native          Json?
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
   device Device      @relation(fields: [deviceId], references: [id], onDelete: Cascade)
   task   CaptureTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user   Profile?    @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   @@unique([taskId, operationId])
   @@index([taskId], map: "capture_usage_task_idx")

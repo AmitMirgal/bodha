@@ -27,7 +27,7 @@ Corporate/team/manager views, org dashboards, employee comparisons, billing, ana
 ## Architecture
 
 - **Auth:** Supabase Auth (cookie session). Server routes verify identity with `auth.getUser()`, not decode-only JWT claims.
-- **Database:** Supabase PostgreSQL. Versioned SQL in `supabase/migrations/` is the **authoritative schema and RLS**. Prisma maps those tables; it is not a second migration source. Existing SQL filenames that still say `bodha` are historical and must not be renamed.
+- **Database:** Supabase PostgreSQL. Versioned Prisma migrations in `apps/app/prisma/migrations/` are the **authoritative schema, roles, RLS, policies, grants, and SQL functions**. Apply with `prisma migrate deploy`. `schema.prisma` must stay aligned with those migrations. Do not `prisma db push`.
 - **Runtime queries:** Prisma 7.4.2 + `@prisma/adapter-pg` on `DATABASE_URL` (transaction-mode pooler, port **6543**, `pgbouncer=true`). Each product operation runs in a short transaction that `SET LOCAL ROLE authenticated|anon` and sets `request.jwt.claims` / `request.jwt.claim.sub` from the verified user. After `SET LOCAL ROLE`, the request **fails closed** if `current_user` is not `authenticated`/`anon`, `is_superuser` is on, `pg_roles.rolsuper` is true, or **`pg_roles.rolbypassrls` is true**.
 - **CLI / generate:** `DIRECT_URL` (session-mode pooler, port **5432**). `prisma.config.ts` uses this URL (placeholder only for `generate` if unset). Migrate / db pull fail without `DIRECT_URL`.
 - **Transactions:** Default wait is 15s (`MATI_PRISMA_TX_MAX_WAIT_MS`); the pg pool connection timeout defaults to 10s (`MATI_PG_CONNECTION_TIMEOUT_MS`). Prisma's stock 2s `maxWait` is too short for a first cross-region pooler connection and surfaces as P2028.
@@ -44,7 +44,7 @@ pnpm --filter app prisma:generate
 pnpm --filter app dev
 ```
 
-Apply `supabase/migrations/*.sql` yourself against an isolated non-production project. Do not run `prisma migrate` / `prisma db push`. Local stack: `pnpm dlx supabase start` (uses `supabase/config.toml`; `project_id` remains `bodha-dev` so existing volumes keep working).
+Apply Prisma migrations against an isolated non-production project (`pnpm --filter app prisma:migrate:deploy`, `DIRECT_URL` on port 5432). Do not `prisma db push`. Local stack: `pnpm dlx supabase start` (uses `supabase/config.toml`; `project_id` remains `bodha-dev` so existing volumes keep working), then `prisma migrate deploy`.
 
 ## Environment
 
@@ -71,6 +71,7 @@ Preview and production must use **separate** Supabase projects, pooler URLs, and
 ```bash
 pnpm --filter app dev
 pnpm --filter app prisma:generate
+pnpm --filter app prisma:migrate:deploy
 pnpm --filter app test
 pnpm --filter app typecheck
 pnpm --filter app build

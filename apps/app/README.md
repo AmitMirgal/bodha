@@ -9,5 +9,7 @@ See [`../../README.md`](../../README.md) and [`../../docs/mati-mvp.md`](../../do
 pnpm install --frozen-lockfile
 cp apps/app/.env.example apps/app/.env.local
 pnpm --filter app prisma:generate
+# isolated non-production DB only; needs DIRECT_URL
+pnpm --filter app prisma:migrate:deploy
 pnpm --filter app dev
 ```

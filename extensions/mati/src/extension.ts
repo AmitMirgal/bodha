@@ -4,10 +4,23 @@ import {
 	commands,
 	type ExtensionContext,
 	env,
+	StatusBarAlignment,
 	Uri,
 	window,
 	workspace,
 } from "vscode";
+import { writeCaptureGate } from "./capture-gate";
+import {
+	BOUNDARY_KEY,
+	CONSENT_KEY,
+	idleMinutesFromSetting,
+	PAUSED_KEY,
+	planAfterCommand,
+	shouldAutoStart,
+	shouldPromptConsent,
+	statusBarLabel,
+} from "./capture-state";
+import { readGitBranch } from "./git-branch";
 import {
 	defaultMatiHome,
 	installCopilotHooks,
@@ -22,21 +35,26 @@ import {
 	uninstallCopilotOtel,
 } from "./otel";
 import {
+	type CaptureBatch,
 	drainOtelFile,
 	drainQueueFile,
 	workspaceHashFromFolders,
 } from "./queue";
+import {
+	DEFAULT_BOUNDARY,
+	splitCaptureBatch,
+	type TaskBoundaryState,
+} from "./task-boundary";
 
 const SECRET_ID = "mati.deviceId";
 const SECRET_TOKEN = "mati.deviceSecret";
 const SECRET_ORIGIN = "mati.appOrigin";
-const CONSENT_FLAG = "mati.consent.v1";
 const OTEL_MANAGED = "mati.otel.managed";
 
 const CONSENT_HTML = `<!doctype html>
 <html><body style="font-family:sans-serif;padding:1.5rem;max-width:40rem">
-<h1>Capture Agent prompts on this device</h1>
-<p>Mati stores the prompts you send to Cursor Agent or Copilot Chat, the assistant text, edited file names, and a device token on this machine. It does not create a Mati account. Cursor hooks have no vendor token counts; any estimate is labelled and undercounts. Copilot Chat can report measured tokens from OpenTelemetry chat spans when Mati is allowed to write a file exporter. captureContent stays off. Known secret patterns are replaced with [redacted:class] on this device before upload. That is not a guarantee.</p>
+<h1>Capture Agent prompts in this workspace</h1>
+<p>Mati stores the prompts you send to Cursor Agent or Copilot Chat, the assistant text, edited file names, and a device token on this machine. It does not create a Mati account. Consent is remembered for this workspace only. Cursor hooks have no vendor token counts; any estimate is labelled and undercounts. Copilot Chat can report measured tokens from OpenTelemetry chat spans when Mati is allowed to write a file exporter. captureContent stays off. Known secret patterns are replaced with [redacted:class] on this device before upload. That is not a guarantee.</p>
 <p>Sample upload:</p>
 <pre>{"kind":"prompt","text":"Fix the flaky test [redacted:aws_access_key]","attachmentNames":["app.ts"]}</pre>
 <button id="accept">Accept and start capturing</button>
@@ -110,7 +128,49 @@ async function registerDevice(
 	};
 }
 
-function stopCapture(context: ExtensionContext | null) {
+function workspaceFolders(): string[] {
+	return (
+		workspace.workspaceFolders?.map((folder) => folder.uri.fsPath) ?? [
+			homedir(),
+		]
+	);
+}
+
+function workspaceConsented(context: ExtensionContext): boolean {
+	return context.workspaceState.get<boolean>(CONSENT_KEY) === true;
+}
+
+function isPaused(context: ExtensionContext): boolean {
+	return context.workspaceState.get<boolean>(PAUSED_KEY) === true;
+}
+
+function readBoundary(context: ExtensionContext): TaskBoundaryState {
+	const stored = context.workspaceState.get<TaskBoundaryState>(BOUNDARY_KEY);
+	if (!stored || typeof stored !== "object") {
+		return { ...DEFAULT_BOUNDARY };
+	}
+	return {
+		branch: stored.branch ?? null,
+		epoch: typeof stored.epoch === "number" ? stored.epoch : 0,
+		lastEventAt:
+			typeof stored.lastEventAt === "number" ? stored.lastEventAt : null,
+		lastEditorTaskId: stored.lastEditorTaskId ?? null,
+		workspaceHash:
+			typeof stored.workspaceHash === "string" ? stored.workspaceHash : "",
+	};
+}
+
+function idleMs(): number {
+	return (
+		idleMinutesFromSetting(
+			workspace.getConfiguration("mati").get("idleMinutes")
+		) *
+		60 *
+		1000
+	);
+}
+
+function uninstallHooks(context: ExtensionContext | null) {
 	uninstallCursorHooks();
 	uninstallCopilotHooks();
 	uninstallCopilotOtel({
@@ -119,58 +179,284 @@ function stopCapture(context: ExtensionContext | null) {
 }
 
 export async function activate(context: ExtensionContext) {
-	context.subscriptions.push(
-		commands.registerCommand("mati.capture.consent", () => {
-			const panel = window.createWebviewPanel(
-				"matiConsent",
-				"Mati capture",
-				1,
-				{ enableScripts: true }
+	let drainTimer: ReturnType<typeof setInterval> | undefined;
+	const status = window.createStatusBarItem(StatusBarAlignment.Right, 80);
+	context.subscriptions.push(status);
+
+	const refreshStatus = () => {
+		const label = statusBarLabel(
+			planAfterCommand(
+				{
+					paused: isPaused(context),
+					workspaceConsented: workspaceConsented(context),
+				},
+				isPaused(context) ? "pause" : "resume"
+			).status
+		);
+		status.text = label.text;
+		status.tooltip = label.tooltip;
+		status.command = label.command;
+		status.show();
+	};
+
+	const stopDrain = () => {
+		if (drainTimer) {
+			clearInterval(drainTimer);
+			drainTimer = undefined;
+		}
+	};
+
+	const writeGate = async (capturing: boolean) => {
+		const deviceId = await context.secrets.get(SECRET_ID);
+		writeCaptureGate({
+			capturing,
+			deviceId: deviceId ?? undefined,
+			workspaceHash: workspaceHashFromFolders(workspaceFolders()),
+		});
+	};
+
+	let boundary = readBoundary(context);
+	const transformBatch = (batch: CaptureBatch): CaptureBatch[] => {
+		const folders = workspaceFolders();
+		const split = splitCaptureBatch(boundary, batch, {
+			branch: readGitBranch(folders[0]),
+			idleMs: idleMs(),
+			workspaceHash: workspaceHashFromFolders(folders),
+		});
+		boundary = split.state;
+		return split.batches;
+	};
+
+	const startDrain = async () => {
+		stopDrain();
+		const deviceId = await context.secrets.get(SECRET_ID);
+		const secret = await context.secrets.get(SECRET_TOKEN);
+		if (!(deviceId && secret)) {
+			return;
+		}
+		process.env.MATI_DEVICE_ID = deviceId;
+		const matiHome = defaultMatiHome();
+		const queuePath = path.join(matiHome, "queue", `${deviceId}.jsonl`);
+		const otelPath = defaultOtelOutfile(matiHome);
+		const tick = async () => {
+			const live = shouldAutoStart({
+				paused: isPaused(context),
+				workspaceConsented: workspaceConsented(context),
+			});
+			if (!live) {
+				return;
+			}
+			const origin = await currentOrigin(context);
+			const folders = workspaceFolders();
+			const workspaceHash = workspaceHashFromFolders(folders);
+			return Promise.all([
+				drainQueueFile({
+					queuePath,
+					origin,
+					secret,
+					transformBatch,
+					workspaceHash,
+				}),
+				drainOtelFile({
+					otelPath,
+					origin,
+					secret,
+					transformBatch,
+					workspaceHash,
+				}),
+			]).then(
+				() => context.workspaceState.update(BOUNDARY_KEY, boundary),
+				() => undefined
 			);
-			panel.webview.html = CONSENT_HTML;
-			panel.webview.onDidReceiveMessage(async (message) => {
-				if (message.type !== "accept") {
-					return;
-				}
-				try {
-					const origin = await currentOrigin(context);
+		};
+		drainTimer = setInterval(() => {
+			tick();
+		}, 4000);
+		context.subscriptions.push({ dispose: () => stopDrain() });
+		await tick();
+	};
+
+	const installHooks = async () => {
+		installCursorHooks({
+			hookScriptSource: path.join(context.extensionPath, "hooks", "cursor.mjs"),
+		});
+		installCopilotHooks({
+			hookScriptSource: path.join(
+				context.extensionPath,
+				"hooks",
+				"copilot.mjs"
+			),
+		});
+		const otel = installCopilotOtel({ matiHome: defaultMatiHome() });
+		await context.globalState.update(OTEL_MANAGED, otel.action === "write");
+		return otel;
+	};
+
+	const startCapturing = async () => {
+		await context.workspaceState.update(PAUSED_KEY, false);
+		await writeGate(true);
+		const otel = await installHooks();
+		await startDrain();
+		refreshStatus();
+		return otel;
+	};
+
+	const pauseCapturing = async () => {
+		await context.workspaceState.update(PAUSED_KEY, true);
+		await writeGate(false);
+		stopDrain();
+		uninstallHooks(context);
+		refreshStatus();
+	};
+
+	const showConsent = () => {
+		const panel = window.createWebviewPanel("matiConsent", "Mati capture", 1, {
+			enableScripts: true,
+		});
+		panel.webview.html = CONSENT_HTML;
+		panel.webview.onDidReceiveMessage(async (message) => {
+			if (message.type !== "accept") {
+				return;
+			}
+			try {
+				const origin = await currentOrigin(context);
+				let deviceId = await context.secrets.get(SECRET_ID);
+				let secret = await context.secrets.get(SECRET_TOKEN);
+				if (!(deviceId && secret)) {
 					const registered = await registerDevice(origin, fetch);
+					deviceId = registered.deviceId;
+					secret = registered.secret;
 					await context.secrets.store(SECRET_ID, registered.deviceId);
 					await context.secrets.store(SECRET_TOKEN, registered.secret);
-					await context.globalState.update(CONSENT_FLAG, true);
-					process.env.MATI_DEVICE_ID = registered.deviceId;
-					installCursorHooks({
-						hookScriptSource: path.join(
-							context.extensionPath,
-							"hooks",
-							"cursor.mjs"
-						),
-					});
-					installCopilotHooks({
-						hookScriptSource: path.join(
-							context.extensionPath,
-							"hooks",
-							"copilot.mjs"
-						),
-					});
-					const otel = installCopilotOtel({ matiHome: defaultMatiHome() });
-					await context.globalState.update(
-						OTEL_MANAGED,
-						otel.action === "write"
-					);
-					panel.dispose();
-					await window.showInformationMessage(
-						otel.action === "write"
-							? "Mati is capturing Cursor Agent and Copilot Chat prompts on this device."
-							: `Mati is capturing prompts. ${otel.reason}`
-					);
-				} catch (error) {
-					await window.showErrorMessage(
-						error instanceof Error ? error.message : "Consent failed."
-					);
 				}
-			});
-		}),
+				await context.workspaceState.update(CONSENT_KEY, true);
+				process.env.MATI_DEVICE_ID = deviceId;
+				const otel = await startCapturing();
+				panel.dispose();
+				await window.showInformationMessage(
+					otel.action === "write"
+						? "Mati is capturing Cursor Agent and Copilot Chat prompts in this workspace."
+						: `Mati is capturing prompts. ${otel.reason}`
+				);
+			} catch (error) {
+				await window.showErrorMessage(
+					error instanceof Error ? error.message : "Consent failed."
+				);
+			}
+		});
+	};
+
+	const promptConsentIfNeeded = async () => {
+		if (!shouldPromptConsent(workspaceConsented(context))) {
+			return;
+		}
+		const choice = await window.showInformationMessage(
+			"Mati can capture Agent prompts in this workspace after you consent. Nothing is captured until you accept.",
+			"Start capturing"
+		);
+		if (choice === "Start capturing") {
+			showConsent();
+		}
+	};
+
+	const applyPlan = async (
+		command: "pause" | "resume" | "start" | "stop" | "toggle"
+	) => {
+		const plan = planAfterCommand(
+			{
+				paused: isPaused(context),
+				workspaceConsented: workspaceConsented(context),
+			},
+			command
+		);
+		if (plan.needsConsentUi) {
+			showConsent();
+			return;
+		}
+		if (plan.autoStart) {
+			await startCapturing();
+			await window.showInformationMessage(
+				"Mati is capturing prompts in this workspace."
+			);
+			return;
+		}
+		await pauseCapturing();
+		await window.showInformationMessage(
+			"Paused capturing. Click the Mati status item or run Mati: Start capturing to resume. The device token is kept."
+		);
+	};
+
+	const postManualBoundary = async (kind: "endTask" | "newTask") => {
+		if (
+			!shouldAutoStart({
+				paused: isPaused(context),
+				workspaceConsented: workspaceConsented(context),
+			})
+		) {
+			await window.showErrorMessage(
+				"Start capturing in this workspace before changing tasks."
+			);
+			return;
+		}
+		const folders = workspaceFolders();
+		const workspaceHash = workspaceHashFromFolders(folders);
+		const { batches, state } = splitCaptureBatch(
+			readBoundary(context),
+			{
+				editor: "cursor",
+				editorTaskId: "manual",
+				events: [{ occurredAt: new Date().toISOString() }],
+				workspaceHash,
+			},
+			{
+				branch: readGitBranch(folders[0]),
+				forceEnd: kind === "endTask",
+				forceNew: kind === "newTask",
+				idleMs: idleMs(),
+				workspaceHash,
+			}
+		);
+		boundary = state;
+		await context.workspaceState.update(BOUNDARY_KEY, state);
+		const secret = await context.secrets.get(SECRET_TOKEN);
+		if (!secret) {
+			return;
+		}
+		const origin = await currentOrigin(context);
+		for (const batch of batches) {
+			await fetchCapture(
+				origin,
+				"/api/capture/v1/events",
+				{
+					method: "POST",
+					headers: {
+						Authorization: `Bearer ${secret}`,
+						"content-type": "application/json",
+					},
+					body: JSON.stringify(batch),
+				},
+				kind === "endTask" ? "end this task" : "start a new task",
+				fetch
+			).catch(() => undefined);
+		}
+		await window.showInformationMessage(
+			kind === "endTask"
+				? "Ended the current Mati task."
+				: "Started a new Mati task."
+		);
+	};
+
+	context.subscriptions.push(
+		commands.registerCommand("mati.capture.consent", () => applyPlan("start")),
+		commands.registerCommand("mati.capture.statusToggle", () =>
+			applyPlan("toggle")
+		),
+		commands.registerCommand("mati.capture.newTask", () =>
+			postManualBoundary("newTask")
+		),
+		commands.registerCommand("mati.capture.endTask", () =>
+			postManualBoundary("endTask")
+		),
 		commands.registerCommand("mati.capture.openReport", async () => {
 			const secret = await context.secrets.get(SECRET_TOKEN);
 			if (!secret) {
@@ -200,12 +486,7 @@ export async function activate(context: ExtensionContext) {
 				);
 			}
 		}),
-		commands.registerCommand("mati.capture.stop", async () => {
-			stopCapture(context);
-			await window.showInformationMessage(
-				"Stopped capturing. The device token is kept until you delete capture data."
-			);
-		}),
+		commands.registerCommand("mati.capture.stop", () => applyPlan("stop")),
 		commands.registerCommand("mati.capture.claim", async () => {
 			const secret = await context.secrets.get(SECRET_TOKEN);
 			if (!secret) {
@@ -281,59 +562,49 @@ export async function activate(context: ExtensionContext) {
 					return;
 				}
 			}
-			stopCapture(context);
+			stopDrain();
+			uninstallHooks(context);
+			await writeGate(false);
 			await context.secrets.delete(SECRET_ID);
 			await context.secrets.delete(SECRET_TOKEN);
-			await context.globalState.update(CONSENT_FLAG, false);
+			await context.workspaceState.update(CONSENT_KEY, false);
+			await context.workspaceState.update(PAUSED_KEY, false);
+			await context.workspaceState.update(BOUNDARY_KEY, DEFAULT_BOUNDARY);
+			refreshStatus();
 			await window.showInformationMessage(
 				"Deleted capture data for this device."
 			);
+		}),
+		workspace.onDidChangeWorkspaceFolders(() => {
+			if (
+				shouldAutoStart({
+					paused: isPaused(context),
+					workspaceConsented: workspaceConsented(context),
+				})
+			) {
+				return writeGate(true);
+			}
+			return undefined;
 		})
 	);
-	const consented = context.globalState.get<boolean>(CONSENT_FLAG);
-	if (!consented) {
+
+	refreshStatus();
+	if (
+		shouldAutoStart({
+			paused: isPaused(context),
+			workspaceConsented: workspaceConsented(context),
+		})
+	) {
+		await startCapturing();
 		return;
 	}
-	const deviceId = await context.secrets.get(SECRET_ID);
-	const secret = await context.secrets.get(SECRET_TOKEN);
-	if (!(deviceId && secret)) {
-		return;
+	await writeGate(false);
+	if (workspaceConsented(context) && isPaused(context)) {
+		uninstallHooks(context);
 	}
-	process.env.MATI_DEVICE_ID = deviceId;
-	const matiHome = defaultMatiHome();
-	const queuePath = path.join(matiHome, "queue", `${deviceId}.jsonl`);
-	const otelPath = defaultOtelOutfile(matiHome);
-	const folders = workspace.workspaceFolders?.map(
-		(folder) => folder.uri.fsPath
-	) ?? [homedir()];
-	const tick = async () => {
-		const origin = await currentOrigin(context);
-		const workspaceHash = workspaceHashFromFolders(folders);
-		return Promise.all([
-			drainQueueFile({
-				queuePath,
-				origin,
-				secret,
-				workspaceHash,
-			}),
-			drainOtelFile({
-				otelPath,
-				origin,
-				secret,
-				workspaceHash,
-			}),
-		]).then(
-			() => undefined,
-			() => undefined
-		);
-	};
-	const timer = setInterval(() => {
-		tick();
-	}, 4000);
-	context.subscriptions.push({ dispose: () => clearInterval(timer) });
-	tick();
+	await promptConsentIfNeeded();
 }
 
 export function deactivate() {
-	stopCapture(null);
+	writeCaptureGate({ capturing: false });
 }

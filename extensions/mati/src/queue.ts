@@ -7,12 +7,36 @@ import { ingestBodyFromOtel, parseCopilotOtelLine } from "./otel";
 
 const PATH_SEP = /[/\\]/;
 
+export interface CaptureBatch {
+	editor: string;
+	editorTaskId: string;
+	events: unknown[];
+	workspaceHash: string;
+}
+
 interface DrainOptions {
 	fetchImpl?: typeof fetch;
 	origin: string;
 	queuePath: string;
 	secret: string;
+	transformBatch?: (batch: CaptureBatch) => CaptureBatch[];
 	workspaceHash: string;
+}
+
+async function postTransformed(
+	options: DrainOptions,
+	mapped: CaptureBatch
+): Promise<boolean> {
+	const batches = options.transformBatch
+		? options.transformBatch(mapped)
+		: [mapped];
+	let allOk = true;
+	for (const batch of batches) {
+		if (!(await postBatch(options, batch))) {
+			allOk = false;
+		}
+	}
+	return allOk;
 }
 
 async function postBatch(
@@ -72,7 +96,7 @@ export async function drainQueueFile(
 		if (!body) {
 			continue;
 		}
-		if (await postBatch(options, body)) {
+		if (await postTransformed(options, body as CaptureBatch)) {
 			posted += 1;
 		} else {
 			leftover.push(line);
@@ -92,6 +116,7 @@ export async function drainOtelFile(options: {
 	origin: string;
 	otelPath: string;
 	secret: string;
+	transformBatch?: (batch: CaptureBatch) => CaptureBatch[];
 	workspaceHash: string;
 }): Promise<{ failed: number; posted: number }> {
 	let posted = 0;
@@ -117,19 +142,21 @@ export async function drainOtelFile(options: {
 		if (spans.length === 0) {
 			continue;
 		}
+		const drain: DrainOptions = {
+			fetchImpl: options.fetchImpl,
+			origin: options.origin,
+			queuePath: options.otelPath,
+			secret: options.secret,
+			transformBatch: options.transformBatch,
+			workspaceHash: options.workspaceHash,
+		};
 		let allOk = true;
 		for (const span of spans) {
-			const ok = await postBatch(
-				{
-					fetchImpl: options.fetchImpl,
-					origin: options.origin,
-					queuePath: options.otelPath,
-					secret: options.secret,
-					workspaceHash: options.workspaceHash,
-				},
-				ingestBodyFromOtel(span, options.workspaceHash)
-			);
-			if (!ok) {
+			const mapped = ingestBodyFromOtel(
+				span,
+				options.workspaceHash
+			) as CaptureBatch;
+			if (!(await postTransformed(drain, mapped))) {
 				allOk = false;
 			}
 		}

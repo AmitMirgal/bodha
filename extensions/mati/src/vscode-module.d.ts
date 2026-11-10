@@ -17,6 +17,7 @@ declare module "vscode" {
 		globalState: Memento;
 		secrets: SecretStorage;
 		subscriptions: Disposable[];
+		workspaceState: Memento;
 	}
 	export interface Webview {
 		html: string;
@@ -29,6 +30,16 @@ declare module "vscode" {
 		dispose(): void;
 		webview: Webview;
 	}
+	export interface StatusBarItem extends Disposable {
+		command: string | undefined;
+		show(): void;
+		text: string;
+		tooltip: string | undefined;
+	}
+	export const StatusBarAlignment: {
+		Left: number;
+		Right: number;
+	};
 	export const commands: {
 		registerCommand(
 			id: string,
@@ -36,8 +47,18 @@ declare module "vscode" {
 		): Disposable;
 	};
 	export const window: {
-		showInformationMessage(message: string): Thenable<string | undefined>;
+		createStatusBarItem(alignment?: number, priority?: number): StatusBarItem;
+		createWebviewPanel(
+			viewType: string,
+			title: string,
+			column: number,
+			options: { enableScripts: boolean }
+		): WebviewPanel;
 		showErrorMessage(message: string): Thenable<string | undefined>;
+		showInformationMessage(
+			message: string,
+			...items: string[]
+		): Thenable<string | undefined>;
 		showInputBox(options: {
 			ignoreFocusOut?: boolean;
 			placeHolder?: string;
@@ -48,12 +69,6 @@ declare module "vscode" {
 			options: { modal?: boolean },
 			...items: string[]
 		): Thenable<string | undefined>;
-		createWebviewPanel(
-			viewType: string,
-			title: string,
-			column: number,
-			options: { enableScripts: boolean }
-		): WebviewPanel;
 	};
 	export const env: {
 		openExternal(target: { toString(): string }): Thenable<boolean>;
@@ -63,6 +78,7 @@ declare module "vscode" {
 	}
 	export const workspace: {
 		getConfiguration(section: string): WorkspaceConfiguration;
+		onDidChangeWorkspaceFolders(listener: () => void): Disposable;
 		workspaceFolders?: Array<{ uri: { fsPath: string } }>;
 	};
 	export const Uri: {

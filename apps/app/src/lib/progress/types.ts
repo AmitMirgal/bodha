@@ -12,7 +12,10 @@ export interface ProgressUsage {
 	source?: string;
 }
 
+export type ProgressReportKind = "coached" | "facts_only" | "none";
+
 export interface ProgressSuggestion {
+	detail: string | null;
 	illustrative: boolean;
 	improvedExample: string;
 	title: string;
@@ -36,6 +39,7 @@ export interface ProgressTask {
 	coachingSummary: string | null;
 	exerciseId: string;
 	filePaths: string[];
+	finishedAt: string | null;
 	needsKey: boolean;
 	occurredAt: string;
 	origin: ProgressOrigin;
@@ -48,10 +52,12 @@ export interface ProgressTask {
 	promptTurns: ProgressPromptTurn[];
 	reportError: string | null;
 	reportHref: string;
+	reportKind: ProgressReportKind;
 	reportStatus: "none" | "complete" | "pending" | "error";
 	responses: ProgressResponseTurn[];
 	sessionId: string;
 	source: "trainer" | "editor";
+	startedAt: string | null;
 	status: string;
 	suggestions: ProgressSuggestion[];
 	tests: {

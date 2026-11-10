@@ -14,6 +14,8 @@ import { ArrowDown, ArrowUpDown } from "lucide-react";
 import {
 	originLabel,
 	provenanceLabel,
+	reportKindLabel,
+	reportKindVariant,
 	type SortKey,
 	tokenCell,
 } from "../lib/progress/display";
@@ -99,9 +101,14 @@ export function ProgressTaskTable({
 									{task.outcome?.observed ?? task.status}
 								</TableCell>
 								<TableCell>
-									<Button asChild size="sm" variant="link">
-										<a href={task.reportHref}>Open</a>
-									</Button>
+									<div className="flex flex-wrap items-center gap-2">
+										<Badge variant={reportKindVariant(task.reportKind)}>
+											{reportKindLabel(task.reportKind)}
+										</Badge>
+										<Button asChild size="sm" variant="link">
+											<a href={task.reportHref}>Open</a>
+										</Button>
+									</div>
 								</TableCell>
 							</TableRow>
 						))}

@@ -11,8 +11,10 @@ import type {
 	ProgressEditorInput,
 	ProgressOrigin,
 	ProgressPromptTurn,
+	ProgressReportKind,
 	ProgressSection,
 	ProgressSessionInput,
+	ProgressSuggestion,
 	ProgressTask,
 	ProgressTrendPoint,
 	ProgressUsage,
@@ -73,6 +75,54 @@ function reportStatus(
 	return "pending";
 }
 
+function mapSuggestions(
+	suggestions: Array<{
+		detail: string;
+		illustrative: boolean;
+		improvedExample: string;
+		title: string;
+		whyItHelps: string;
+	}>
+): ProgressSuggestion[] {
+	return suggestions.map((suggestion) => ({
+		detail: suggestion.detail,
+		illustrative: suggestion.illustrative,
+		improvedExample: suggestion.improvedExample,
+		title: suggestion.title,
+		whyItHelps: suggestion.whyItHelps,
+	}));
+}
+
+function trainerReportKind(
+	status: ProgressTask["reportStatus"],
+	suggestions: ProgressSuggestion[]
+): ProgressReportKind {
+	if (suggestions.length > 0) {
+		return "coached";
+	}
+	if (status === "complete") {
+		return "facts_only";
+	}
+	return "none";
+}
+
+function captureReportKind(
+	stored: ProgressEditorInput["storedReport"]
+): ProgressReportKind {
+	if (!stored || reportStatus(stored) !== "complete") {
+		return "none";
+	}
+	if (
+		stored.body &&
+		typeof stored.body === "object" &&
+		"kind" in stored.body &&
+		stored.body.kind === "coached"
+	) {
+		return "coached";
+	}
+	return "facts_only";
+}
+
 export function taskFromSession(
 	session: ProgressSessionInput,
 	occurredAt: string
@@ -85,16 +135,20 @@ export function taskFromSession(
 			: reportSchema.safeParse(session.report.body);
 	const body = parsed?.success ? parsed.data : null;
 	const prompts = session.prompts.filter((prompt) => prompt.trim().length > 0);
+	const suggestions = body ? mapSuggestions(body.suggestions) : [];
 	return {
 		coachingSummary: body?.summary ?? null,
 		filePaths: [],
+		finishedAt: session.finishedAt,
 		needsKey: false,
 		reportError: null,
+		reportKind: trainerReportKind(status, suggestions),
 		responses: [],
 		source: "trainer",
 		origin: "trainer",
 		sessionId: session.id,
 		exerciseId: session.exerciseId,
+		startedAt: session.startedAt,
 		status: session.status,
 		occurredAt,
 		reportHref: `/session/${session.id}/report`,
@@ -123,14 +177,7 @@ export function taskFromSession(
 					total: body.observations.tests.total,
 				}
 			: null,
-		suggestions: body
-			? body.suggestions.map((suggestion) => ({
-					title: suggestion.title,
-					improvedExample: suggestion.improvedExample,
-					whyItHelps: suggestion.whyItHelps,
-					illustrative: suggestion.illustrative,
-				}))
-			: [],
+		suggestions,
 	};
 }
 
@@ -189,28 +236,23 @@ export function taskFromEditor(
 			? null
 			: reportSchema.safeParse(task.storedReport.body);
 	const storedBody = storedParsed?.success ? storedParsed.data : null;
-	const storedKind =
-		task.storedReport?.body &&
-		typeof task.storedReport.body === "object" &&
-		"kind" in task.storedReport.body &&
-		task.storedReport.body.kind === "coached"
-			? "coached"
-			: "facts_only";
+	const reportKind = captureReportKind(task.storedReport);
 	const prompts = task.prompts.filter((prompt) => prompt.trim().length > 0);
 	const usage = progressUsageFromEditor(facts?.usage.editor);
-	const coaching = storedKind === "coached" ? storedBody : null;
+	const coaching = reportKind === "coached" ? storedBody : null;
 	return {
 		coachingSummary: coaching?.summary ?? null,
 		filePaths: filePathsFromCaptureEvents(task.events),
-		needsKey:
-			reportStatus(task.storedReport ?? null) !== "complete" ||
-			storedKind !== "coached",
+		finishedAt: task.finishedAt,
+		needsKey: reportKind !== "coached",
 		reportError: task.storedReport?.error ?? null,
+		reportKind,
 		responses: responsesFromCaptureEvents(task.events),
 		source: "editor",
 		origin: originFromEditor(task.editor),
 		sessionId: task.id,
 		exerciseId: `${task.editor} · ${task.editorTaskId}`,
+		startedAt: task.startedAt,
 		status: task.status,
 		occurredAt: occurredAtStamp,
 		reportHref: `/capture/tasks/${task.id}`,
@@ -231,14 +273,7 @@ export function taskFromEditor(
 			failed: null,
 			total: null,
 		},
-		suggestions: coaching
-			? coaching.suggestions.map((suggestion) => ({
-					title: suggestion.title,
-					improvedExample: suggestion.improvedExample,
-					whyItHelps: suggestion.whyItHelps,
-					illustrative: suggestion.illustrative,
-				}))
-			: [],
+		suggestions: coaching ? mapSuggestions(coaching.suggestions) : [],
 	};
 }
 
@@ -326,6 +361,48 @@ function promptTurnsFromTexts(
 	}));
 }
 
+function numberField(payload: object, key: string): number | null {
+	if (!(key in payload)) {
+		return null;
+	}
+	const value = Reflect.get(payload, key);
+	return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+function usageFromPromptPayload(
+	payload: unknown,
+	fallbackSource: string | undefined
+): ProgressUsage {
+	const missing: ProgressUsage = {
+		cachedTokens: null,
+		coverage: "unknown",
+		inputTokens: null,
+		label: "missing",
+		outputTokens: null,
+		source: fallbackSource,
+	};
+	if (!payload || typeof payload !== "object") {
+		return missing;
+	}
+	const inputTokens = numberField(payload, "inputTokens");
+	const outputTokens = numberField(payload, "outputTokens");
+	if (inputTokens == null && outputTokens == null) {
+		return missing;
+	}
+	const tokenLabel = Reflect.get(payload, "tokenLabel");
+	const tokenSource = Reflect.get(payload, "tokenSource");
+	const label: ProgressUsage["label"] =
+		tokenLabel === "measured" ? "measured" : "estimated";
+	return {
+		cachedTokens: numberField(payload, "cachedTokens"),
+		coverage: "partial",
+		inputTokens,
+		label,
+		outputTokens,
+		source: typeof tokenSource === "string" ? tokenSource : fallbackSource,
+	};
+}
+
 function promptTurnsFromEvents(
 	task: ProgressEditorInput,
 	fallback: ProgressUsage
@@ -342,16 +419,9 @@ function promptTurnsFromEvents(
 					? payload.text
 					: "";
 			return {
-				text,
 				occurredAt: event.occurredAt,
-				usage: {
-					inputTokens: null,
-					outputTokens: null,
-					cachedTokens: null,
-					coverage: "unknown" as const,
-					label: "missing" as const,
-					source: fallback.source,
-				},
+				text,
+				usage: usageFromPromptPayload(payload, fallback.source),
 			};
 		})
 		.filter((turn) => turn.text.trim().length > 0);
@@ -359,11 +429,11 @@ function promptTurnsFromEvents(
 		return turns;
 	}
 	return promptTurnsFromTexts(task.prompts, {
-		inputTokens: null,
-		outputTokens: null,
 		cachedTokens: null,
 		coverage: "unknown",
+		inputTokens: null,
 		label: "missing",
+		outputTokens: null,
 		source: fallback.source,
 	});
 }

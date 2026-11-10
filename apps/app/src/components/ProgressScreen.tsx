@@ -21,11 +21,16 @@ import {
 } from "@repo/design-system/components/ui/tabs";
 import { Inbox, Sparkles } from "lucide-react";
 import { useMemo, useState } from "react";
-import { chartFromTasks, summaryFromTasks } from "../lib/progress/aggregate";
+import {
+	chartFromTasks,
+	groupTasksByDay,
+	summaryFromTasks,
+} from "../lib/progress/aggregate";
 import {
 	compareTasks,
 	emptyMessage,
 	filterTasks,
+	formatDayHeading,
 	parseSourceFilter,
 	type SortKey,
 	type SourceFilter,
@@ -56,7 +61,10 @@ export function ProgressScreen({ view }: { view: ProgressView }) {
 			filter === "all" ? view.chart : chartFromTasks(filtered, view.timezone),
 		[filter, filtered, view.chart, view.timezone]
 	);
-	const featured = tasks.slice(0, 6);
+	const days = useMemo(
+		() => groupTasksByDay(tasks, view.timezone),
+		[tasks, view.timezone]
+	);
 	const originCounts = useMemo(
 		() => ({
 			all: view.tasks.length,
@@ -142,21 +150,38 @@ export function ProgressScreen({ view }: { view: ProgressView }) {
 						</Empty>
 					) : (
 						<>
-							<section
-								aria-labelledby="progress-task-cards"
-								className="grid gap-4"
-							>
+							<section aria-labelledby="progress-by-day" className="grid gap-8">
 								<h2
 									className="font-semibold text-lg tracking-tight"
-									id="progress-task-cards"
+									id="progress-by-day"
 								>
-									Latest tasks
+									By day
 								</h2>
-								<div className="grid gap-4 lg:grid-cols-2">
-									{featured.map((task) => (
-										<ProgressTaskCard key={task.sessionId} task={task} />
-									))}
-								</div>
+								{days.map((day) => (
+									<section
+										aria-labelledby={`day-${day.date}`}
+										className="grid gap-4"
+										key={day.date}
+									>
+										<div className="flex flex-wrap items-baseline justify-between gap-2">
+											<h3
+												className="font-semibold text-xl tracking-tight"
+												id={`day-${day.date}`}
+											>
+												{formatDayHeading(day.date)}
+											</h3>
+											<p className="text-muted-foreground text-sm">
+												{day.tasks.length}{" "}
+												{day.tasks.length === 1 ? "task" : "tasks"}
+											</p>
+										</div>
+										<div className="grid gap-4 lg:grid-cols-2">
+											{day.tasks.map((task) => (
+												<ProgressTaskCard key={task.sessionId} task={task} />
+											))}
+										</div>
+									</section>
+								))}
 							</section>
 							<ProgressTaskTable onSort={setSort} sort={sort} tasks={tasks} />
 						</>

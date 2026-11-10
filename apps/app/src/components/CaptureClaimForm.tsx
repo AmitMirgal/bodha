@@ -41,30 +41,45 @@ export function CaptureClaimForm({ token }: { token: string }) {
 	}
 
 	return (
-		<Card className="shadow-sm">
-			<CardHeader>
-				<CardTitle>Link this device to your account</CardTitle>
-				<CardDescription>
+		<main className="mx-auto grid max-w-3xl gap-8 px-4 py-10">
+			<header className="grid gap-3">
+				<p className="font-medium text-muted-foreground text-sm uppercase tracking-wide">
+					Account claim
+				</p>
+				<h1 className="font-semibold text-3xl tracking-tight">
+					Link this device to your account
+				</h1>
+				<p className="text-muted-foreground">
 					Past and future captured tasks from this editor will appear in
 					Progress. Capture in the extension stays anonymous. This uses a
 					short-lived one-time code, not the long-lived device secret.
-				</CardDescription>
-			</CardHeader>
-			<CardContent className="grid gap-3">
-				<Button
-					aria-busy={busy}
-					disabled={busy}
-					onClick={() => runBackground(claim())}
-					type="button"
-				>
-					{busy ? "Linking…" : "Link this device"}
-				</Button>
-				{error ? (
-					<p className="text-destructive text-sm" role="alert">
-						{error}
-					</p>
-				) : null}
-			</CardContent>
-		</Card>
+				</p>
+			</header>
+			<Card className="shadow-sm">
+				<CardHeader>
+					<CardTitle>Confirm this editor</CardTitle>
+					<CardDescription>
+						The device secret is never placed in this URL. Linking does not
+						change capture on the device until you choose to keep it.
+					</CardDescription>
+				</CardHeader>
+				<CardContent className="grid gap-3">
+					<Button
+						aria-busy={busy}
+						disabled={busy}
+						onClick={() => runBackground(claim())}
+						size="lg"
+						type="button"
+					>
+						{busy ? "Linking…" : "Link this device"}
+					</Button>
+					{error ? (
+						<p className="text-destructive text-sm" role="alert">
+							{error}
+						</p>
+					) : null}
+				</CardContent>
+			</Card>
+		</main>
 	);
 }

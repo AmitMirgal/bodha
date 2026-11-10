@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="220" height="48" viewBox="0 0 220 48" role="img" aria-label="Mati">
+  <rect x="0" y="4" width="40" height="40" rx="10" fill="#c6ff3d"/>
+  <text x="20" y="24" dominant-baseline="central" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="22" font-weight="700" fill="#0d0d0f">//</text>
+  <text x="52" y="24" dominant-baseline="central" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Helvetica, Arial, sans-serif" font-size="28" font-weight="700" fill="#0d0d0f">Mati</text>
+</svg>

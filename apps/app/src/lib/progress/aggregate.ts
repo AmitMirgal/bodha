@@ -1,13 +1,14 @@
 import { usageCopy as captureUsageCopy } from "../capture/usage-copy";
 import type {
 	ProgressChartPoint,
+	ProgressDay,
 	ProgressSummary,
 	ProgressTask,
 	ProgressTokenTotals,
 	ProgressUsage,
 } from "./types";
 
-function dayBucket(iso: string, timeZone: string): string {
+export function dayBucket(iso: string, timeZone: string): string {
 	const date = new Date(iso);
 	const parts = new Intl.DateTimeFormat("en-CA", {
 		day: "2-digit",
@@ -152,6 +153,22 @@ export function chartFromTasks(
 				taskCount: dayTasks.length,
 			};
 		});
+}
+
+export function groupTasksByDay(
+	tasks: ProgressTask[],
+	timeZone: string
+): ProgressDay[] {
+	const days = new Map<string, ProgressTask[]>();
+	for (const task of tasks) {
+		const date = dayBucket(task.occurredAt, timeZone);
+		const list = days.get(date) ?? [];
+		list.push(task);
+		days.set(date, list);
+	}
+	return [...days.entries()]
+		.sort(([left], [right]) => right.localeCompare(left))
+		.map(([date, dayTasks]) => ({ date, tasks: dayTasks }));
 }
 
 export function usageCopy(

@@ -1,6 +1,7 @@
 import type {
 	ProgressChartPoint,
 	ProgressOrigin,
+	ProgressReportKind,
 	ProgressTask,
 	ProgressUsage,
 } from "./types";
@@ -246,6 +247,114 @@ export function formatChartDay(value: string): string {
 		month: "short",
 		timeZone: "UTC",
 	});
+}
+
+export function reportKindLabel(kind: ProgressReportKind): string {
+	switch (kind) {
+		case "coached":
+			return "Report ready";
+		case "facts_only":
+			return "Facts only";
+		case "none":
+			return "No report";
+		default: {
+			const exhaustive: never = kind;
+			throw new Error(`Unhandled report kind: ${String(exhaustive)}`);
+		}
+	}
+}
+
+export function reportKindVariant(
+	kind: ProgressReportKind
+): "default" | "outline" | "secondary" {
+	switch (kind) {
+		case "coached":
+			return "default";
+		case "facts_only":
+			return "secondary";
+		case "none":
+			return "outline";
+		default: {
+			const exhaustive: never = kind;
+			throw new Error(`Unhandled report kind: ${String(exhaustive)}`);
+		}
+	}
+}
+
+export function formatTaskDate(iso: string): string {
+	const date = new Date(iso);
+	if (Number.isNaN(date.getTime())) {
+		return iso.slice(0, 10);
+	}
+	return date.toLocaleDateString("en-US", {
+		day: "numeric",
+		month: "short",
+		timeZone: "UTC",
+		year: "numeric",
+	});
+}
+
+export function formatDayHeading(date: string): string {
+	const parsed = new Date(`${date}T00:00:00.000Z`);
+	if (Number.isNaN(parsed.getTime())) {
+		return date;
+	}
+	return parsed.toLocaleDateString("en-US", {
+		day: "numeric",
+		month: "long",
+		timeZone: "UTC",
+		weekday: "short",
+		year: "numeric",
+	});
+}
+
+export function durationLabel(
+	startedAt: string | null,
+	finishedAt: string | null
+): string | null {
+	if (!(startedAt && finishedAt)) {
+		return null;
+	}
+	const start = Date.parse(startedAt);
+	const end = Date.parse(finishedAt);
+	if (!(Number.isFinite(start) && Number.isFinite(end)) || end < start) {
+		return null;
+	}
+	const minutes = Math.round((end - start) / 60_000);
+	if (minutes < 1) {
+		return "<1 min";
+	}
+	if (minutes < 60) {
+		return `${String(minutes)} min`;
+	}
+	const hours = Math.floor(minutes / 60);
+	const remainder = minutes % 60;
+	if (remainder === 0) {
+		return `${String(hours)} h`;
+	}
+	return `${String(hours)} h ${String(remainder)} min`;
+}
+
+export function isFixtureTestData(task: ProgressTask): boolean {
+	return (
+		task.exerciseId.includes("test-data") ||
+		task.sessionId.includes("test-data")
+	);
+}
+
+export function tokenSourceLabel(task: ProgressTask): string {
+	switch (task.usage.label) {
+		case "estimated":
+			return "text_estimate (labelled estimate from text length, not vendor-measured)";
+		case "measured":
+			return `vendor-measured (${task.usage.source ?? "provider"})`;
+		case "missing":
+			return "not reported (omitted, not shown as 0)";
+		default: {
+			const exhaustive: never = task.usage.label;
+			throw new Error(`Unhandled token label: ${exhaustive}`);
+		}
+	}
 }
 
 export function emptyMessage(filter: SourceFilter): string {

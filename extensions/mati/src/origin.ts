@@ -1,4 +1,6 @@
-const DEFAULT_ORIGIN = "http://127.0.0.1:3000";
+export const PRODUCTION_MATI_ORIGIN = "https://mati-tau.vercel.app";
+export const DEV_MATI_ORIGIN = "http://127.0.0.1:3000";
+const DEFAULT_ORIGIN = PRODUCTION_MATI_ORIGIN;
 const TRAILING_SLASHES = /\/+$/;
 const CREDENTIAL_URL = /\b\w+:\/\/[^/\s:]+:[^/\s@]+@\S+/g;
 const BEARER = /Bearer\s+\S+/gi;

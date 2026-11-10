@@ -18,6 +18,7 @@ import {
 	releaseCaptureHolder,
 } from "./capture-gate";
 import {
+	activateCapturePlan,
 	BOUNDARY_KEY,
 	CONSENT_KEY,
 	captureStatus,
@@ -198,7 +199,8 @@ function uninstallHooks(context: ExtensionContext | null) {
 }
 
 export async function activate(context: ExtensionContext) {
-	activeHolderId = randomUUID();
+	const holderId = randomUUID();
+	activeHolderId = holderId;
 	let drainTimer: ReturnType<typeof setInterval> | undefined;
 	let hookWriteErrorShown = false;
 	const status = window.createStatusBarItem(StatusBarAlignment.Right, 80);
@@ -237,14 +239,11 @@ export async function activate(context: ExtensionContext) {
 	};
 
 	const claimThisWindow = async () => {
-		if (!activeHolderId) {
-			return;
-		}
 		const deviceId = await context.secrets.get(SECRET_ID);
 		const workspaceHash = workspaceHashFromFolders(workspaceFolders());
 		claimCaptureHolder(
 			{
-				id: activeHolderId,
+				id: holderId,
 				updatedAt: Date.now(),
 				workspaceHash,
 			},
@@ -253,10 +252,7 @@ export async function activate(context: ExtensionContext) {
 	};
 
 	const releaseThisWindow = () => {
-		if (!activeHolderId) {
-			return;
-		}
-		releaseCaptureHolder(activeHolderId);
+		releaseCaptureHolder(holderId);
 	};
 
 	let boundary = readBoundary(context);
@@ -369,11 +365,18 @@ export async function activate(context: ExtensionContext) {
 
 	const startCapturing = async () => {
 		await context.workspaceState.update(PAUSED_KEY, false);
-		const otel = await installHooks();
-		await claimThisWindow();
-		await startDrain();
-		refreshStatus();
-		return otel;
+		try {
+			const otel = await installHooks();
+			await claimThisWindow();
+			await startDrain();
+			refreshStatus();
+			return otel;
+		} catch (error) {
+			await claimThisWindow();
+			await startDrain();
+			refreshStatus();
+			throw error;
+		}
 	};
 
 	const pauseCapturing = async () => {
@@ -558,8 +561,35 @@ export async function activate(context: ExtensionContext) {
 					fetch
 				);
 				const body = (await response.json()) as { viewerUrl?: string };
-				if (body.viewerUrl) {
-					await env.openExternal(Uri.parse(body.viewerUrl));
+				let viewerUrl = body.viewerUrl;
+				try {
+					const claimResponse = await fetchCapture(
+						origin,
+						"/api/capture/v1/claim/start",
+						{
+							method: "POST",
+							headers: {
+								Authorization: `Bearer ${secret}`,
+								"content-type": "application/json",
+							},
+							body: "{}",
+						},
+						"start a device claim",
+						fetch
+					);
+					const claimBody = (await claimResponse.json()) as {
+						token?: string;
+					};
+					if (viewerUrl && claimBody.token) {
+						const next = new URL(viewerUrl);
+						next.searchParams.set("claim", claimBody.token);
+						viewerUrl = next.toString();
+					}
+				} catch {
+					// Preview still opens without a claim token.
+				}
+				if (viewerUrl) {
+					await env.openExternal(Uri.parse(viewerUrl));
 				}
 			} catch (error) {
 				await window.showErrorMessage(
@@ -707,24 +737,35 @@ export async function activate(context: ExtensionContext) {
 	);
 
 	refreshStatus();
-	if (
-		shouldAutoStart({
-			paused: isPaused(context),
-			workspaceConsented: workspaceConsented(context),
-		})
-	) {
-		try {
-			await startCapturing();
-		} catch (error) {
-			refreshStatus();
-			await window.showErrorMessage(
-				error instanceof Error ? error.message : "Could not start Mati capture."
-			);
+	const boot = activateCapturePlan({
+		paused: isPaused(context),
+		workspaceConsented: workspaceConsented(context),
+	});
+	switch (boot) {
+		case "start":
+			try {
+				await startCapturing();
+			} catch (error) {
+				refreshStatus();
+				await window.showErrorMessage(
+					error instanceof Error
+						? error.message
+						: "Could not start Mati capture."
+				);
+			}
+			return;
+		case "prompt":
+			releaseThisWindow();
+			await promptConsentIfNeeded();
+			return;
+		case "idle":
+			releaseThisWindow();
+			return;
+		default: {
+			const exhaustive: never = boot;
+			throw new Error(`Unhandled activate plan: ${exhaustive}`);
 		}
-		return;
 	}
-	releaseThisWindow();
-	await promptConsentIfNeeded();
 }
 
 export function deactivate() {

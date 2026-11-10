@@ -70,8 +70,9 @@ ul{list-style:none;padding:0;margin:0;display:grid;gap:.5rem}
 </head>
 <body>
 <main>
-<h1>Your editor tasks</h1>
+<h1>Device preview</h1>
 <p class="muted">${escapeHtml(intro)}</p>
+<p><a href="/login">Sign in to keep this and get your report</a></p>
 ${body}
 </main>
 </body>

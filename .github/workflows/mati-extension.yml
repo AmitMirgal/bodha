@@ -25,6 +25,7 @@ jobs:
         with:
           name: mati-vsix
           path: extensions/mati/*.vsix
+          # Package only. Marketplace and Open VSX publish jobs stay disabled.
 
   publish-vscode-marketplace:
     if: false

@@ -88,7 +88,10 @@ export default async function ReportPage({
 		outputTokens: null,
 	};
 	const task: ProgressTask = {
+		coachingSummary: body?.summary ?? null,
 		exerciseId: session.exercise_id,
+		filePaths: [],
+		needsKey: false,
 		occurredAt: session.finished_at ?? session.started_at ?? session.created_at,
 		origin: "trainer",
 		outcome: body
@@ -104,8 +107,10 @@ export default async function ReportPage({
 			text: prompt.content,
 			usage: missingTurnUsage,
 		})),
+		reportError: null,
 		reportHref: `/session/${id}/report`,
 		reportStatus: reportStatus(latest?.status),
+		responses: [],
 		sessionId: session.id,
 		source: "trainer",
 		status: session.status,

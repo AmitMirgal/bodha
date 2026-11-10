@@ -1,4 +1,8 @@
-import { assembleEditorLearningReport } from "../capture/report";
+import {
+	assembleEditorLearningReport,
+	filePathsFromCaptureEvents,
+	responsesFromCaptureEvents,
+} from "../capture/report";
 import { usageFromStoredRecords } from "../reports/assemble";
 import { type LearningReport, reportSchema } from "../reports/schema";
 import { dayBucket } from "../sessions/service";
@@ -82,6 +86,11 @@ export function taskFromSession(
 	const body = parsed?.success ? parsed.data : null;
 	const prompts = session.prompts.filter((prompt) => prompt.trim().length > 0);
 	return {
+		coachingSummary: body?.summary ?? null,
+		filePaths: [],
+		needsKey: false,
+		reportError: null,
+		responses: [],
 		source: "trainer",
 		origin: "trainer",
 		sessionId: session.id,
@@ -174,10 +183,30 @@ export function taskFromEditor(
 		events: task.events,
 		usage: task.usage,
 	});
-	const body = assembled.ok ? assembled.report : null;
+	const facts = assembled.ok ? assembled.report : null;
+	const storedParsed =
+		task.storedReport?.body == null
+			? null
+			: reportSchema.safeParse(task.storedReport.body);
+	const storedBody = storedParsed?.success ? storedParsed.data : null;
+	const storedKind =
+		task.storedReport?.body &&
+		typeof task.storedReport.body === "object" &&
+		"kind" in task.storedReport.body &&
+		task.storedReport.body.kind === "coached"
+			? "coached"
+			: "facts_only";
 	const prompts = task.prompts.filter((prompt) => prompt.trim().length > 0);
-	const usage = progressUsageFromEditor(body?.usage.editor);
+	const usage = progressUsageFromEditor(facts?.usage.editor);
+	const coaching = storedKind === "coached" ? storedBody : null;
 	return {
+		coachingSummary: coaching?.summary ?? null,
+		filePaths: filePathsFromCaptureEvents(task.events),
+		needsKey:
+			reportStatus(task.storedReport ?? null) !== "complete" ||
+			storedKind !== "coached",
+		reportError: task.storedReport?.error ?? null,
+		responses: responsesFromCaptureEvents(task.events),
 		source: "editor",
 		origin: originFromEditor(task.editor),
 		sessionId: task.id,
@@ -188,12 +217,12 @@ export function taskFromEditor(
 		prompts,
 		promptTurns: promptTurnsFromEvents(task, usage),
 		usage,
-		reportStatus: body ? "complete" : "none",
-		outcome: body
+		reportStatus: reportStatus(task.storedReport ?? null),
+		outcome: facts
 			? {
-					observed: body.outcome.observed,
-					verification: body.outcome.verification,
-					verificationProvenance: body.outcome.verificationProvenance,
+					observed: facts.outcome.observed,
+					verification: facts.outcome.verification,
+					verificationProvenance: facts.outcome.verificationProvenance,
 				}
 			: null,
 		tests: {
@@ -202,8 +231,8 @@ export function taskFromEditor(
 			failed: null,
 			total: null,
 		},
-		suggestions: body
-			? body.suggestions.map((suggestion) => ({
+		suggestions: coaching
+			? coaching.suggestions.map((suggestion) => ({
 					title: suggestion.title,
 					improvedExample: suggestion.improvedExample,
 					whyItHelps: suggestion.whyItHelps,

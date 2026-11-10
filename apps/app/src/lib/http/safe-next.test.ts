@@ -4,6 +4,13 @@ import { safeNextPath } from "./safe-next";
 describe("safeNextPath", () => {
 	it("keeps in-app relative paths", () => {
 		expect(safeNextPath("/session/abc")).toBe("/session/abc");
+		expect(
+			safeNextPath(
+				"/capture/d/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa?v=viewer&claim=abc"
+			)
+		).toBe(
+			"/capture/d/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa?v=viewer&claim=abc"
+		);
 	});
 
 	it("rejects open redirects", () => {

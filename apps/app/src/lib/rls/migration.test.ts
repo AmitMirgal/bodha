@@ -41,6 +41,7 @@ describe("Mati Prisma Migrate source of truth", () => {
 		expect(grantAuthName).toBe(
 			"20261110140000_capture_roles_without_auth_schema"
 		);
+		expect(names).toContain("20261110180000_device_claim_and_capture_reports");
 		expect(
 			existsSync(
 				new URL(
@@ -177,6 +178,27 @@ describe("Mati Prisma Migrate source of truth", () => {
 		expect(deviceIdFn).not.toMatch(/\bauth\./);
 		expect(consumeFn).not.toMatch(/\bauth\./);
 		expect(allSql).toMatch(/EXCEPTION WHEN insufficient_privilege THEN NULL/);
+	});
+
+	it("adds hashed device claim tokens and user-owned capture reports", () => {
+		expect(allSql).toMatch(/CREATE TABLE "device_claim_tokens"/);
+		expect(allSql).toMatch(/CREATE TABLE "capture_reports"/);
+		expect(allSql).toMatch(/mati_claim_device_with_token/);
+		expect(allSql).toMatch(
+			/GRANT EXECUTE ON FUNCTION public\.mati_claim_device_with_token\(text, uuid\) TO authenticated/
+		);
+		expect(allSql).not.toMatch(
+			/GRANT EXECUTE ON FUNCTION public\.mati_claim_device_with_token\(text, uuid\) TO device/
+		);
+		expect(allSql).not.toMatch(
+			/grant .* on public.device_claim_tokens to anon/i
+		);
+		expect(allSql).not.toMatch(/grant .* on public.capture_reports to anon/i);
+		const claimFn = allSql.match(
+			/CREATE OR REPLACE FUNCTION public\.mati_claim_device_with_token\([\s\S]*?\$\$;/i
+		)?.[0];
+		expect(claimFn).toMatch(/auth\.uid\(\)/);
+		expect(claimFn).toMatch(/consumed_at/);
 	});
 
 	it("points prisma.config.ts at DIRECT_URL and Prisma migrations", () => {

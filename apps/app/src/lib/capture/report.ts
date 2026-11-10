@@ -67,6 +67,28 @@ export function promptsFromCaptureEvents(
 		.filter((text): text is string => text != null);
 }
 
+export function responsesFromCaptureEvents(
+	events: CaptureEventInput[]
+): Array<{ occurredAt: string; text: string }> {
+	return events
+		.filter((event) => event.kind === "assistant" || event.kind === "response")
+		.map((event) => ({
+			occurredAt: event.occurredAt,
+			text: payloadText(event.payload, "text") ?? "",
+		}))
+		.filter((item) => item.text.trim().length > 0);
+}
+
+export function filePathsFromCaptureEvents(
+	events: CaptureEventInput[]
+): string[] {
+	const paths = events
+		.filter((event) => event.kind === "file_edit")
+		.map((event) => payloadText(event.payload, "path"))
+		.filter((path): path is string => path != null);
+	return [...new Set(paths)];
+}
+
 export function outcomeFromCaptureEvents(
 	events: CaptureEventInput[]
 ): LearningReport["outcome"] {

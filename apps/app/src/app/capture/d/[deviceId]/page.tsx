@@ -31,9 +31,11 @@ export default async function CaptureViewerPage({
 		listDeviceTasks(db, deviceId)
 	);
 	return (
-		<main className="mx-auto grid max-w-3xl gap-4 px-4 py-8">
-			<h1 className="font-semibold text-2xl">Your editor tasks</h1>
-			<p className="text-muted-foreground text-sm">
+		<main className="mx-auto grid max-w-3xl gap-8 px-4 py-10">
+			<h1 className="font-semibold text-3xl tracking-tight">
+				Your editor tasks
+			</h1>
+			<p className="text-muted-foreground">
 				This view is tied to this device. It is not a Mati account. Cursor hooks
 				do not report vendor token counts. Any number below is a labelled
 				text-length estimate and undercounts.

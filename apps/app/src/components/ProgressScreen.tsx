@@ -69,25 +69,26 @@ export function ProgressScreen({ view }: { view: ProgressView }) {
 	const topSuggestion = tasks.find((task) => task.suggestions[0]);
 	const suggestion = topSuggestion?.suggestions[0];
 	return (
-		<main className="mx-auto grid max-w-6xl gap-8 px-4 py-8">
-			<header className="grid gap-2">
+		<main className="mx-auto grid max-w-6xl gap-10 px-4 py-10">
+			<header className="grid gap-3">
 				<p className="font-medium text-muted-foreground text-sm uppercase tracking-wide">
 					How you used AI
 				</p>
 				<h1 className="font-semibold text-4xl tracking-tight">Progress</h1>
-				<p className="max-w-3xl text-muted-foreground text-sm">
+				<p className="max-w-3xl text-muted-foreground">
 					How you used AI, and what to try next. Days use {view.timezone}.
 					Measured totals never mix in estimates. Missing counts are labeled,
 					not shown as zero. This page is not a skill score.
 				</p>
 			</header>
 			<Tabs
+				className="gap-8"
 				onValueChange={(value: string) => setFilter(parseSourceFilter(value))}
 				value={filter}
 			>
 				<TabsList
 					aria-label="Task source"
-					className="flex h-auto w-full flex-wrap justify-start sm:w-fit"
+					className="flex h-auto min-h-10 w-full flex-wrap justify-start sm:w-fit"
 				>
 					<TabsTrigger value="all">All ({originCounts.all})</TabsTrigger>
 					<TabsTrigger value="trainer">
@@ -100,7 +101,7 @@ export function ProgressScreen({ view }: { view: ProgressView }) {
 						Copilot ({originCounts.copilot})
 					</TabsTrigger>
 				</TabsList>
-				<TabsContent className="grid gap-8" value={filter}>
+				<TabsContent className="grid gap-10" value={filter}>
 					<ProgressKpis chart={chart} summary={summary} />
 					{summary.missingTaskCount > 0 ? (
 						<Alert>
@@ -143,9 +144,12 @@ export function ProgressScreen({ view }: { view: ProgressView }) {
 						<>
 							<section
 								aria-labelledby="progress-task-cards"
-								className="grid gap-3"
+								className="grid gap-4"
 							>
-								<h2 className="font-medium text-sm" id="progress-task-cards">
+								<h2
+									className="font-semibold text-lg tracking-tight"
+									id="progress-task-cards"
+								>
 									Latest tasks
 								</h2>
 								<div className="grid gap-4 lg:grid-cols-2">

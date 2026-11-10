@@ -73,7 +73,7 @@ function Delta({ text }: { text: string }) {
 	const rising = text.startsWith("+");
 	const falling = text.startsWith("-");
 	return (
-		<p className="flex items-center gap-1 text-muted-foreground text-xs">
+		<p className="flex items-center gap-1 text-muted-foreground text-sm">
 			{rising ? (
 				<TrendingUp aria-hidden className="size-3.5 text-[var(--chart-2)]" />
 			) : null}
@@ -128,7 +128,7 @@ function KpiCard({
 					<div className="grid grid-cols-3 gap-2">
 						{split.map((part) => (
 							<div key={part.label}>
-								<p className="text-muted-foreground text-xs">{part.label}</p>
+								<p className="text-muted-foreground text-sm">{part.label}</p>
 								<p className="font-semibold text-2xl tabular-nums tracking-tight">
 									{part.value}
 								</p>

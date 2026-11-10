@@ -18,7 +18,7 @@ import { TokenMeter } from "./ProgressTaskCard";
 export function ProgressTaskDetail({ task }: { task: ProgressTask }) {
 	const original = task.prompts[0] ?? task.promptTurns[0]?.text ?? "";
 	return (
-		<main className="mx-auto grid max-w-4xl gap-8 px-4 py-8">
+		<main className="mx-auto grid max-w-4xl gap-10 px-4 py-10">
 			<p className="text-muted-foreground text-sm">
 				<a className="underline-offset-4 hover:underline" href="/progress">
 					Progress
@@ -73,7 +73,7 @@ export function ProgressTaskDetail({ task }: { task: ProgressTask }) {
 									) : null}
 								</div>
 								<div className="grid min-w-0 flex-1 gap-3 rounded-xl border bg-card p-4 shadow-sm">
-									<p className="text-muted-foreground text-xs">
+									<p className="text-muted-foreground text-sm">
 										{turn.occurredAt ?? "time not stored"}
 									</p>
 									<pre className="overflow-x-auto whitespace-pre-wrap rounded-lg bg-muted/60 p-3 font-mono text-sm">
@@ -111,7 +111,7 @@ export function ProgressTaskDetail({ task }: { task: ProgressTask }) {
 							</CardHeader>
 							<CardContent className="grid gap-4 md:grid-cols-2">
 								<div className="grid gap-2 rounded-xl bg-muted/50 p-4">
-									<p className="font-medium text-muted-foreground text-xs uppercase tracking-wide">
+									<p className="font-medium text-muted-foreground text-sm uppercase tracking-wide">
 										Original
 									</p>
 									<pre className="whitespace-pre-wrap font-mono text-sm">
@@ -119,7 +119,7 @@ export function ProgressTaskDetail({ task }: { task: ProgressTask }) {
 									</pre>
 								</div>
 								<div className="grid gap-2 rounded-xl border border-[color-mix(in_oklch,var(--chart-2)_40%,transparent)] bg-card p-4">
-									<p className="font-medium text-muted-foreground text-xs uppercase tracking-wide">
+									<p className="font-medium text-muted-foreground text-sm uppercase tracking-wide">
 										Improved example
 									</p>
 									<pre className="whitespace-pre-wrap font-mono text-sm">

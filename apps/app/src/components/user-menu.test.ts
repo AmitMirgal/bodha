@@ -27,7 +27,7 @@ describe("avatar account menu", () => {
 	});
 
 	it("shows Progress in the header, not Daily progress", () => {
-		expect(nav).toMatch(/>Progress</);
+		expect(nav).toMatch(/label: "Progress"/);
 		expect(nav).not.toMatch(/Daily progress/);
 		expect(nav).not.toMatch(/LLM settings/);
 		expect(progressPage).toMatch(/title: "Progress"/);

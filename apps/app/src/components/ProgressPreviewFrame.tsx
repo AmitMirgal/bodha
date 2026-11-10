@@ -1,6 +1,7 @@
 "use client";
 
 import { type ReactNode, useLayoutEffect } from "react";
+import { AppNav } from "./AppNav";
 
 export function ProgressPreviewFrame({
 	children,
@@ -33,9 +34,10 @@ export function ProgressPreviewFrame({
 			}
 			data-theme={theme}
 		>
-			<p className="border-b bg-muted/60 px-4 py-2 text-center text-muted-foreground text-xs">
+			<p className="border-b bg-muted/60 px-4 py-2 text-center text-muted-foreground text-sm">
 				Fixture preview. Seeded local data only. Not a live account.
 			</p>
+			<AppNav email="learner@example.test" />
 			{children}
 		</div>
 	);

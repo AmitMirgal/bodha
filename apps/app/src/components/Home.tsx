@@ -1,4 +1,5 @@
 import type { ChallengeMeta } from "../lib/types";
+import { MarketingHeader } from "./MarketingHeader";
 
 const STEPS = [
 	[
@@ -19,17 +20,17 @@ const STEPS = [
 	],
 ] as const;
 
-export function MarketingHome({ challenges }: { challenges: ChallengeMeta[] }) {
+export function MarketingHome({
+	challenges,
+	email,
+}: {
+	challenges: ChallengeMeta[];
+	email?: string | null;
+}) {
+	const signedIn = Boolean(email);
 	return (
 		<div className="home">
-			<nav className="home-nav">
-				<div className="logo static">
-					<span>{"//"}</span> Mati
-				</div>
-				<a href="#how">how it works</a>
-				<a href="#rounds">pick a round</a>
-				<a href="/login">Sign in</a>
-			</nav>
+			<MarketingHeader email={email} />
 
 			<section className="hero">
 				<p className="eyebrow">practice reading unfamiliar code</p>
@@ -43,9 +44,15 @@ export function MarketingHome({ challenges }: { challenges: ChallengeMeta[] }) {
 					feature to add, a slow function to fix, and an AI that may or may not
 					be right. Then see how you used it.
 				</p>
-				<a className="btn lime big" href="/login?next=/exercises">
-					Get started
-				</a>
+				{signedIn ? (
+					<a className="btn lime big" href="/exercises">
+						Continue to exercises
+					</a>
+				) : (
+					<a className="btn lime big" href="/login?next=/exercises">
+						Get started
+					</a>
+				)}
 			</section>
 
 			<section className="how" id="how">
@@ -81,7 +88,10 @@ export function MarketingHome({ challenges }: { challenges: ChallengeMeta[] }) {
 								))}
 							</ul>
 							<div className="card-actions">
-								<a className="btn lime" href="/login?next=/exercises">
+								<a
+									className="btn lime"
+									href={signedIn ? "/exercises" : "/login?next=/exercises"}
+								>
 									Start
 								</a>
 							</div>

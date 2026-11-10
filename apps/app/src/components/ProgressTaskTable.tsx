@@ -37,8 +37,11 @@ export function ProgressTaskTable({
 	tasks: ProgressTask[];
 }) {
 	return (
-		<section aria-labelledby="progress-task-table" className="grid gap-3">
-			<h2 className="font-medium text-sm" id="progress-task-table">
+		<section aria-labelledby="progress-task-table" className="grid gap-4">
+			<h2
+				className="font-semibold text-lg tracking-tight"
+				id="progress-task-table"
+			>
 				All tasks
 			</h2>
 			<div className="max-h-[32rem] overflow-auto rounded-xl border bg-card shadow-sm [&_[data-slot=table-container]]:overflow-visible">
@@ -46,11 +49,13 @@ export function ProgressTaskTable({
 					<TableHeader className="sticky top-0 z-10 bg-card">
 						<TableRow>
 							{HEADERS.map((header) => (
-								<TableHead key={header.id}>
+								<TableHead
+									aria-sort={sort === header.id ? "descending" : "none"}
+									key={header.id}
+								>
 									<Button
 										aria-pressed={sort === header.id}
-										aria-sort={sort === header.id ? "descending" : "none"}
-										className="h-8 gap-1 px-1"
+										className="min-h-11 gap-1 px-2"
 										onClick={() => onSort(header.id)}
 										size="sm"
 										variant="ghost"

@@ -15,6 +15,7 @@
 	"activationEvents": [
 		"onStartupFinished"
 	],
+	"icon": "media/icon.png",
 	"main": "./dist/extension.js",
 	"contributes": {
 		"configuration": {
@@ -24,6 +25,13 @@
 					"type": "string",
 					"default": "",
 					"description": "Mati app origin used for capture registration and uploads. Leave empty to use MATI_APP_ORIGIN, a stored origin, or http://127.0.0.1:3000. Trailing slashes are stripped. Changes apply on the next command without reloading."
+				},
+				"mati.idleMinutes": {
+					"type": "number",
+					"default": 30,
+					"minimum": 1,
+					"maximum": 1440,
+					"description": "Start a new Mati task when this many minutes pass with no captured Agent events. Branch and workspace switches also start a new task. Use Mati: New task and Mati: End task to override."
 				}
 			}
 		},
@@ -31,6 +39,18 @@
 			{
 				"command": "mati.capture.consent",
 				"title": "Mati: Start capturing"
+			},
+			{
+				"command": "mati.capture.statusToggle",
+				"title": "Mati: Pause or resume capturing"
+			},
+			{
+				"command": "mati.capture.newTask",
+				"title": "Mati: New task"
+			},
+			{
+				"command": "mati.capture.endTask",
+				"title": "Mati: End task"
 			},
 			{
 				"command": "mati.capture.openReport",

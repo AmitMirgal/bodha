@@ -255,11 +255,12 @@ Copilot hooks are **Preview**. Event names and payloads differ by harness (camel
 
 ### Install / remove
 
-1. First run: consent webview lists scopes, shows a sample payload, requires an explicit Accept.
-2. Create `DeviceIdentity` (UUID + 32-byte token in `SecretStorage`). Register with `POST /api/capture/v1/devices`.
-3. Write hook files and queue directory. Cursor: merge `hooks.json`. VS Code: write `mati.json` and, if OTel is free, file exporter settings.
-4. Command **Mati: Stop capturing** and `deactivate` reverse step 3 only. Token stays until **Mati: Delete my capture data**.
-5. Uninstall path: `deactivate` plus a short uninstall note in the README that leftover `~/.mati` is removed by the delete command or by deleting the folder.
+1. First run **in that workspace**: consent webview lists scopes, shows a sample payload, requires an explicit Accept. Consent is stored in `workspaceState` (`mati.consent.v1`). A workspace that has not accepted must not capture; it gets a status-bar item and a non-intrusive prompt.
+2. Create `DeviceIdentity` (UUID + 32-byte token in `SecretStorage`) once per machine. Register with `POST /api/capture/v1/devices`. Later workspaces reuse the token.
+3. Write hook files, `~/.mati/capture-gate.json` (`capturing: true` only while this workspace is consented and not paused), and the queue directory. Cursor: merge `hooks.json`. VS Code: write `mati.json` and, if OTel is free, file exporter settings.
+4. After consent, opening the workspace auto-starts capture. **Mati: Stop capturing** pauses (persists in `workspaceState` until resume) and uninstalls hooks. **Mati: Start capturing** resumes. `deactivate` turns the gate off so hooks stop enqueueing; it does not clear consent.
+5. Task splits: idle (`mati.idleMinutes`, default 30), git branch change, workspace folder change, plus **Mati: New task** / **Mati: End task**. Splits keep the ingest shape (`editorTaskId` + `session_end`).
+6. Uninstall path: leftover `~/.mati` is removed by **Mati: Delete my capture data** or by deleting the folder.
 
 ## 3. On-device redaction
 

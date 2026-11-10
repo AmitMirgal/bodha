@@ -1,7 +1,5 @@
 #!/usr/bin/env node
-import { appendFileSync, mkdirSync } from "node:fs";
-import { homedir } from "node:os";
-import path from "node:path";
+import { enqueueHookLine } from "./enqueue.mjs";
 
 function reply() {
 	process.stdout.write("{}\n");
@@ -14,10 +12,6 @@ process.stdin.on("data", (chunk) => {
 });
 process.stdin.on("end", () => {
 	try {
-		const queueDir =
-			process.env.MATI_QUEUE_DIR || path.join(homedir(), ".mati", "queue");
-		const deviceId = process.env.MATI_DEVICE_ID || "pending";
-		mkdirSync(queueDir, { recursive: true });
 		let line = raw.trim() || "{}";
 		try {
 			const parsed = JSON.parse(line);
@@ -29,7 +23,7 @@ process.stdin.on("end", () => {
 		} catch {
 			// Keep the raw line. Mapping happens in the extension host.
 		}
-		appendFileSync(path.join(queueDir, `${deviceId}.jsonl`), `${line}\n`);
+		enqueueHookLine(line);
 	} catch {
 		// Observation only. Never block the agent.
 	}

@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, readFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -53,6 +53,11 @@ describe("Cursor hook command to ingest", () => {
 			return;
 		}
 		const queueDir = mkdtempSync(path.join(tmpdir(), "mati-queue-"));
+		const matiHome = mkdtempSync(path.join(tmpdir(), "mati-home-"));
+		writeFileSync(
+			path.join(matiHome, "capture-gate.json"),
+			JSON.stringify({ capturing: true, deviceId: "testdevice" })
+		);
 		const payload = {
 			conversation_id: "conv-hook-1",
 			generation_id: "gen-hook-1",
@@ -65,6 +70,7 @@ describe("Cursor hook command to ingest", () => {
 			input: JSON.stringify(payload),
 			env: {
 				...process.env,
+				MATI_HOME: matiHome,
 				MATI_QUEUE_DIR: queueDir,
 				MATI_DEVICE_ID: "testdevice",
 			},

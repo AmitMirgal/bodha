@@ -21,6 +21,7 @@ import {
 } from "@repo/design-system/components/ui/tabs";
 import { Inbox, Sparkles } from "lucide-react";
 import { useMemo, useState } from "react";
+import type { HabitsView } from "../lib/habits/types";
 import {
 	chartFromTasks,
 	groupTasksByDay,
@@ -36,12 +37,19 @@ import {
 	type SourceFilter,
 } from "../lib/progress/display";
 import type { ProgressView } from "../lib/progress/types";
+import { HabitsPanel } from "./HabitsPanel";
 import { ProgressCharts } from "./ProgressCharts";
 import { ProgressKpis } from "./ProgressKpis";
 import { ProgressTaskCard } from "./ProgressTaskCard";
 import { ProgressTaskTable } from "./ProgressTaskTable";
 
-export function ProgressScreen({ view }: { view: ProgressView }) {
+export function ProgressScreen({
+	habits,
+	view,
+}: {
+	habits: HabitsView;
+	view: ProgressView;
+}) {
 	const [filter, setFilter] = useState<SourceFilter>("all");
 	const [sort, setSort] = useState<SortKey>("date");
 	const filtered = useMemo(
@@ -89,6 +97,7 @@ export function ProgressScreen({ view }: { view: ProgressView }) {
 					not shown as zero. This page is not a skill score.
 				</p>
 			</header>
+			<HabitsPanel habits={habits} />
 			<Tabs
 				className="gap-8"
 				onValueChange={(value: string) => setFilter(parseSourceFilter(value))}

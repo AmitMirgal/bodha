@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { ProgressScreen } from "../../../components/ProgressScreen";
 import { withUserDb } from "../../../lib/db/client";
 import { PROGRESS_TIMEZONE } from "../../../lib/env";
+import { loadHabitsView } from "../../../lib/habits/load";
 import { loadProgressView } from "../../../lib/progress/load";
 import { requireUser } from "../../../lib/supabase/server";
 
@@ -17,8 +18,10 @@ export default async function ProgressPage() {
 	if (!userId) {
 		redirect("/login?next=/progress");
 	}
-	const view = await withUserDb(userId, (db) =>
-		loadProgressView(db, userId, PROGRESS_TIMEZONE)
-	);
-	return <ProgressScreen view={view} />;
+	const { habits, view } = await withUserDb(userId, async (db) => {
+		const progress = await loadProgressView(db, userId, PROGRESS_TIMEZONE);
+		const habitView = await loadHabitsView(db, userId, PROGRESS_TIMEZONE);
+		return { habits: habitView, view: progress };
+	});
+	return <ProgressScreen habits={habits} view={view} />;
 }

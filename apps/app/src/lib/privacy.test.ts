@@ -75,6 +75,30 @@ describe("privacy regressions", () => {
 		expect(ingest).not.toMatch(/withAnonDb/);
 	});
 
+	it("keeps the public leaderboard free of prompts, emails, and task titles", () => {
+		const sql = readFileSync(
+			new URL(
+				"../../prisma/migrations/20261113070000_gamification_v1/migration.sql",
+				import.meta.url
+			),
+			"utf8"
+		);
+		const fn = sql.slice(sql.indexOf("mati_leaderboard_week"));
+		expect(fn).toMatch(/display_name/);
+		expect(fn).toMatch(/opted_in/);
+		expect(fn).not.toMatch(/payload/);
+		expect(fn).not.toMatch(/email/);
+		expect(fn).not.toMatch(/workspace_hash/);
+		expect(fn).not.toMatch(/capture_events/);
+		const screen = readFileSync(
+			new URL("../components/LeaderboardScreen.tsx", import.meta.url),
+			"utf8"
+		);
+		expect(screen).toMatch(/Monday 00:00 UTC/);
+		expect(screen).not.toMatch(/promptTurns/);
+		expect(screen).not.toMatch(/exerciseId/);
+	});
+
 	it("keeps llm-settings GET on the ciphertext-free status path", () => {
 		const source = readFileSync(
 			new URL("../app/api/llm-settings/route.ts", import.meta.url),

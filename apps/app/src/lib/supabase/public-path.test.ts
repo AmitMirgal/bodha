@@ -7,6 +7,7 @@ describe("isPublicPath", () => {
 		expect(isPublicPath("/login")).toBe(true);
 		expect(isPublicPath("/dev/exercises-preview")).toBe(true);
 		expect(isPublicPath("/progress")).toBe(false);
+		expect(isPublicPath("/leaderboard")).toBe(false);
 		expect(isPublicPath("/settings")).toBe(false);
 		expect(isPublicPath("/exercises")).toBe(false);
 		expect(isPublicPath("/session/abc")).toBe(false);

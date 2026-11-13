@@ -9,6 +9,7 @@ import { Input } from "@repo/design-system/components/ui/input";
 import { Label } from "@repo/design-system/components/ui/label";
 import { CaptureSettingsForm } from "./CaptureSettingsForm";
 import { CursorAdminSettingsForm } from "./CursorAdminSettingsForm";
+import { LeaderboardSettingsForm } from "./LeaderboardSettingsForm";
 import { LlmSettingsForm } from "./LlmSettingsForm";
 import { ThemeSwitcher } from "./ThemeSwitcher";
 
@@ -39,6 +40,7 @@ export function SettingsScreen({ email }: { email: string }) {
 					<ThemeSwitcher />
 				</CardContent>
 			</Card>
+			<LeaderboardSettingsForm />
 			<CaptureSettingsForm />
 			<CursorAdminSettingsForm />
 			<LlmSettingsForm />

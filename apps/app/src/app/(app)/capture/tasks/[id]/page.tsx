@@ -3,6 +3,11 @@ import { notFound, redirect } from "next/navigation";
 import { ProgressTaskDetail } from "../../../../../components/ProgressTaskDetail";
 import { withUserDb } from "../../../../../lib/db/client";
 import { asInt, iso, isoRequired } from "../../../../../lib/db/rows";
+import { PROGRESS_TIMEZONE } from "../../../../../lib/env";
+import {
+	recordCaptureReportOpen,
+	syncHabits,
+} from "../../../../../lib/habits/load";
 import { taskFromEditor } from "../../../../../lib/progress/view";
 import { requireUser } from "../../../../../lib/supabase/server";
 
@@ -34,6 +39,8 @@ export default async function CaptureTaskPage({
 		if (!task) {
 			return null;
 		}
+		await recordCaptureReportOpen(db, userId, task.id);
+		await syncHabits(db, userId, PROGRESS_TIMEZONE);
 		const events = task.events.map((event) => ({
 			id: event.id,
 			kind: event.kind,

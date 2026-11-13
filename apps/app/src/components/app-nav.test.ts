@@ -13,10 +13,11 @@ const safeNext = readFileSync(
 );
 
 describe("signed-in app navigation", () => {
-	it("uses shadcn NavigationMenu for Exercises and Progress", () => {
+	it("uses shadcn NavigationMenu for Exercises, Progress, and Leaderboard", () => {
 		expect(nav).toMatch(/NavigationMenu/);
 		expect(nav).toMatch(/Exercises/);
 		expect(nav).toMatch(/Progress/);
+		expect(nav).toMatch(/Leaderboard/);
 		expect(nav).toMatch(/aria-current=\{active \? "page"/);
 		expect(nav).toMatch(/Open menu/);
 	});

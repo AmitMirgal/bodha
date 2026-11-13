@@ -1,6 +1,8 @@
+import { HabitsPanel } from "../../../components/HabitsPanel";
 import { ProgressPreviewFrame } from "../../../components/ProgressPreviewFrame";
 import { ProgressScreen } from "../../../components/ProgressScreen";
 import { ProgressSkeleton } from "../../../components/ProgressSkeleton";
+import { emptyHabitsView, seededHabitsView } from "../../../lib/habits/fixture";
 import {
 	emptyProgressView,
 	seededProgressView,
@@ -30,13 +32,28 @@ export default async function ProgressPreviewPage({
 	if (view === "empty") {
 		return (
 			<ProgressPreviewFrame theme={theme}>
-				<ProgressScreen view={emptyProgressView()} />
+				<ProgressScreen habits={emptyHabitsView()} view={emptyProgressView()} />
+			</ProgressPreviewFrame>
+		);
+	}
+	if (view === "habits") {
+		return (
+			<ProgressPreviewFrame theme={theme}>
+				<main className="mx-auto grid max-w-6xl gap-10 px-4 py-10">
+					<header className="grid gap-3">
+						<p className="font-medium text-muted-foreground text-sm uppercase tracking-wide">
+							How you used AI
+						</p>
+						<h1 className="font-semibold text-4xl tracking-tight">Progress</h1>
+					</header>
+					<HabitsPanel habits={seededHabitsView()} />
+				</main>
 			</ProgressPreviewFrame>
 		);
 	}
 	return (
 		<ProgressPreviewFrame theme={theme}>
-			<ProgressScreen view={seededProgressView()} />
+			<ProgressScreen habits={seededHabitsView()} view={seededProgressView()} />
 		</ProgressPreviewFrame>
 	);
 }

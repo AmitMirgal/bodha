@@ -26,6 +26,7 @@ import { UserMenu } from "./UserMenu";
 export const APP_NAV_LINKS = [
 	{ href: "/exercises", label: "Exercises" },
 	{ href: "/progress", label: "Progress" },
+	{ href: "/leaderboard", label: "Leaderboard" },
 ] as const;
 
 function pathActive(pathname: string, href: string): boolean {
@@ -38,6 +39,9 @@ function pathActive(pathname: string, href: string): boolean {
 			pathname.startsWith("/progress/") ||
 			pathname.startsWith("/capture/tasks/")
 		);
+	}
+	if (href === "/leaderboard") {
+		return pathname === "/leaderboard" || pathname.startsWith("/leaderboard/");
 	}
 	return pathname === href;
 }

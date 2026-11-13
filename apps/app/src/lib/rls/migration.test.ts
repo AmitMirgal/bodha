@@ -42,6 +42,7 @@ describe("Mati Prisma Migrate source of truth", () => {
 			"20261110140000_capture_roles_without_auth_schema"
 		);
 		expect(names).toContain("20261110180000_device_claim_and_capture_reports");
+		expect(names).toContain("20261113070000_gamification_v1");
 		expect(
 			existsSync(
 				new URL(
@@ -199,6 +200,34 @@ describe("Mati Prisma Migrate source of truth", () => {
 		)?.[0];
 		expect(claimFn).toMatch(/auth\.uid\(\)/);
 		expect(claimFn).toMatch(/consumed_at/);
+	});
+
+	it("adds report opens, habit awards, and an opt-in leaderboard function", () => {
+		expect(allSql).toMatch(/CREATE TABLE "capture_report_opens"/);
+		expect(allSql).toMatch(/CREATE TABLE "leaderboard_profiles"/);
+		expect(allSql).toMatch(/CREATE TABLE "habit_awards"/);
+		expect(allSql).toMatch(/force row level security/i);
+		expect(allSql).toMatch(/mati_leaderboard_week/);
+		expect(allSql).toMatch(
+			/GRANT EXECUTE ON FUNCTION public\.mati_leaderboard_week\(date, integer\) TO authenticated/
+		);
+		expect(allSql).not.toMatch(
+			/GRANT EXECUTE ON FUNCTION public\.mati_leaderboard_week\(date, integer\) TO device/
+		);
+		expect(allSql).not.toMatch(
+			/grant .* on public\.capture_report_opens to anon/i
+		);
+		expect(allSql).not.toMatch(
+			/grant .* on public\.leaderboard_profiles to anon/i
+		);
+		expect(allSql).not.toMatch(/grant .* on public\.habit_awards to anon/i);
+		const boardFn = allSql.match(
+			/CREATE OR REPLACE FUNCTION public\.mati_leaderboard_week\([\s\S]*?\$\$;/i
+		)?.[0];
+		expect(boardFn).toMatch(/auth\.uid\(\)/);
+		expect(boardFn).not.toMatch(/prompt/);
+		expect(boardFn).not.toMatch(/email/);
+		expect(boardFn).not.toMatch(/payload/);
 	});
 
 	it("points prisma.config.ts at DIRECT_URL and Prisma migrations", () => {

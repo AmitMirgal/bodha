@@ -27,6 +27,7 @@ import {
 } from "@repo/design-system/components/ui/table";
 import { Medal, Users } from "lucide-react";
 import type { LeaderboardRow, LeaderboardView } from "../lib/habits/types";
+import { GamificationMigrationNotice } from "./GamificationMigrationNotice";
 import { HabitBadgeRow } from "./HabitBadgeChip";
 
 function RankMarker({ rank }: { rank: number }) {
@@ -132,6 +133,7 @@ export function LeaderboardScreen({ view }: { view: LeaderboardView }) {
 					Monday 00:00 UTC. Only opted-in display names and points are public.
 				</p>
 			</header>
+			{view.migrationRequired ? <GamificationMigrationNotice /> : null}
 			{view.optedIn ? null : (
 				<Card className="border-dashed">
 					<CardHeader>

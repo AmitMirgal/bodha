@@ -5,17 +5,35 @@ import {
 	loadLeaderboardSettings,
 	saveLeaderboardSettings,
 } from "../../../../lib/habits/load";
+import {
+	GamificationMigrationRequiredError,
+	isMissingGamificationSchema,
+} from "../../../../lib/habits/schema";
 import { requireUser } from "../../../../lib/supabase/server";
+
+function migrationResponse() {
+	return NextResponse.json(
+		{ error: new GamificationMigrationRequiredError().message },
+		{ status: 503 }
+	);
+}
 
 export async function GET() {
 	const { userId } = await requireUser();
 	if (!userId) {
 		return NextResponse.json({ error: "Sign in required." }, { status: 401 });
 	}
-	const settings = await withUserDb(userId, (db) =>
-		loadLeaderboardSettings(db, userId)
-	);
-	return NextResponse.json(settings);
+	try {
+		const settings = await withUserDb(userId, (db) =>
+			loadLeaderboardSettings(db, userId)
+		);
+		return NextResponse.json(settings);
+	} catch (error) {
+		if (!isMissingGamificationSchema(error)) {
+			throw error;
+		}
+		return migrationResponse();
+	}
 }
 
 export async function PUT(request: Request) {
@@ -48,8 +66,15 @@ export async function PUT(request: Request) {
 			displayName = parsed.name;
 		}
 	}
-	const settings = await withUserDb(userId, (db) =>
-		saveLeaderboardSettings(db, userId, { displayName, optedIn })
-	);
-	return NextResponse.json(settings);
+	try {
+		const settings = await withUserDb(userId, (db) =>
+			saveLeaderboardSettings(db, userId, { displayName, optedIn })
+		);
+		return NextResponse.json(settings);
+	} catch (error) {
+		if (!isMissingGamificationSchema(error)) {
+			throw error;
+		}
+		return migrationResponse();
+	}
 }

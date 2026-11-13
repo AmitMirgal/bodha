@@ -4,6 +4,10 @@ import {
 	dayActivityLabel,
 	WEEKDAY_LABELS,
 } from "./contribution";
+import {
+	GAMIFICATION_MIGRATE_COMMAND,
+	GAMIFICATION_MIGRATION_MESSAGE,
+} from "./copy";
 import type {
 	ActivityLevel,
 	BadgeId,
@@ -13,6 +17,13 @@ import type {
 	LeaderboardView,
 } from "./types";
 import { STREAK_CALENDAR_WEEKS } from "./types";
+
+function migrationNotice(required: boolean): string {
+	if (!required) {
+		return "";
+	}
+	return `<section class="notice"><h2>Database migration required</h2><p class="muted">${escapeHtml(GAMIFICATION_MIGRATION_MESSAGE)} An operator must run <code>${escapeHtml(GAMIFICATION_MIGRATE_COMMAND)}</code>. Do not prisma db push.</p></section>`;
+}
 
 function escapeHtml(value: string): string {
 	return value
@@ -122,18 +133,22 @@ h3 { font-size: 0.875rem; font-weight: 600; }
 .chips { display: flex; flex-wrap: wrap; gap: 0.35rem; margin: 0; padding: 0; list-style: none; }
 .inline { color: ${vars.muted}; font-size: 0.875rem; }
 .inline b { color: ${vars.color}; font-weight: 600; font-variant-numeric: tabular-nums; }
-.contrib { overflow-x: auto; width: max-content; max-width: 100%; }
-.contrib table { border-collapse: separate; border-spacing: 3px; }
+.contrib { overflow-x: auto; width: 100%; }
+.contrib-inner { min-width: calc(${STREAK_CALENDAR_WEEKS} * 14px + 2.5rem); width: 100%; }
+.contrib table { width: 100%; table-layout: fixed; border-collapse: separate; border-spacing: 3px; }
 .contrib th, .contrib td { padding: 0; }
-.contrib .month { font-size: 10px; color: ${vars.muted}; font-weight: 400; text-align: left; height: 14px; }
+.contrib .month { font-size: 10px; color: ${vars.muted}; font-weight: 400; text-align: left; height: 14px; overflow: hidden; }
 .contrib .wd { font-size: 10px; color: ${vars.muted}; font-weight: 400; text-align: right; padding-right: 4px; width: 1.75rem; }
-.cell { display: block; width: 11px; height: 11px; border-radius: 2px; }
+.cell { display: block; width: 100%; min-width: 11px; aspect-ratio: 1 / 1; height: auto; border-radius: 2px; }
+.legend .cell { width: 11px; min-width: 11px; height: 11px; flex: 0 0 11px; aspect-ratio: auto; }
 .lvl-0 { background: ${vars.lvl0}; }
 .lvl-1 { background: ${vars.lvl1}; }
 .lvl-2 { background: ${vars.lvl2}; }
 .lvl-3 { background: ${vars.lvl3}; }
 .lvl-4 { background: ${vars.lvl4}; }
 .legend { display: flex; align-items: center; justify-content: flex-end; gap: 4px; font-size: 10px; color: ${vars.muted}; }
+.notice { border: 1px solid ${vars.border}; border-radius: 0.75rem; padding: 0.85rem 1rem; display: grid; gap: 0.35rem; }
+.notice code { font-size: 0.75rem; }
 .badge-grid { margin: 0; padding: 0; list-style: none; display: grid; gap: 0.5rem; grid-template-columns: repeat(auto-fill, minmax(13.5rem, 1fr)); }
 .badge-card { display: flex; align-items: center; gap: 0.4rem; border: 1px solid ${vars.border}; background: ${vars.card}; border-radius: 0.5rem; padding: 0.4rem 0.55rem; font-size: 0.8125rem; }
 .badge-card.locked { background: transparent; border-style: dashed; color: ${vars.muted}; }
@@ -273,13 +288,13 @@ function contributionTable(calendar: CalendarDay[]): string {
 			.join("");
 		return `<tr><th class="wd" scope="row">${label}</th>${cells}</tr>`;
 	}).join("");
-	return `<div class="contrib"><table>
+	return `<div class="contrib"><div class="contrib-inner"><table>
 <caption class="sr-only">Contribution graph of qualifying report opens over the last ${STREAK_CALENDAR_WEEKS} weeks</caption>
 <thead><tr><td></td>${monthRow}</tr></thead>
 <tbody>${body}</tbody>
 </table>
 <p class="legend"><span>Less</span><span class="cell lvl-0" aria-hidden="true"></span><span class="cell lvl-1" aria-hidden="true"></span><span class="cell lvl-2" aria-hidden="true"></span><span class="cell lvl-3" aria-hidden="true"></span><span class="cell lvl-4" aria-hidden="true"></span><span>More</span></p>
-</div>`;
+</div></div>`;
 }
 
 function boardTable(rows: LeaderboardRow[], caption: string): string {
@@ -336,6 +351,7 @@ export function habitsDocument(
 <p class="inline"><b>${view.currentStreak}</b> current ${currentWord} · <b>${view.bestStreak}</b> best · <b>${view.weekPoints}</b> pts this week</p>
 </div>
 <p class="lede">A day counts when you open the report for a completed captured editor task (${escapeHtml(view.timezone)}). Missed days break the run. Weekly points reset Monday 00:00 UTC.</p>
+${migrationNotice(view.migrationRequired)}
 ${contributionTable(view.calendar)}
 <div class="columns">
 <section class="stack"><h3>Skill badges</h3><ul class="badge-grid">${badges}</ul></section>
@@ -373,6 +389,7 @@ export function leaderboardDocument(
 <div class="heading"><h1>Leaderboard</h1>${view.exampleData ? '<span class="badge">Example data</span>' : ""}</div>
 <p class="lede">Weekly habit points from badges, quests, and streak days. Resets Monday 00:00 UTC. Only opted-in display names and points are public.</p>
 </header>
+${migrationNotice(view.migrationRequired)}
 ${optIn}
 ${board}
 </main>`;

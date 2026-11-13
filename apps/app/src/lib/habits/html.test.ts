@@ -1,6 +1,7 @@
 import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
+import { GAMIFICATION_MIGRATE_COMMAND } from "./copy";
 import {
 	emptyHabitsView,
 	emptyLeaderboardView,
@@ -9,6 +10,8 @@ import {
 	seededLeaderboardView,
 } from "./fixture";
 import { habitsDocument, leaderboardDocument } from "./html";
+import { unavailableLeaderboardView } from "./schema";
+import { STREAK_CALENDAR_WEEKS } from "./types";
 
 const ARTIFACTS = "/opt/cursor/artifacts";
 
@@ -71,6 +74,8 @@ describe("habits documents", () => {
 		expect(habits).toContain("Heuristic");
 		expect(habits).toContain("Monday 00:00 UTC");
 		expect(habits).toContain("badge-grid");
+		expect(habits).toContain(`last ${STREAK_CALENDAR_WEEKS} weeks`);
+		expect(habits).not.toContain("Database migration required");
 		expect(habits).toContain(">First close</a>");
 		expect(habits).not.toContain("Open earning task");
 		expect(habits).not.toContain("Open the task that earned this");
@@ -112,11 +117,27 @@ describe("habits documents", () => {
 		);
 		expect(outside).toContain("Your rank this week");
 		expect(outside).toContain("Rank 1, gold");
+		const missing = leaderboardDocument(
+			unavailableLeaderboardView("2026-11-13T18:00:00.000Z"),
+			"Leaderboard migration"
+		);
+		expect(missing).toContain("Database migration required");
+		expect(missing).toContain(GAMIFICATION_MIGRATE_COMMAND);
+		expect(missing).toContain("Do not prisma db push");
 		writeDoc("progress-habits-seeded", habits);
 		writeDoc("progress-habits-seeded-dark", habitsDark);
 		writeDoc("progress-habits-empty", empty);
 		writeDoc("leaderboard-seeded", board);
 		writeDoc("leaderboard-seeded-dark", boardDark);
+		writeDoc("leaderboard-empty", emptyBoard);
+		writeDoc(
+			"leaderboard-empty-dark",
+			leaderboardDocument(
+				emptyLeaderboardView(),
+				"Leaderboard empty dark",
+				"dark"
+			)
+		);
 	});
 
 	it("screenshots habits HTML when Chrome is installed", () => {
@@ -133,9 +154,11 @@ describe("habits documents", () => {
 			"progress-habits-seeded-dark",
 			"leaderboard-seeded",
 			"leaderboard-seeded-dark",
+			"leaderboard-empty",
+			"leaderboard-empty-dark",
 		]) {
 			screenshot(name, `${ARTIFACTS}/${name}.html`);
 			expect(existsSync(`${ARTIFACTS}/${name}.png`)).toBe(true);
 		}
-	}, 30_000);
+	}, 60_000);
 });

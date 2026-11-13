@@ -4,6 +4,10 @@ import { LeaderboardScreen } from "../../../components/LeaderboardScreen";
 import { withUserDb } from "../../../lib/db/client";
 import { PROGRESS_TIMEZONE } from "../../../lib/env";
 import { loadLeaderboardView } from "../../../lib/habits/load";
+import {
+	isMissingGamificationSchema,
+	unavailableLeaderboardView,
+} from "../../../lib/habits/schema";
 import { requireUser } from "../../../lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -17,8 +21,15 @@ export default async function LeaderboardPage() {
 	if (!userId) {
 		redirect("/login?next=/leaderboard");
 	}
-	const view = await withUserDb(userId, (db) =>
-		loadLeaderboardView(db, userId, PROGRESS_TIMEZONE)
-	);
-	return <LeaderboardScreen view={view} />;
+	try {
+		const view = await withUserDb(userId, (db) =>
+			loadLeaderboardView(db, userId, PROGRESS_TIMEZONE)
+		);
+		return <LeaderboardScreen view={view} />;
+	} catch (error) {
+		if (!isMissingGamificationSchema(error)) {
+			throw error;
+		}
+		return <LeaderboardScreen view={unavailableLeaderboardView()} />;
+	}
 }

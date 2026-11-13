@@ -34,7 +34,12 @@ function levelClass(level: ActivityLevel): string {
 
 function DayCell({ day }: { day: CalendarDay }) {
 	if (!day.inRange) {
-		return <span aria-hidden className="block size-[11px] rounded-[2px]" />;
+		return (
+			<span
+				aria-hidden
+				className="block aspect-square min-h-[11px] w-full min-w-[11px] rounded-[2px]"
+			/>
+		);
 	}
 	const label = dayActivityLabel(day) ?? day.date;
 	return (
@@ -42,7 +47,7 @@ function DayCell({ day }: { day: CalendarDay }) {
 			<TooltipTrigger asChild>
 				<button
 					aria-label={label}
-					className={`block size-[11px] appearance-none rounded-[2px] border-0 p-0 ${levelClass(day.level)}`}
+					className={`block aspect-square min-h-[11px] w-full min-w-[11px] appearance-none rounded-[2px] border-0 p-0 ${levelClass(day.level)}`}
 					title={label}
 					type="button"
 				/>
@@ -56,27 +61,34 @@ function LegendSwatch({ level }: { level: ActivityLevel }) {
 	return (
 		<span
 			aria-hidden
-			className={`block size-[11px] rounded-[2px] ${levelClass(level)}`}
+			className={`block size-[11px] shrink-0 rounded-[2px] ${levelClass(level)}`}
 		/>
 	);
 }
 
 export function StreakGraph({ calendar }: { calendar: CalendarDay[] }) {
 	const { months, weeks } = contributionGrid(calendar);
+	const minWidth = weeks.length * 14 + 40;
 	return (
-		<div className="overflow-x-auto">
-			<div className="grid w-max gap-2">
-				<table className="border-separate border-spacing-[3px]">
+		<div className="w-full overflow-x-auto">
+			<div className="grid w-full gap-2" style={{ minWidth }}>
+				<table className="w-full table-fixed border-separate border-spacing-[3px]">
 					<caption className="sr-only">
 						Contribution graph of qualifying report opens over the last{" "}
 						{STREAK_CALENDAR_WEEKS} weeks
 					</caption>
+					<colgroup>
+						<col className="w-7" />
+						{weeks.map((week) => (
+							<col key={week[0]?.date ?? "empty"} />
+						))}
+					</colgroup>
 					<thead>
 						<tr>
 							<td />
 							{months.map((month) => (
 								<th
-									className="h-4 px-0 text-left font-normal text-[10px] text-muted-foreground"
+									className="h-4 overflow-hidden px-0 text-left font-normal text-[10px] text-muted-foreground"
 									colSpan={month.colSpan}
 									key={`${month.label}-${month.weekIndex}`}
 									scope="colgroup"

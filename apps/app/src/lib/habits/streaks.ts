@@ -1,23 +1,45 @@
 import { dayBucket } from "../progress/aggregate";
+import { activityLevel, mondayOnOrBefore } from "./contribution";
 import { isQualifyingStreakTask } from "./tasks";
-import type { HabitTask, StreakResult } from "./types";
-import { STREAK_CALENDAR_DAYS } from "./types";
-import { civilDaysBack, nextCivilDay, previousCivilDay } from "./week";
+import type { HabitTask, StreakDay, StreakResult } from "./types";
+import { STREAK_CALENDAR_DAYS, STREAK_CALENDAR_WEEKS } from "./types";
+import {
+	addCivilDays,
+	civilDaysForward,
+	nextCivilDay,
+	previousCivilDay,
+} from "./week";
 
 export function qualifyingDays(
 	tasks: HabitTask[],
 	timezone: string
-): Map<string, { openedAt: string; taskId: string }> {
-	const days = new Map<string, { openedAt: string; taskId: string }>();
+): Map<string, StreakDay> {
+	const days = new Map<string, StreakDay>();
 	for (const task of tasks) {
 		if (!(isQualifyingStreakTask(task) && task.reportOpenedAt)) {
 			continue;
 		}
 		const day = dayBucket(task.reportOpenedAt, timezone);
 		const existing = days.get(day);
-		if (!existing || task.reportOpenedAt < existing.openedAt) {
-			days.set(day, { openedAt: task.reportOpenedAt, taskId: task.id });
+		if (!existing) {
+			days.set(day, {
+				count: 1,
+				openedAt: task.reportOpenedAt,
+				taskId: task.id,
+			});
+			continue;
 		}
+		const openedAt =
+			task.reportOpenedAt < existing.openedAt
+				? task.reportOpenedAt
+				: existing.openedAt;
+		const taskId =
+			task.reportOpenedAt < existing.openedAt ? task.id : existing.taskId;
+		days.set(day, {
+			count: existing.count + 1,
+			openedAt,
+			taskId,
+		});
 	}
 	return days;
 }
@@ -48,6 +70,12 @@ function bestRun(sortedDays: string[]): number {
 	return best;
 }
 
+function calendarRange(today: string): string[] {
+	const thisMonday = mondayOnOrBefore(today);
+	const start = addCivilDays(thisMonday, -7 * (STREAK_CALENDAR_WEEKS - 1));
+	return civilDaysForward(start, STREAK_CALENDAR_DAYS);
+}
+
 export function computeStreak(
 	tasks: HabitTask[],
 	timezone: string,
@@ -69,11 +97,19 @@ export function computeStreak(
 	}
 	return {
 		best: bestRun([...daySet].sort()),
-		calendar: civilDaysBack(today, STREAK_CALENDAR_DAYS).map((date) => ({
-			date,
-			qualified: daySet.has(date),
-			taskId: qualified.get(date)?.taskId ?? null,
-		})),
+		calendar: calendarRange(today).map((date) => {
+			const match = qualified.get(date);
+			const inRange = date <= today;
+			const count = inRange ? (match?.count ?? 0) : 0;
+			return {
+				count,
+				date,
+				inRange,
+				level: inRange ? activityLevel(count) : 0,
+				qualified: inRange && count > 0,
+				taskId: match?.taskId ?? null,
+			};
+		}),
 		current,
 		days,
 	};

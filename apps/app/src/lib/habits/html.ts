@@ -1,10 +1,18 @@
 import { badgeCatalogEntry, isBadgeId } from "./catalog";
+import {
+	contributionGrid,
+	dayActivityLabel,
+	WEEKDAY_LABELS,
+} from "./contribution";
 import type {
+	ActivityLevel,
 	BadgeId,
+	CalendarDay,
 	HabitsView,
 	LeaderboardRow,
 	LeaderboardView,
 } from "./types";
+import { STREAK_CALENDAR_WEEKS } from "./types";
 
 function escapeHtml(value: string): string {
 	return value
@@ -26,6 +34,11 @@ function themeVars(theme: "light" | "dark") {
 			card: "#17171a",
 			color: "#f4f4f5",
 			fill: "#c6ff3d",
+			lvl0: "#2a2a31",
+			lvl1: "#4a5a24",
+			lvl2: "#7a962e",
+			lvl3: "#a8c936",
+			lvl4: "#c6ff3d",
 			muted: "#a1a1aa",
 			nav: "#0d0d0f",
 			secondary: "#1d1d24",
@@ -41,6 +54,11 @@ function themeVars(theme: "light" | "dark") {
 		card: "#fff",
 		color: "#0d0d0f",
 		fill: "#3f5a00",
+		lvl0: "#e7e5dc",
+		lvl1: "#c5d39a",
+		lvl2: "#8fa45a",
+		lvl3: "#627a26",
+		lvl4: "#3f5a00",
 		muted: "#5c5c68",
 		nav: "#f2f0e8",
 		secondary: "#e7e5dc",
@@ -85,38 +103,48 @@ body { margin: 0; background: ${vars.background}; color: ${vars.color}; font-fam
 .app-nav nav a.active { background: ${vars.secondary}; font-weight: 600; }
 .logo { font-weight: 600; text-decoration: none; color: inherit; }
 .avatar { width: 2.25rem; height: 2.25rem; border-radius: 9999px; border: 0; background: ${vars.avatar}; color: ${vars.avatarFg}; font-size: 0.75rem; font-weight: 600; }
-main { max-width: 72rem; margin: 0 auto; padding: 2.5rem 1rem; display: grid; gap: 1.5rem; }
+main { max-width: 72rem; margin: 0 auto; padding: 2.5rem 1rem; display: grid; gap: 1.25rem; }
 h1 { font-size: 2.25rem; margin: 0; letter-spacing: -0.03em; }
 h2, h3 { margin: 0; }
 h2 { font-size: 1.125rem; }
-h3 { font-size: 1rem; }
+h3 { font-size: 0.875rem; font-weight: 600; }
 .eyebrow { color: ${vars.muted}; font-size: 0.875rem; font-weight: 500; letter-spacing: 0.04em; text-transform: uppercase; }
 .muted { color: ${vars.muted}; font-size: 0.875rem; }
 .lede { color: ${vars.muted}; font-size: 0.875rem; max-width: 48rem; }
 .banner { background: ${vars.secondary}; border-bottom: 1px solid ${vars.border}; padding: 0.5rem 1rem; text-align: center; font-size: 0.875rem; color: ${vars.muted}; }
-.card { background: ${vars.card}; border: 1px solid ${vars.border}; border-radius: 0.75rem; padding: 1.25rem 1.5rem; display: grid; gap: 0.75rem; box-shadow: 0 1px 2px rgb(0 0 0 / 0.04); }
-.you { outline: 2px solid ${vars.accent}; outline-offset: 0; }
-.stat { font-size: 1.75rem; font-weight: 600; margin: 0; font-variant-numeric: tabular-nums; }
-.stack { display: grid; gap: 0.75rem; }
-.kpis, .podium, .card-grid { display: grid; gap: 0.75rem; }
-.kpis { grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); }
-.podium { grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); }
-.card-grid { grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); }
-.row { display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
-.heading { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
+.card { background: ${vars.card}; border: 1px solid ${vars.border}; border-radius: 0.75rem; padding: 1rem 1.25rem; display: grid; gap: 0.5rem; }
+.you { background: color-mix(in srgb, ${vars.secondary} 70%, ${vars.card}); }
+.stack { display: grid; gap: 0.5rem; }
+.heading { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.5rem 0.75rem; }
 .badge { border: 1px solid ${vars.border}; border-radius: 9999px; padding: 0.1rem 0.55rem; font-size: 0.75rem; }
 .chip { display: inline-flex; align-items: center; gap: 0.25rem; border: 1px solid ${vars.border}; background: ${vars.secondary}; border-radius: 9999px; padding: 0.15rem 0.5rem; font-size: 0.75rem; }
 .chips { display: flex; flex-wrap: wrap; gap: 0.35rem; margin: 0; padding: 0; list-style: none; }
-.icon { width: 2.25rem; height: 2.25rem; border-radius: 0.5rem; display: inline-flex; align-items: center; justify-content: center; background: color-mix(in srgb, ${vars.accent} 16%, transparent); color: ${vars.accent}; font-weight: 700; }
-.rank { width: 2.5rem; height: 2.5rem; border-radius: 0.5rem; display: inline-flex; align-items: center; justify-content: center; font-weight: 600; background: ${vars.secondary}; }
-.rank.one { background: ${vars.accent}; color: ${vars.accentFg}; }
-.heat { display: grid; grid-template-columns: repeat(7, 1fr); gap: 0.35rem; max-width: 20rem; }
-.heat span { aspect-ratio: 1; border-radius: 0.25rem; border: 1px solid ${vars.border}; background: ${vars.secondary}; }
-.heat span.on { background: ${vars.fill}; border-color: ${vars.fill}; }
-table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
-th, td { text-align: left; padding: 0.75rem; border-bottom: 1px solid ${vars.border}; }
+.inline { color: ${vars.muted}; font-size: 0.875rem; }
+.inline b { color: ${vars.color}; font-weight: 600; font-variant-numeric: tabular-nums; }
+.contrib { overflow-x: auto; width: max-content; max-width: 100%; }
+.contrib table { border-collapse: separate; border-spacing: 3px; }
+.contrib th, .contrib td { padding: 0; }
+.contrib .month { font-size: 10px; color: ${vars.muted}; font-weight: 400; text-align: left; height: 14px; }
+.contrib .wd { font-size: 10px; color: ${vars.muted}; font-weight: 400; text-align: right; padding-right: 4px; width: 1.75rem; }
+.cell { display: block; width: 11px; height: 11px; border-radius: 2px; }
+.lvl-0 { background: ${vars.lvl0}; }
+.lvl-1 { background: ${vars.lvl1}; }
+.lvl-2 { background: ${vars.lvl2}; }
+.lvl-3 { background: ${vars.lvl3}; }
+.lvl-4 { background: ${vars.lvl4}; }
+.legend { display: flex; align-items: center; justify-content: flex-end; gap: 4px; font-size: 10px; color: ${vars.muted}; }
+.list { margin: 0; padding: 0; list-style: none; border-top: 1px solid ${vars.border}; border-bottom: 1px solid ${vars.border}; }
+.list li { display: grid; gap: 0.15rem; padding: 0.5rem 0; border-bottom: 1px solid ${vars.border}; }
+.list li:last-child { border-bottom: 0; }
+.bests { margin: 0; padding: 0; list-style: none; display: grid; gap: 0.35rem; font-size: 0.875rem; }
+.bests li { display: flex; justify-content: space-between; gap: 0.75rem; }
+.columns { display: grid; gap: 1.25rem; grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); }
+table.board { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
+table.board th, table.board td { text-align: left; padding: 0.7rem 0.75rem; border-bottom: 1px solid ${vars.border}; }
+.rank { display: inline-flex; align-items: center; gap: 0.35rem; font-variant-numeric: tabular-nums; }
 a { color: inherit; }
 .empty { border-style: dashed; text-align: center; padding: 3rem 1.5rem; }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 </style>
 </head>
 <body>
@@ -178,29 +206,88 @@ function badgeChips(ids: string[]): string {
 		.join("")}</ul>`;
 }
 
-function podiumPlace(rank: number): string {
+function medalSvg(): string {
+	return '<svg aria-hidden="true" fill="none" height="12" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24" width="12"><path d="M7.21 15 2.66 7.14a2 2 0 0 1 .13-2.2L4.4 2.8A2 2 0 0 1 6 2h12a2 2 0 0 1 1.6.8l1.6 2.14a2 2 0 0 1 .14 2.2L16.79 15"/><path d="M11 12 5.12 2.2"/><path d="m13 12 5.88-9.8"/><path d="M8 7h8"/><circle cx="12" cy="17" r="5"/><path d="M12 18v-2h-.5"/></svg>';
+}
+
+function rankCell(rank: number): string {
 	switch (rank) {
 		case 1:
-			return "1st";
+			return `<span class="rank" aria-label="Rank 1, gold">${medalSvg()} 1</span>`;
 		case 2:
-			return "2nd";
+			return `<span class="rank" aria-label="Rank 2, silver">${medalSvg()} 2</span>`;
 		case 3:
-			return "3rd";
+			return `<span class="rank" aria-label="Rank 3, bronze">${medalSvg()} 3</span>`;
 		default:
-			return `#${rank}`;
+			return `<span class="rank">${rank}</span>`;
 	}
 }
 
-function podiumCard(row: LeaderboardRow): string {
-	const you = row.isSelf ? " you" : "";
-	const first = row.rank === 1 ? " one" : "";
-	const youBadge = row.isSelf ? " · You" : "";
-	return `<article class="card${you}">
-<div class="row"><span class="rank${first}">${row.rank}</span><span class="badge">${podiumPlace(row.rank)}${youBadge}</span></div>
-<h3>${escapeHtml(row.displayName)}</h3>
-<p class="stat">${row.points} <span class="muted">pts</span></p>
-${badgeChips(row.badgeIds)}
-</article>`;
+function levelClass(level: ActivityLevel): string {
+	switch (level) {
+		case 0:
+			return "lvl-0";
+		case 1:
+			return "lvl-1";
+		case 2:
+			return "lvl-2";
+		case 3:
+			return "lvl-3";
+		case 4:
+			return "lvl-4";
+		default: {
+			const exhaustive: never = level;
+			throw new Error(`Unhandled level: ${String(exhaustive)}`);
+		}
+	}
+}
+
+function contributionTable(calendar: CalendarDay[]): string {
+	const { months, weeks } = contributionGrid(calendar);
+	const monthRow = months
+		.map(
+			(month) =>
+				`<th class="month" colspan="${month.colSpan}" scope="colgroup">${escapeHtml(month.label)}</th>`
+		)
+		.join("");
+	const body = WEEKDAY_LABELS.map((weekday, row) => {
+		const label = row % 2 === 0 ? weekday : "";
+		const cells = weeks
+			.map((week) => {
+				const day = week[row];
+				if (!day) {
+					return "<td></td>";
+				}
+				if (!day.inRange) {
+					return '<td><span class="cell" aria-hidden="true"></span></td>';
+				}
+				const labelText = dayActivityLabel(day) ?? day.date;
+				return `<td><span class="cell ${levelClass(day.level)}" aria-label="${escapeHtml(labelText)}" title="${escapeHtml(labelText)}"></span></td>`;
+			})
+			.join("");
+		return `<tr><th class="wd" scope="row">${label}</th>${cells}</tr>`;
+	}).join("");
+	return `<div class="contrib"><table>
+<caption class="sr-only">Contribution graph of qualifying report opens over the last ${STREAK_CALENDAR_WEEKS} weeks</caption>
+<thead><tr><td></td>${monthRow}</tr></thead>
+<tbody>${body}</tbody>
+</table>
+<p class="legend"><span>Less</span><span class="cell lvl-0" aria-hidden="true"></span><span class="cell lvl-1" aria-hidden="true"></span><span class="cell lvl-2" aria-hidden="true"></span><span class="cell lvl-3" aria-hidden="true"></span><span class="cell lvl-4" aria-hidden="true"></span><span>More</span></p>
+</div>`;
+}
+
+function boardTable(rows: LeaderboardRow[], caption: string): string {
+	const body = rows
+		.map(
+			(row) =>
+				`<tr class="${row.isSelf ? "you" : ""}"><td>${rankCell(row.rank)}</td><td>${escapeHtml(row.displayName)}${row.isSelf ? ' <span class="badge">You</span>' : ""}</td><td>${row.points}</td><td>${badgeChips(row.badgeIds)}</td></tr>`
+		)
+		.join("");
+	return `<div class="card" style="padding:0"><table class="board">
+<caption class="sr-only">${escapeHtml(caption)}</caption>
+<thead><tr><th>Rank</th><th>Name</th><th>Points</th><th>Badges</th></tr></thead>
+<tbody>${body}</tbody>
+</table></div>`;
 }
 
 export function habitsDocument(
@@ -208,14 +295,7 @@ export function habitsDocument(
 	title: string,
 	theme: "light" | "dark" = "light"
 ): string {
-	const heat = view.calendar
-		.map((day) => {
-			const label = day.qualified
-				? `${day.date}, completed captured-task report opened`
-				: `${day.date}, no qualifying report`;
-			return `<span class="${day.qualified ? "on" : ""}" aria-label="${escapeHtml(label)}" title="${escapeHtml(label)}"></span>`;
-		})
-		.join("");
+	const currentWord = view.currentStreak === 1 ? "day" : "days";
 	const badges = view.badges
 		.map((badge) => {
 			const state = badge.earned ? "Earned" : "Locked";
@@ -223,39 +303,41 @@ export function habitsDocument(
 			const link = badge.href
 				? `<p><a href="${escapeHtml(badge.href)}">Open earning task</a></p>`
 				: "";
-			return `<article class="card"><div class="row"><h3>${escapeHtml(badge.title)}</h3><span class="badge">${state}</span></div><p class="muted">${escapeHtml(badge.description)}${heuristic}</p>${link}</article>`;
+			return `<li><div class="heading"><h3>${escapeHtml(badge.title)}</h3><span class="badge">${state}</span></div><p class="muted">${escapeHtml(badge.description)}${heuristic}</p>${link}</li>`;
 		})
 		.join("");
 	const quests = view.quests
 		.map(
 			(quest) =>
-				`<article class="card"><div class="row"><h3>${escapeHtml(quest.title)}</h3><span class="badge">${quest.complete ? "Done" : "This week"}</span></div><p class="muted">${escapeHtml(quest.detail)}${quest.heuristic ? " Heuristic." : ""}</p></article>`
+				`<li><div class="heading"><h3>${escapeHtml(quest.title)}</h3><span class="badge">${quest.complete ? "Done" : "This week"}</span></div><p class="muted">${escapeHtml(quest.detail)}${quest.heuristic ? " Heuristic." : ""}</p></li>`
 		)
 		.join("");
 	const bests = view.personalBests
 		.map(
 			(best) =>
-				`<article class="card"><h3>${escapeHtml(best.label)}</h3><p class="stat">${escapeHtml(best.value)}</p></article>`
+				`<li><span class="muted">${escapeHtml(best.label)}</span><span>${escapeHtml(best.value)}</span></li>`
 		)
 		.join("");
 	const body = `<main>
 <header class="stack">
 <p class="eyebrow">How you used AI</p>
 <div class="heading"><h1>Progress</h1>${view.exampleData ? '<span class="badge">Example data</span>' : ""}</div>
-<p class="lede">Streak days use ${escapeHtml(view.timezone)}. A day counts when you open the report for a completed captured task. No streak freeze: missed days break the run. Weekly points reset Monday 00:00 UTC. Daily cap ${view.dailyCap} points from badges, quests, and streak days — never tokens, prompt count, time, or cost.</p>
 </header>
-<section class="kpis" aria-label="Habits summary">
-<article class="card"><div class="row"><span class="icon" aria-hidden>S</span><span class="badge">Observed</span></div><h2>Current streak</h2><p class="stat">${view.currentStreak} <span class="muted">${view.currentStreak === 1 ? "day" : "days"}</span></p></article>
-<article class="card"><div class="row"><span class="icon" aria-hidden>B</span><span class="badge">Observed</span></div><h2>Best streak</h2><p class="stat">${view.bestStreak} <span class="muted">${view.bestStreak === 1 ? "day" : "days"}</span></p></article>
-<article class="card"><div class="row"><span class="icon" aria-hidden>W</span><span class="badge">UTC</span></div><h2>This week</h2><p class="stat">${view.weekPoints} <span class="muted">pts</span></p><p class="muted">Week of ${escapeHtml(view.weekStartsAt)} UTC</p></article>
+<section class="stack" aria-labelledby="habits-heading">
+<div class="heading">
+<h2 id="habits-heading">Habits</h2>
+<p class="inline"><b>${view.currentStreak}</b> current ${currentWord} · <b>${view.bestStreak}</b> best · <b>${view.weekPoints}</b> pts this week</p>
+</div>
+<p class="lede">A day counts when you open the report for a completed captured editor task (${escapeHtml(view.timezone)}). Missed days break the run. Weekly points reset Monday 00:00 UTC.</p>
+${contributionTable(view.calendar)}
+<div class="columns">
+<section class="stack"><h3>Skill badges</h3><ul class="list">${badges}</ul></section>
+<div class="stack">
+<section class="stack"><h3>Personal bests</h3><ul class="bests">${bests}</ul></section>
+<section class="stack"><h3>Weekly quests</h3><ul class="list">${quests}</ul></section>
+</div>
+</div>
 </section>
-<section class="card">
-<h2>Last 28 days</h2>
-<div class="heat" role="img" aria-label="Streak calendar of the last 28 days">${heat}</div>
-</section>
-<section class="stack"><h2>Skill badges</h2><div class="card-grid">${badges}</div></section>
-<section class="stack"><h2>Personal bests</h2><div class="card-grid">${bests}</div></section>
-<section class="stack"><h2>Weekly quests</h2><div class="card-grid">${quests}</div></section>
 </main>`;
 	return shell(title, theme, "progress", body);
 }
@@ -265,42 +347,25 @@ export function leaderboardDocument(
 	title: string,
 	theme: "light" | "dark" = "light"
 ): string {
-	const podium = view.rows.filter((row) => row.rank <= 3).slice(0, 3);
-	const rest = view.rows.filter((row) => row.rank > 3);
-	const rankValue = view.self ? `#${view.self.rank}` : "—";
-	const pointsValue = view.self ? String(view.self.points) : "—";
+	const rows = view.rows.filter((row) => row.rank <= view.topN);
+	const pinned = view.self && view.self.rank > view.topN ? view.self : null;
 	const optIn = view.optedIn
 		? ""
 		: `<section class="card" style="border-style:dashed"><h2>Join this week's board</h2><p class="muted">The leaderboard is off by default. Choose a public display name in Settings.</p><p><a href="/settings">Opt in from Settings</a></p></section>`;
 	const empty = `<section class="card empty"><h2>Nobody has opted in this week</h2><p class="muted">The board stays empty until someone opts in from Settings. Names and habit points are the only public fields.</p></section>`;
-	const restTable =
-		rest.length === 0
-			? ""
-			: `<section class="card"><h2>This week</h2>
-<table>
-<thead><tr><th>Rank</th><th>Name</th><th>Points</th><th>Badges</th></tr></thead>
-<tbody>${rest
-					.map(
-						(row) =>
-							`<tr class="${row.isSelf ? "you" : ""}"><td>${row.rank}</td><td>${escapeHtml(row.displayName)}${row.isSelf ? ' <span class="badge">You</span>' : ""}</td><td>${row.points}</td><td>${badgeChips(row.badgeIds)}</td></tr>`
-					)
-					.join("")}</tbody>
-</table></section>`;
+	const pinnedBlock = pinned
+		? `<p class="muted">Your rank this week</p>${boardTable([pinned], "Signed-in user rank outside the listed rows")}`
+		: "";
 	const board =
-		view.rows.length === 0
+		rows.length === 0 && pinned == null
 			? empty
-			: `<section class="stack"><h2>Top 3</h2><div class="podium">${podium.map(podiumCard).join("")}</div></section>${restTable}`;
+			: `${boardTable(rows, `Weekly habit leaderboard for week of ${view.weekStartsAt} UTC`)}${pinnedBlock}`;
 	const body = `<main>
 <header class="stack">
 <p class="eyebrow">Weekly habits</p>
 <div class="heading"><h1>Leaderboard</h1>${view.exampleData ? '<span class="badge">Example data</span>' : ""}</div>
-<p class="lede">Weekly habit points from badges, quests, and streak days. Resets Monday 00:00 UTC (week of ${escapeHtml(view.weekStartsAt)}). Never ranked by tokens, prompt count, time spent, or cost. Only opted-in display names and points are public.</p>
+<p class="lede">Weekly habit points from badges, quests, and streak days. Resets Monday 00:00 UTC. Only opted-in display names and points are public.</p>
 </header>
-<section class="kpis" aria-label="Your standing">
-<article class="card"><div class="row"><span class="icon" aria-hidden>#</span><span class="badge">${view.self ? "You" : "Off"}</span></div><h2>Your rank</h2><p class="stat">${rankValue}</p></article>
-<article class="card"><div class="row"><span class="icon" aria-hidden>P</span><span class="badge">This week</span></div><h2>Your points</h2><p class="stat">${pointsValue}</p></article>
-<article class="card"><div class="row"><span class="icon" aria-hidden>W</span><span class="badge">UTC</span></div><h2>Week of</h2><p class="stat">${escapeHtml(view.weekStartsAt)}</p><p class="muted">${view.rows.length} opted-in names this week.</p></article>
-</section>
 ${optIn}
 ${board}
 </main>`;

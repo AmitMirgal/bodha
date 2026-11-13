@@ -164,5 +164,24 @@ describe("computeStreak", () => {
 		);
 		expect(streak.current).toBe(1);
 		expect(streak.days["2026-11-13"]?.taskId).toBe("a");
+		expect(streak.days["2026-11-13"]?.count).toBe(2);
+		const calendarDay = streak.calendar.find(
+			(day) => day.date === "2026-11-13"
+		);
+		expect(calendarDay?.level).toBe(2);
+		expect(calendarDay?.count).toBe(2);
+	});
+
+	it("builds a Monday-aligned twenty-week contribution calendar", () => {
+		const streak = computeStreak([], "UTC", "2026-11-13T18:00:00.000Z");
+		expect(streak.calendar).toHaveLength(140);
+		expect(streak.calendar[0]?.date).toBe("2026-06-29");
+		expect(streak.calendar.at(-1)?.date).toBe("2026-11-15");
+		expect(
+			streak.calendar.find((day) => day.date === "2026-11-13")?.inRange
+		).toBe(true);
+		expect(
+			streak.calendar.find((day) => day.date === "2026-11-14")?.inRange
+		).toBe(false);
 	});
 });

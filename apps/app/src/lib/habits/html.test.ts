@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import {
 	emptyHabitsView,
 	emptyLeaderboardView,
+	outsideLeaderboardView,
 	seededHabitsView,
 	seededLeaderboardView,
 } from "./fixture";
@@ -32,7 +33,7 @@ function screenshot(name: string, htmlPath: string): string | null {
 				`--user-data-dir=${userData}`,
 				"--disable-gpu",
 				"--remote-debugging-port=0",
-				"--window-size=1280,1600",
+				"--window-size=1280,1100",
 				`--screenshot=${pngPath}`,
 				`file://${htmlPath}`,
 			],
@@ -63,24 +64,31 @@ describe("habits documents", () => {
 			"dark"
 		);
 		expect(habits).toContain("Example data");
-		expect(habits).toContain("Current streak");
+		expect(habits).toContain("current days");
+		expect(habits).toContain("best");
+		expect(habits).toContain("Less");
+		expect(habits).toContain("More");
 		expect(habits).toContain("Heuristic");
 		expect(habits).toContain("Monday 00:00 UTC");
 		expect(habits).toContain("Exercises");
 		expect(habits).toContain('aria-label="App"');
 		expect(habits).toContain('aria-label="Account menu"');
+		expect(habits).not.toContain("Last 28 days");
 		expect(habits).not.toContain("@");
-		expect(empty).toContain('>0 <span class="muted">days</span>');
+		expect(empty).toContain("<b>0</b> current days");
 		expect(board).toContain("ExampleYou");
 		expect(board).toContain("Monday 00:00 UTC");
-		expect(board).toContain("Your rank");
-		expect(board).toContain("Top 3");
+		expect(board).toContain("Rank 1, gold");
+		expect(board).toContain("Rank 2, silver");
 		expect(board).toContain("First close");
 		expect(board).toContain("Clear spec");
 		expect(board).toContain("One-shot");
 		expect(board).toContain("Report reader");
 		expect(board).toContain("Exercises");
 		expect(board).toContain('aria-current="page"');
+		expect(board).not.toContain("Your rank");
+		expect(board).not.toContain("Your points");
+		expect(board).not.toContain("Top 3");
 		expect(board).not.toContain("first_close");
 		expect(board).not.toContain("clear_spec");
 		expect(board).not.toContain("one_shot");
@@ -94,6 +102,12 @@ describe("habits documents", () => {
 		expect(emptyBoard).toContain("Nobody has opted in this week");
 		expect(emptyBoard).toContain("Opt in from Settings");
 		expect(emptyBoard).toContain("Join this week's board");
+		const outside = leaderboardDocument(
+			outsideLeaderboardView(),
+			"Leaderboard outside"
+		);
+		expect(outside).toContain("Your rank this week");
+		expect(outside).toContain("Rank 1, gold");
 		writeDoc("progress-habits-seeded", habits);
 		writeDoc("progress-habits-seeded-dark", habitsDark);
 		writeDoc("progress-habits-empty", empty);

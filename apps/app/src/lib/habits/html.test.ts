@@ -70,6 +70,10 @@ describe("habits documents", () => {
 		expect(habits).toContain("More");
 		expect(habits).toContain("Heuristic");
 		expect(habits).toContain("Monday 00:00 UTC");
+		expect(habits).toContain("badge-grid");
+		expect(habits).toContain(">First close</a>");
+		expect(habits).not.toContain("Open earning task");
+		expect(habits).not.toContain("Open the task that earned this");
 		expect(habits).toContain("Exercises");
 		expect(habits).toContain('aria-label="App"');
 		expect(habits).toContain('aria-label="Account menu"');

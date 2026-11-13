@@ -117,6 +117,7 @@ h3 { font-size: 0.875rem; font-weight: 600; }
 .stack { display: grid; gap: 0.5rem; }
 .heading { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.5rem 0.75rem; }
 .badge { border: 1px solid ${vars.border}; border-radius: 9999px; padding: 0.1rem 0.55rem; font-size: 0.75rem; }
+.badge-card:not(.locked) .badge, .quests .badge.done { background: ${vars.accent}; color: ${vars.accentFg}; border-color: ${vars.accent}; }
 .chip { display: inline-flex; align-items: center; gap: 0.25rem; border: 1px solid ${vars.border}; background: ${vars.secondary}; border-radius: 9999px; padding: 0.15rem 0.5rem; font-size: 0.75rem; }
 .chips { display: flex; flex-wrap: wrap; gap: 0.35rem; margin: 0; padding: 0; list-style: none; }
 .inline { color: ${vars.muted}; font-size: 0.875rem; }
@@ -133,12 +134,17 @@ h3 { font-size: 0.875rem; font-weight: 600; }
 .lvl-3 { background: ${vars.lvl3}; }
 .lvl-4 { background: ${vars.lvl4}; }
 .legend { display: flex; align-items: center; justify-content: flex-end; gap: 4px; font-size: 10px; color: ${vars.muted}; }
-.list { margin: 0; padding: 0; list-style: none; border-top: 1px solid ${vars.border}; border-bottom: 1px solid ${vars.border}; }
-.list li { display: grid; gap: 0.15rem; padding: 0.5rem 0; border-bottom: 1px solid ${vars.border}; }
-.list li:last-child { border-bottom: 0; }
-.bests { margin: 0; padding: 0; list-style: none; display: grid; gap: 0.35rem; font-size: 0.875rem; }
-.bests li { display: flex; justify-content: space-between; gap: 0.75rem; }
-.columns { display: grid; gap: 1.25rem; grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); }
+.badge-grid { margin: 0; padding: 0; list-style: none; display: grid; gap: 0.5rem; grid-template-columns: repeat(auto-fill, minmax(13.5rem, 1fr)); }
+.badge-card { display: flex; align-items: center; gap: 0.4rem; border: 1px solid ${vars.border}; background: ${vars.card}; border-radius: 0.5rem; padding: 0.4rem 0.55rem; font-size: 0.8125rem; }
+.badge-card.locked { background: transparent; border-style: dashed; color: ${vars.muted}; }
+.badge-card a { font-weight: 600; text-decoration: underline; text-underline-offset: 2px; }
+.badge-card .name { font-weight: 600; min-width: 0; flex: 1; line-height: 1.25; }
+.bests, .quests { margin: 0; padding: 0; list-style: none; display: grid; gap: 0.5rem; font-size: 0.875rem; }
+.bests { gap: 0.35rem; }
+.bests li { display: flex; justify-content: space-between; gap: 0.75rem; align-items: baseline; }
+.quests li { display: grid; gap: 0.1rem; }
+.quests .heading { gap: 0.5rem; }
+.columns { display: grid; gap: 1.25rem; grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); align-items: start; }
 table.board { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
 table.board th, table.board td { text-align: left; padding: 0.7rem 0.75rem; border-bottom: 1px solid ${vars.border}; }
 .rank { display: inline-flex; align-items: center; gap: 0.35rem; font-variant-numeric: tabular-nums; }
@@ -299,17 +305,18 @@ export function habitsDocument(
 	const badges = view.badges
 		.map((badge) => {
 			const state = badge.earned ? "Earned" : "Locked";
-			const heuristic = badge.heuristic ? " Heuristic." : "";
-			const link = badge.href
-				? `<p><a href="${escapeHtml(badge.href)}">Open earning task</a></p>`
-				: "";
-			return `<li><div class="heading"><h3>${escapeHtml(badge.title)}</h3><span class="badge">${state}</span></div><p class="muted">${escapeHtml(badge.description)}${heuristic}</p>${link}</li>`;
+			const hint = `${badge.description}${badge.heuristic ? " Heuristic." : ""}`;
+			const name = badge.href
+				? `<a href="${escapeHtml(badge.href)}">${escapeHtml(badge.title)}</a>`
+				: escapeHtml(badge.title);
+			const locked = badge.earned ? "" : " locked";
+			return `<li><div class="badge-card${locked}" title="${escapeHtml(hint)}"><span class="muted">${badgeIconSvg(badge.id)}</span><span class="name">${name}</span><span class="badge">${state}</span></div></li>`;
 		})
 		.join("");
 	const quests = view.quests
 		.map(
 			(quest) =>
-				`<li><div class="heading"><h3>${escapeHtml(quest.title)}</h3><span class="badge">${quest.complete ? "Done" : "This week"}</span></div><p class="muted">${escapeHtml(quest.detail)}${quest.heuristic ? " Heuristic." : ""}</p></li>`
+				`<li><div class="heading"><span>${escapeHtml(quest.title)}</span><span class="badge${quest.complete ? " done" : ""}">${quest.complete ? "Done" : "This week"}</span></div><p class="muted">${escapeHtml(quest.detail)}${quest.heuristic ? " Heuristic." : ""}</p></li>`
 		)
 		.join("");
 	const bests = view.personalBests
@@ -331,10 +338,10 @@ export function habitsDocument(
 <p class="lede">A day counts when you open the report for a completed captured editor task (${escapeHtml(view.timezone)}). Missed days break the run. Weekly points reset Monday 00:00 UTC.</p>
 ${contributionTable(view.calendar)}
 <div class="columns">
-<section class="stack"><h3>Skill badges</h3><ul class="list">${badges}</ul></section>
+<section class="stack"><h3>Skill badges</h3><ul class="badge-grid">${badges}</ul></section>
 <div class="stack">
 <section class="stack"><h3>Personal bests</h3><ul class="bests">${bests}</ul></section>
-<section class="stack"><h3>Weekly quests</h3><ul class="list">${quests}</ul></section>
+<section class="stack"><h3>Weekly quests</h3><ul class="quests">${quests}</ul></section>
 </div>
 </div>
 </section>

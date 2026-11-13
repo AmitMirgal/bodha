@@ -1,3 +1,4 @@
+import { BADGE_CATALOG } from "./catalog";
 import { hasClearSpec } from "./spec-heuristic";
 import { computeStreak } from "./streaks";
 import {
@@ -6,6 +7,7 @@ import {
 	promptTexts,
 } from "./tasks";
 import type { BadgeId, BadgeResult, HabitTask, StreakResult } from "./types";
+import { BADGE_IDS } from "./types";
 import { nextCivilDay } from "./week";
 
 function reportHref(taskId: string | null): string | null {
@@ -99,54 +101,45 @@ export function computeBadges(
 	const streak = computeStreak(tasks, timezone, now);
 	const seven = firstSevenDayEnd(streak.days);
 
-	return [
-		badge(
-			"first_close",
-			"First close",
-			"Closed a captured editor task from a device claimed to this account.",
-			false,
-			firstClose?.id ?? null,
-			firstClose?.finishedAt ?? null
-		),
-		badge(
-			"first_report",
-			"Report reader",
-			"Opened the learning report for a completed captured task.",
-			false,
-			firstReport?.id ?? null,
-			firstReport?.reportOpenedAt ?? null
-		),
-		badge(
-			"clear_spec",
-			"Clear spec",
-			"Closed a task whose first prompt states a goal and a constraint or acceptance criterion.",
-			true,
-			clearSpec?.id ?? null,
-			clearSpec?.finishedAt ?? null
-		),
-		badge(
-			"one_shot",
-			"One-shot",
-			"Closed a captured task with a single prompt — no re-prompting.",
-			false,
-			oneShot?.id ?? null,
-			oneShot?.finishedAt ?? null
-		),
-		badge(
-			"report_3",
-			"Three reports",
-			"Opened learning reports for three distinct completed captured tasks.",
-			false,
-			thirdOpen?.id ?? null,
-			thirdOpen?.reportOpenedAt ?? null
-		),
-		badge(
-			"streak_7",
-			"Seven-day streak",
-			"Seven consecutive days with a completed captured task whose report you opened.",
-			false,
-			seven?.taskId ?? null,
-			seven?.openedAt ?? null
-		),
-	];
+	const earned: Record<
+		BadgeId,
+		{ earnedAt: string | null; taskId: string | null }
+	> = {
+		clear_spec: {
+			earnedAt: clearSpec?.finishedAt ?? null,
+			taskId: clearSpec?.id ?? null,
+		},
+		first_close: {
+			earnedAt: firstClose?.finishedAt ?? null,
+			taskId: firstClose?.id ?? null,
+		},
+		first_report: {
+			earnedAt: firstReport?.reportOpenedAt ?? null,
+			taskId: firstReport?.id ?? null,
+		},
+		one_shot: {
+			earnedAt: oneShot?.finishedAt ?? null,
+			taskId: oneShot?.id ?? null,
+		},
+		report_3: {
+			earnedAt: thirdOpen?.reportOpenedAt ?? null,
+			taskId: thirdOpen?.id ?? null,
+		},
+		streak_7: {
+			earnedAt: seven?.openedAt ?? null,
+			taskId: seven?.taskId ?? null,
+		},
+	};
+	return BADGE_IDS.map((id) => {
+		const entry = BADGE_CATALOG[id];
+		const match = earned[id];
+		return badge(
+			entry.id,
+			entry.title,
+			entry.description,
+			entry.heuristic,
+			match.taskId,
+			match.earnedAt
+		);
+	});
 }

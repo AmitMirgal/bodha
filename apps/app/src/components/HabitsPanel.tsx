@@ -6,36 +6,52 @@ import {
 	CardHeader,
 	CardTitle,
 } from "@repo/design-system/components/ui/card";
-import {
-	BookOpen,
-	Flag,
-	Flame,
-	ListChecks,
-	Sparkles,
-	Target,
-} from "lucide-react";
+import { CalendarRange, Flame, Trophy } from "lucide-react";
 import type { ReactNode } from "react";
-import type { BadgeId, HabitsView } from "../lib/habits/types";
+import type { HabitsView } from "../lib/habits/types";
+import { habitBadgeGlyph } from "./HabitBadgeGlyph";
 
-function badgeIcon(id: BadgeId): ReactNode {
-	switch (id) {
-		case "first_close":
-			return <Flag aria-hidden className="size-4" />;
-		case "first_report":
-			return <BookOpen aria-hidden className="size-4" />;
-		case "clear_spec":
-			return <Sparkles aria-hidden className="size-4" />;
-		case "one_shot":
-			return <Target aria-hidden className="size-4" />;
-		case "report_3":
-			return <ListChecks aria-hidden className="size-4" />;
-		case "streak_7":
-			return <Flame aria-hidden className="size-4" />;
-		default: {
-			const exhaustive: never = id;
-			throw new Error(`Unhandled badge: ${String(exhaustive)}`);
-		}
-	}
+function HabitKpiCard({
+	badge,
+	color,
+	detail,
+	icon,
+	title,
+	value,
+}: {
+	badge: string;
+	color: string;
+	detail: string;
+	icon: ReactNode;
+	title: string;
+	value: ReactNode;
+}) {
+	return (
+		<Card className="overflow-hidden py-0 shadow-sm">
+			<CardHeader className="gap-4 pt-6">
+				<div className="flex items-start justify-between gap-3">
+					<div className="flex items-center gap-2.5">
+						<span
+							className="flex size-9 items-center justify-center rounded-lg"
+							style={{
+								background: `color-mix(in oklch, ${color} 16%, transparent)`,
+								color,
+							}}
+						>
+							{icon}
+						</span>
+						<CardTitle className="font-medium text-sm">{title}</CardTitle>
+					</div>
+					<Badge variant="outline">{badge}</Badge>
+				</div>
+				<p className="font-semibold text-3xl tabular-nums tracking-tight">
+					{value}
+				</p>
+				<CardDescription>{detail}</CardDescription>
+			</CardHeader>
+			<div className="h-4" />
+		</Card>
+	);
 }
 
 export function HabitsPanel({ habits }: { habits: HabitsView }) {
@@ -61,49 +77,52 @@ export function HabitsPanel({ habits }: { habits: HabitsView }) {
 					Monday 00:00 UTC.
 				</p>
 			</div>
-			<div className="grid gap-4 sm:grid-cols-3">
-				<Card>
-					<CardHeader>
-						<CardTitle>Current streak</CardTitle>
-						<CardDescription>Consecutive qualifying days</CardDescription>
-					</CardHeader>
-					<CardContent>
-						<p className="font-semibold text-3xl tracking-tight">
+			<div className="grid gap-3 sm:grid-cols-3">
+				<HabitKpiCard
+					badge="Observed"
+					color="var(--chart-1)"
+					detail="Consecutive qualifying days. Missed days break the run."
+					icon={<Flame aria-hidden className="size-4" />}
+					title="Current streak"
+					value={
+						<>
 							{habits.currentStreak}{" "}
 							<span className="font-medium text-base text-muted-foreground">
 								{habits.currentStreak === 1 ? "day" : "days"}
 							</span>
-						</p>
-					</CardContent>
-				</Card>
-				<Card>
-					<CardHeader>
-						<CardTitle>Best streak</CardTitle>
-						<CardDescription>Longest run so far</CardDescription>
-					</CardHeader>
-					<CardContent>
-						<p className="font-semibold text-3xl tracking-tight">
+						</>
+					}
+				/>
+				<HabitKpiCard
+					badge="Observed"
+					color="var(--chart-2)"
+					detail="Longest qualifying run so far."
+					icon={<Trophy aria-hidden className="size-4" />}
+					title="Best streak"
+					value={
+						<>
 							{habits.bestStreak}{" "}
 							<span className="font-medium text-base text-muted-foreground">
 								{habits.bestStreak === 1 ? "day" : "days"}
 							</span>
-						</p>
-					</CardContent>
-				</Card>
-				<Card>
-					<CardHeader>
-						<CardTitle>This week</CardTitle>
-						<CardDescription>Week of {habits.weekStartsAt} UTC</CardDescription>
-					</CardHeader>
-					<CardContent>
-						<p className="font-semibold text-3xl tracking-tight">
+						</>
+					}
+				/>
+				<HabitKpiCard
+					badge="UTC"
+					color="var(--chart-4)"
+					detail={`Week of ${habits.weekStartsAt} UTC. Daily cap ${habits.dailyCap}.`}
+					icon={<CalendarRange aria-hidden className="size-4" />}
+					title="This week"
+					value={
+						<>
 							{habits.weekPoints}{" "}
 							<span className="font-medium text-base text-muted-foreground">
 								pts
 							</span>
-						</p>
-					</CardContent>
-				</Card>
+						</>
+					}
+				/>
 			</div>
 			<Card>
 				<CardHeader>
@@ -116,7 +135,7 @@ export function HabitsPanel({ habits }: { habits: HabitsView }) {
 				<CardContent>
 					<ol
 						aria-label="Streak calendar of the last 28 days"
-						className="m-0 grid list-none grid-cols-7 gap-1.5 p-0"
+						className="m-0 grid max-w-xs list-none grid-cols-7 gap-1.5 p-0"
 					>
 						{habits.calendar.map((day) => {
 							const label = day.qualified
@@ -150,7 +169,7 @@ export function HabitsPanel({ habits }: { habits: HabitsView }) {
 							<Card key={badge.id}>
 								<CardHeader className="flex flex-row items-start justify-between gap-3 space-y-0">
 									<div className="flex items-center gap-2">
-										{badgeIcon(badge.id)}
+										{habitBadgeGlyph(badge.id)}
 										<CardTitle className="text-base">{badge.title}</CardTitle>
 									</div>
 									<Badge variant={badge.earned ? "default" : "outline"}>

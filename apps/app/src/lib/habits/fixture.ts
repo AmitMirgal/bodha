@@ -94,6 +94,13 @@ export function seededLeaderboardView(): LeaderboardView {
 				points: 20,
 				rank: 3,
 			},
+			{
+				badgeIds: ["first_close"],
+				displayName: "Sam",
+				isSelf: false,
+				points: 5,
+				rank: 4,
+			},
 		],
 		self: {
 			badgeIds: ["first_close", "clear_spec"],
@@ -102,6 +109,17 @@ export function seededLeaderboardView(): LeaderboardView {
 			points: 35,
 			rank: 2,
 		},
+		topN: LEADERBOARD_TOP_N,
+		weekStartsAt: "2026-11-09",
+	};
+}
+
+export function emptyLeaderboardView(): LeaderboardView {
+	return {
+		exampleData: true,
+		optedIn: false,
+		rows: [],
+		self: null,
 		topN: LEADERBOARD_TOP_N,
 		weekStartsAt: "2026-11-09",
 	};

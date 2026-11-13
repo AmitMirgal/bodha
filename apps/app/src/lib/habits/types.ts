@@ -7,7 +7,8 @@ export const HABIT_POINTS = {
 } as const;
 
 export const LEADERBOARD_TOP_N = 20;
-export const STREAK_CALENDAR_DAYS = 28;
+export const STREAK_CALENDAR_WEEKS = 20;
+export const STREAK_CALENDAR_DAYS = STREAK_CALENDAR_WEEKS * 7;
 
 export const BADGE_IDS = [
 	"first_close",
@@ -48,13 +49,25 @@ export interface AwardDraft {
 }
 
 export interface StreakDay {
+	count: number;
 	openedAt: string;
 	taskId: string;
 }
 
+export type ActivityLevel = 0 | 1 | 2 | 3 | 4;
+
+export interface CalendarDay {
+	count: number;
+	date: string;
+	inRange: boolean;
+	level: ActivityLevel;
+	qualified: boolean;
+	taskId: string | null;
+}
+
 export interface StreakResult {
 	best: number;
-	calendar: Array<{ date: string; qualified: boolean; taskId: string | null }>;
+	calendar: CalendarDay[];
 	current: number;
 	days: Record<string, StreakDay>;
 }

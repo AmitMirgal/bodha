@@ -1,3 +1,4 @@
+import { dayBucket } from "../progress/aggregate";
 import { computeBadges } from "./badges";
 import { applyDailyCap, weekPoints } from "./points";
 import { computePersonalBests, computeQuests } from "./quests";
@@ -55,13 +56,13 @@ function questAwards(
 export function computeHabits(input: ComputeInput): ComputeResult {
 	const streak = computeStreak(input.tasks, input.timezone, input.now);
 	const badges = computeBadges(input.tasks, input.timezone, input.now);
-	const today = streak.calendar.at(-1);
+	const today = dayBucket(input.now, input.timezone);
 	const quests = computeQuests({
 		badges,
 		now: input.now,
 		tasks: input.tasks,
 		timezone: input.timezone,
-		todayQualified: today?.qualified ?? false,
+		todayQualified: Boolean(streak.days[today]),
 	});
 	const weekStart = utcMonday(input.now);
 	const drafts = [

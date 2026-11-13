@@ -38,16 +38,40 @@ function promptsForSeed(index: number): string[] {
 	return ["Ship the captured report without extra retries."];
 }
 
+function extraDay(day: string, count: number, offset: number): HabitTask[] {
+	return Array.from({ length: count }, (_, index) =>
+		closed({
+			finishedAt: `2026-${day}T1${index}:00:00.000Z`,
+			id: `dddddddd-dddd-4ddd-8ddd-${String(offset + index).padStart(12, "0")}`,
+			openedAt: `2026-${day}T1${index}:10:00.000Z`,
+			prompts: ["Ship the captured report without extra retries."],
+		})
+	);
+}
+
 export function seededHabitTasks(): HabitTask[] {
-	const days = ["07", "08", "09", "10", "11", "12", "13"];
-	return days.map((day, index) =>
+	const streakDays = ["07", "08", "09", "10", "11", "12", "13"];
+	const streak = streakDays.map((day, index) =>
 		closed({
 			finishedAt: `2026-11-${day}T15:00:00.000Z`,
-			id: `cccccccc-cccc-4ccc-8ccc-ccccccccccc${index}`,
+			id: `cccccccc-cccc-4ccc-8ccc-${String(index).padStart(12, "0")}`,
 			openedAt: `2026-11-${day}T16:00:00.000Z`,
 			prompts: promptsForSeed(index),
 		})
 	);
+	return [
+		...extraDay("09-15", 1, 10),
+		...extraDay("09-22", 2, 20),
+		...extraDay("09-29", 1, 30),
+		...extraDay("10-06", 3, 40),
+		...extraDay("10-13", 1, 50),
+		...extraDay("10-16", 2, 60),
+		...extraDay("10-21", 1, 70),
+		...extraDay("10-28", 4, 80),
+		...extraDay("11-03", 2, 90),
+		...extraDay("11-12", 1, 100),
+		...streak,
+	];
 }
 
 export function seededHabitsView(): HabitsView {
@@ -101,6 +125,20 @@ export function seededLeaderboardView(): LeaderboardView {
 				points: 5,
 				rank: 4,
 			},
+			{
+				badgeIds: [],
+				displayName: "Noor",
+				isSelf: false,
+				points: 5,
+				rank: 5,
+			},
+			{
+				badgeIds: ["first_report"],
+				displayName: "Jules",
+				isSelf: false,
+				points: 5,
+				rank: 6,
+			},
 		],
 		self: {
 			badgeIds: ["first_close", "clear_spec"],
@@ -111,6 +149,28 @@ export function seededLeaderboardView(): LeaderboardView {
 		},
 		topN: LEADERBOARD_TOP_N,
 		weekStartsAt: "2026-11-09",
+	};
+}
+
+export function outsideLeaderboardView(): LeaderboardView {
+	const view = seededLeaderboardView();
+	return {
+		...view,
+		rows: view.rows
+			.filter((row) => !row.isSelf)
+			.map((row, index) => ({
+				...row,
+				isSelf: false,
+				rank: index + 1,
+			})),
+		self: {
+			badgeIds: ["first_close"],
+			displayName: "ExampleYou",
+			isSelf: true,
+			points: 5,
+			rank: 22,
+		},
+		topN: 6,
 	};
 }
 

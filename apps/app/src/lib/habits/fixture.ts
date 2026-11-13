@@ -95,6 +95,7 @@ export function emptyHabitsView(): HabitsView {
 export function seededLeaderboardView(): LeaderboardView {
 	return {
 		exampleData: true,
+		migrationRequired: false,
 		optedIn: true,
 		rows: [
 			{
@@ -177,6 +178,7 @@ export function outsideLeaderboardView(): LeaderboardView {
 export function emptyLeaderboardView(): LeaderboardView {
 	return {
 		exampleData: true,
+		migrationRequired: false,
 		optedIn: false,
 		rows: [],
 		self: null,

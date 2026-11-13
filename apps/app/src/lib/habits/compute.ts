@@ -89,11 +89,16 @@ export function emptyHabitsView(timezone = "UTC"): HabitsView {
 	return toHabitsView(computed, timezone, false, false);
 }
 
+export function unavailableHabitsView(timezone = "UTC"): HabitsView {
+	return { ...emptyHabitsView(timezone), migrationRequired: true };
+}
+
 export function toHabitsView(
 	computed: ComputeResult,
 	timezone: string,
 	leaderboardOptedIn: boolean,
-	exampleData: boolean
+	exampleData: boolean,
+	migrationRequired = false
 ): HabitsView {
 	return {
 		badges: computed.badges,
@@ -103,6 +108,7 @@ export function toHabitsView(
 		dailyCap: HABIT_DAILY_POINTS_CAP,
 		exampleData,
 		leaderboardOptedIn,
+		migrationRequired,
 		personalBests: computed.personalBests,
 		quests: computed.quests,
 		timezone,

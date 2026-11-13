@@ -7,6 +7,7 @@ import {
 	weekdayMonday0,
 } from "./contribution";
 import type { CalendarDay } from "./types";
+import { STREAK_CALENDAR_DAYS, STREAK_CALENDAR_WEEKS } from "./types";
 
 function day(date: string, count: number, inRange = true): CalendarDay {
 	return {
@@ -38,12 +39,12 @@ describe("contribution graph", () => {
 	it("groups days into weeks with month labels", () => {
 		const calendar: CalendarDay[] = [];
 		const cursor = new Date("2026-06-29T12:00:00.000Z");
-		for (let index = 0; index < 140; index += 1) {
+		for (let index = 0; index < STREAK_CALENDAR_DAYS; index += 1) {
 			calendar.push(day(cursor.toISOString().slice(0, 10), 0));
 			cursor.setUTCDate(cursor.getUTCDate() + 1);
 		}
 		const { months, weeks } = contributionGrid(calendar);
-		expect(weeks).toHaveLength(20);
+		expect(weeks).toHaveLength(STREAK_CALENDAR_WEEKS);
 		expect(weeks[0]?.[0]?.date).toBe("2026-06-29");
 		expect(weekdayMonday0(weeks[0]?.[0]?.date ?? "")).toBe(0);
 		expect(months.some((month) => month.label === "Jul")).toBe(true);

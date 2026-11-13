@@ -23,12 +23,19 @@ export function LeaderboardSettingsForm() {
 
 	useEffect(() => {
 		runBackground(
-			fetch("/api/habits/leaderboard-settings")
-				.then((response) => response.json())
-				.then((body: { displayName?: string; optedIn?: boolean }) => {
-					setDisplayName(body.displayName ?? "");
-					setOptedIn(Boolean(body.optedIn));
-				})
+			fetch("/api/habits/leaderboard-settings").then(async (response) => {
+				const body = (await response.json()) as {
+					displayName?: string;
+					error?: string;
+					optedIn?: boolean;
+				};
+				if (!response.ok) {
+					setError(body.error ?? "Could not load leaderboard settings.");
+					return;
+				}
+				setDisplayName(body.displayName ?? "");
+				setOptedIn(Boolean(body.optedIn));
+			})
 		);
 	}, []);
 

@@ -7,7 +7,7 @@ export const HABIT_POINTS = {
 } as const;
 
 export const LEADERBOARD_TOP_N = 20;
-export const STREAK_CALENDAR_WEEKS = 20;
+export const STREAK_CALENDAR_WEEKS = 52;
 export const STREAK_CALENDAR_DAYS = STREAK_CALENDAR_WEEKS * 7;
 
 export const BADGE_IDS = [
@@ -111,6 +111,7 @@ export interface HabitsView {
 	dailyCap: number;
 	exampleData: boolean;
 	leaderboardOptedIn: boolean;
+	migrationRequired: boolean;
 	personalBests: PersonalBest[];
 	quests: QuestResult[];
 	timezone: string;
@@ -145,6 +146,7 @@ export interface LeaderboardRow {
 
 export interface LeaderboardView {
 	exampleData: boolean;
+	migrationRequired: boolean;
 	optedIn: boolean;
 	rows: LeaderboardRow[];
 	self: LeaderboardRow | null;

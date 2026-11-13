@@ -1,7 +1,12 @@
 import { insertOnce } from "../db/insert-once";
 import type { MatiDb } from "../db/rls";
-import { computeHabits, toHabitsView } from "./compute";
+import { computeHabits, toHabitsView, unavailableHabitsView } from "./compute";
 import { mapCaptureHabitTasks } from "./map-tasks";
+import {
+	GamificationMigrationRequiredError,
+	readGamificationSchema,
+	unavailableLeaderboardView,
+} from "./schema";
 import type { AwardDraft, HabitsView, LeaderboardView } from "./types";
 import { LEADERBOARD_TOP_N } from "./types";
 import { utcDay, utcMonday } from "./week";
@@ -39,6 +44,10 @@ export async function recordCaptureReportOpen(
 		return false;
 	}
 	if (task.status !== "closed" || task.device.claimedUserId !== userId) {
+		return false;
+	}
+	const schema = await readGamificationSchema(db);
+	if (!schema.tablesReady) {
 		return false;
 	}
 	const result = await insertOnce(
@@ -91,6 +100,13 @@ export async function syncHabits(
 	timezone: string,
 	now: string = new Date().toISOString()
 ): Promise<{ view: HabitsView; weekStart: string }> {
+	const schema = await readGamificationSchema(db);
+	if (!schema.tablesReady) {
+		return {
+			view: unavailableHabitsView(timezone),
+			weekStart: utcMonday(now),
+		};
+	}
 	const rows = await loadHabitRows(db, userId);
 	const computed = computeHabits({
 		now,
@@ -130,6 +146,18 @@ export async function loadLeaderboardView(
 	timezone: string,
 	now: string = new Date().toISOString()
 ): Promise<LeaderboardView> {
+	const schema = await readGamificationSchema(db);
+	if (!(schema.tablesReady && schema.functionReady)) {
+		if (schema.tablesReady) {
+			const synced = await syncHabits(db, userId, timezone, now);
+			return {
+				...unavailableLeaderboardView(now),
+				optedIn: synced.view.leaderboardOptedIn,
+				weekStartsAt: synced.weekStart,
+			};
+		}
+		return unavailableLeaderboardView(now);
+	}
 	const { weekStart } = await syncHabits(db, userId, timezone, now);
 	const profile = await db.leaderboardProfile.findUnique({
 		where: { userId },
@@ -146,6 +174,7 @@ export async function loadLeaderboardView(
 	}));
 	return {
 		exampleData: false,
+		migrationRequired: false,
 		optedIn: Boolean(profile?.optedIn),
 		rows,
 		self: rows.find((row) => row.isSelf) ?? null,
@@ -155,6 +184,10 @@ export async function loadLeaderboardView(
 }
 
 export async function loadLeaderboardSettings(db: MatiDb, userId: string) {
+	const schema = await readGamificationSchema(db);
+	if (!schema.tablesReady) {
+		throw new GamificationMigrationRequiredError();
+	}
 	const profile = await db.leaderboardProfile.findUnique({
 		where: { userId },
 	});
@@ -169,6 +202,10 @@ export async function saveLeaderboardSettings(
 	userId: string,
 	input: { displayName: string | null; optedIn: boolean }
 ) {
+	const schema = await readGamificationSchema(db);
+	if (!schema.tablesReady) {
+		throw new GamificationMigrationRequiredError();
+	}
 	const now = new Date();
 	await db.leaderboardProfile.upsert({
 		create: {

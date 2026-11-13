@@ -172,10 +172,10 @@ describe("computeStreak", () => {
 		expect(calendarDay?.count).toBe(2);
 	});
 
-	it("builds a Monday-aligned twenty-week contribution calendar", () => {
+	it("builds a Monday-aligned fifty-two-week contribution calendar", () => {
 		const streak = computeStreak([], "UTC", "2026-11-13T18:00:00.000Z");
-		expect(streak.calendar).toHaveLength(140);
-		expect(streak.calendar[0]?.date).toBe("2026-06-29");
+		expect(streak.calendar).toHaveLength(364);
+		expect(streak.calendar[0]?.date).toBe("2025-11-17");
 		expect(streak.calendar.at(-1)?.date).toBe("2026-11-15");
 		expect(
 			streak.calendar.find((day) => day.date === "2026-11-13")?.inRange

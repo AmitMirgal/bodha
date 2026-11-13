@@ -1,6 +1,7 @@
 import { Badge } from "@repo/design-system/components/ui/badge";
 import { cn } from "@repo/design-system/lib/utils";
 import type { BadgeResult, HabitsView } from "../lib/habits/types";
+import { GamificationMigrationNotice } from "./GamificationMigrationNotice";
 import { habitBadgeGlyph } from "./HabitBadgeGlyph";
 import { StreakGraph } from "./StreakGraph";
 
@@ -83,6 +84,7 @@ export function HabitsPanel({ habits }: { habits: HabitsView }) {
 					reset Monday 00:00 UTC.
 				</p>
 			</div>
+			{habits.migrationRequired ? <GamificationMigrationNotice /> : null}
 			<StreakGraph calendar={habits.calendar} />
 			<div className="grid items-start gap-6 lg:grid-cols-2">
 				<section aria-labelledby="habits-badges" className="grid gap-2">

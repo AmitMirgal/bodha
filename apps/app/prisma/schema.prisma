@@ -23,6 +23,9 @@ model Profile {
   captureEvents       CaptureEvent[]
   captureUsage        CaptureUsage[]
   captureReports      CaptureReport[]
+  captureReportOpens  CaptureReportOpen[]
+  leaderboardProfile  LeaderboardProfile?
+  habitAwards         HabitAward[]
 
   @@map("profiles")
 }
@@ -253,11 +256,13 @@ model CaptureTask {
   workspaceHash String    @map("workspace_hash")
   createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
 
-  device  Device          @relation(fields: [deviceId], references: [id], onDelete: Cascade)
-  user    Profile?        @relation(fields: [userId], references: [id], onDelete: SetNull)
-  events  CaptureEvent[]
-  usage   CaptureUsage[]
-  reports CaptureReport[]
+  device      Device              @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  user        Profile?            @relation(fields: [userId], references: [id], onDelete: SetNull)
+  events      CaptureEvent[]
+  usage       CaptureUsage[]
+  reports     CaptureReport[]
+  reportOpens CaptureReportOpen[]
+  habitAwards HabitAward[]
 
   @@unique([deviceId, editor, editorTaskId])
   @@index([deviceId, startedAt(sort: Desc)], map: "capture_tasks_device_idx")
@@ -339,4 +344,52 @@ model CaptureReport {
   @@unique([taskId, version])
   @@index([taskId, version], map: "capture_reports_task_idx")
   @@map("capture_reports")
+}
+
+model CaptureReportOpen {
+  id       String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId   String   @map("user_id") @db.Uuid
+  taskId   String   @map("task_id") @db.Uuid
+  openedAt DateTime @default(now()) @map("opened_at") @db.Timestamptz(6)
+
+  user Profile     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  task CaptureTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, taskId], map: "capture_report_opens_user_task_key")
+  @@index([userId, openedAt], map: "capture_report_opens_user_opened_idx")
+  @@map("capture_report_opens")
+}
+
+model LeaderboardProfile {
+  userId      String    @id @map("user_id") @db.Uuid
+  optedIn     Boolean   @default(false) @map("opted_in")
+  displayName String?   @map("display_name")
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
+
+  user Profile @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("leaderboard_profiles")
+}
+
+model HabitAward {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId       String   @map("user_id") @db.Uuid
+  kind         String
+  awardKey     String   @map("award_key")
+  points       Int
+  earnedAt     DateTime @map("earned_at") @db.Timestamptz(6)
+  dayBucket    DateTime @map("day_bucket") @db.Date
+  weekStart    DateTime @map("week_start") @db.Date
+  sourceTaskId String?  @map("source_task_id") @db.Uuid
+  badgeId      String?  @map("badge_id")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user Profile      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  task CaptureTask? @relation(fields: [sourceTaskId], references: [id], onDelete: SetNull)
+
+  @@unique([userId, awardKey], map: "habit_awards_user_key")
+  @@index([weekStart, userId], map: "habit_awards_week_user_idx")
+  @@index([userId, dayBucket], map: "habit_awards_user_day_idx")
+  @@map("habit_awards")
 }

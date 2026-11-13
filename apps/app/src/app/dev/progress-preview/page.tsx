@@ -1,6 +1,7 @@
 import { ProgressPreviewFrame } from "../../../components/ProgressPreviewFrame";
 import { ProgressScreen } from "../../../components/ProgressScreen";
 import { ProgressSkeleton } from "../../../components/ProgressSkeleton";
+import { emptyHabitsView, seededHabitsView } from "../../../lib/habits/fixture";
 import {
 	emptyProgressView,
 	seededProgressView,
@@ -30,13 +31,13 @@ export default async function ProgressPreviewPage({
 	if (view === "empty") {
 		return (
 			<ProgressPreviewFrame theme={theme}>
-				<ProgressScreen view={emptyProgressView()} />
+				<ProgressScreen habits={emptyHabitsView()} view={emptyProgressView()} />
 			</ProgressPreviewFrame>
 		);
 	}
 	return (
 		<ProgressPreviewFrame theme={theme}>
-			<ProgressScreen view={seededProgressView()} />
+			<ProgressScreen habits={seededHabitsView()} view={seededProgressView()} />
 		</ProgressPreviewFrame>
 	);
 }

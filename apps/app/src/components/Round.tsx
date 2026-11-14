@@ -1,6 +1,7 @@
 "use client";
 
 import Editor, { type BeforeMount } from "@monaco-editor/react";
+import { Button } from "@repo/design-system/components/ui/button";
 import { useTheme } from "next-themes";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { runBackground } from "../lib/background";
@@ -233,38 +234,40 @@ export default function Round({
 				<div className={`clock ${urgent ? "urgent" : ""}`}>
 					{fmtClock(left)}
 				</div>
-				<button
+				<Button
 					className="btn ghost"
 					onClick={() => setAiOpen((value) => !value)}
 					type="button"
+					variant="ghost"
 				>
 					{aiOpen ? "Hide AI" : "Show AI"}
-				</button>
-				<button
+				</Button>
+				<Button
 					className="btn lime"
 					disabled={running}
 					onClick={() => runBackground(run())}
 					type="button"
 				>
 					{running ? "Running…" : "Run tests"} <kbd>Ctrl ↵</kbd>
-				</button>
-				<button
+				</Button>
+				<Button
 					className={`btn ${confirming ? "pink" : "ghost"}`}
 					onBlur={() => setConfirming(false)}
 					onClick={() =>
 						confirming ? runBackground(finish()) : setConfirming(true)
 					}
 					type="button"
+					variant={confirming ? "destructive" : "ghost"}
 				>
 					{confirming ? "Sure? Submit" : "Submit"}
-				</button>
+				</Button>
 			</header>
 			{saveError ? <div className="fatal">{saveError}</div> : null}
 			{finishError ? <div className="fatal">{finishError}</div> : null}
 			{testPersistError ? (
 				<div className="fatal">
 					{testPersistError}{" "}
-					<button
+					<Button
 						className="btn ghost"
 						onClick={() => {
 							const runFiles = lastRunFiles.current;
@@ -274,9 +277,10 @@ export default function Round({
 							}
 						}}
 						type="button"
+						variant="ghost"
 					>
 						Retry recording tests
-					</button>
+					</Button>
 				</div>
 			) : null}
 
@@ -304,14 +308,15 @@ export default function Round({
 					<ul className="files">
 						{paths.map((path) => (
 							<li key={path}>
-								<button
+								<Button
 									className={path === active ? "on" : ""}
 									onClick={() => setActive(path)}
 									type="button"
+									variant="ghost"
 								>
 									{path}
 									{isReadOnly(path) ? <em>read-only</em> : null}
-								</button>
+								</Button>
 							</li>
 						))}
 					</ul>
@@ -352,9 +357,9 @@ export default function Round({
 
 			{aiOpen ? (
 				<>
-					<button
+					<Button
 						aria-label="Resize AI panel"
-						className="resizer"
+						className="resizer h-auto rounded-none border-0 p-0 shadow-none hover:bg-transparent"
 						onDoubleClick={() => setAiWidth(380)}
 						onPointerCancel={endDrag}
 						onPointerDown={(event) => {
@@ -366,6 +371,7 @@ export default function Round({
 						onPointerUp={endDrag}
 						style={{ right: aiWidth - 4 }}
 						type="button"
+						variant="ghost"
 					/>
 					<AiPanel sessionId={sessionId} />
 				</>

@@ -1,5 +1,6 @@
 "use client";
 
+import { Button } from "@repo/design-system/components/ui/button";
 import {
 	Tooltip,
 	TooltipContent,
@@ -45,11 +46,12 @@ function DayCell({ day }: { day: CalendarDay }) {
 	return (
 		<Tooltip>
 			<TooltipTrigger asChild>
-				<button
+				<Button
 					aria-label={label}
-					className={`block aspect-square min-h-[11px] w-full min-w-[11px] appearance-none rounded-[2px] border-0 p-0 ${levelClass(day.level)}`}
+					className={`block aspect-square size-auto h-auto min-h-[11px] w-full min-w-[11px] rounded-[2px] border-0 p-0 shadow-none hover:bg-transparent ${levelClass(day.level)}`}
 					title={label}
 					type="button"
+					variant="ghost"
 				/>
 			</TooltipTrigger>
 			<TooltipContent>{label}</TooltipContent>

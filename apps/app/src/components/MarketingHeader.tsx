@@ -46,23 +46,29 @@ export function MarketingHeader({ email }: { email?: string | null }) {
 			<Logo />
 			<div className="home-nav-desktop">
 				{MARKETING_LINKS.map((link) => (
-					<a href={link.href} key={link.href}>
-						{link.label}
-					</a>
+					<Button asChild key={link.href} variant="ghost">
+						<a href={link.href}>{link.label}</a>
+					</Button>
 				))}
 				{signedIn ? (
 					<>
 						{SIGNED_IN_LINKS.map((link) => (
-							<a href={link.href} key={link.href}>
-								{link.label}
-							</a>
+							<Button asChild key={link.href} variant="ghost">
+								<a href={link.href}>{link.label}</a>
+							</Button>
 						))}
-						<button onClick={() => runBackground(signOut())} type="button">
+						<Button
+							onClick={() => runBackground(signOut())}
+							type="button"
+							variant="ghost"
+						>
 							Sign out
-						</button>
+						</Button>
 					</>
 				) : (
-					<a href="/login">Sign in</a>
+					<Button asChild variant="ghost">
+						<a href="/login">Sign in</a>
+					</Button>
 				)}
 			</div>
 			<Sheet onOpenChange={setMenuOpen} open={menuOpen}>
@@ -71,7 +77,7 @@ export function MarketingHeader({ email }: { email?: string | null }) {
 						aria-controls="marketing-mobile-nav"
 						aria-expanded={menuOpen}
 						aria-label={menuOpen ? "Close menu" : "Open menu"}
-						className="md:hidden"
+						className="home-nav-menu md:hidden"
 						size="icon"
 						type="button"
 						variant="ghost"
@@ -97,23 +103,25 @@ export function MarketingHeader({ email }: { email?: string | null }) {
 					<nav aria-label="Mobile" className="grid gap-2 px-4">
 						{MARKETING_LINKS.map((link) => (
 							<SheetClose asChild key={link.href}>
-								<a
-									className="min-h-11 rounded-md px-3 py-2 text-base"
-									href={link.href}
+								<Button
+									asChild
+									className="h-auto min-h-11 justify-start px-3 py-2 text-base"
+									variant="ghost"
 								>
-									{link.label}
-								</a>
+									<a href={link.href}>{link.label}</a>
+								</Button>
 							</SheetClose>
 						))}
 						{signedIn
 							? SIGNED_IN_LINKS.map((link) => (
 									<SheetClose asChild key={link.href}>
-										<a
-											className="min-h-11 rounded-md px-3 py-2 text-base"
-											href={link.href}
+										<Button
+											asChild
+											className="h-auto min-h-11 justify-start px-3 py-2 text-base"
+											variant="ghost"
 										>
-											{link.label}
-										</a>
+											<a href={link.href}>{link.label}</a>
+										</Button>
 									</SheetClose>
 								))
 							: null}

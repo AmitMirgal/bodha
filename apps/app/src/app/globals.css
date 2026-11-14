@@ -78,8 +78,12 @@ body,
 #root {
 	height: 100%;
 }
-html,
-body {
+/* Do not set overflow-x on `html`. Radix Select's RemoveScroll sets
+   `body { overflow: hidden }` when the Provider dropdown opens; if `html`
+   is also an overflow-x clip container, documentElement.scrollTop resets
+   to 0 and the Settings page jumps to the top. */
+body,
+#root {
 	overflow-x: clip;
 }
 body {
@@ -256,6 +260,9 @@ kbd {
 @media (min-width: 768px) {
 	.home-nav-desktop {
 		display: flex;
+	}
+	.home-nav .home-nav-menu {
+		display: none;
 	}
 }
 .home-nav .logo {

@@ -33,7 +33,7 @@ describe("avatar account menu", () => {
 		expect(nav).not.toMatch(/Daily progress/);
 		expect(nav).not.toMatch(/LLM settings/);
 		expect(progressPage).toMatch(/title: "Progress"/);
-		expect(progressScreen).toMatch(/>Progress</);
+		expect(progressScreen).toMatch(/<h1[\s\S]*?>\s*Progress\s*</);
 		expect(progressPage).not.toMatch(/Daily progress/);
 		expect(progressScreen).not.toMatch(/Daily progress/);
 	});

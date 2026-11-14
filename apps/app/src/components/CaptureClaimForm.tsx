@@ -41,7 +41,7 @@ export function CaptureClaimForm({ token }: { token: string }) {
 	}
 
 	return (
-		<main className="mx-auto grid max-w-3xl gap-8 px-4 py-10">
+		<main className="mx-auto grid min-w-0 max-w-3xl gap-8 px-4 py-10">
 			<header className="grid gap-3">
 				<p className="font-medium text-muted-foreground text-sm uppercase tracking-wide">
 					Account claim

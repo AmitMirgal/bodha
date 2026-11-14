@@ -141,7 +141,7 @@ export function LoginForm() {
 			.join(" ") || undefined;
 
 	return (
-		<main className="mx-auto flex min-h-[100dvh] w-full max-w-md items-center px-4 py-10">
+		<main className="mx-auto flex min-h-[100dvh] w-full min-w-0 max-w-md items-center px-4 py-10">
 			<Card className="w-full border-border shadow-lg">
 				<CardHeader className="gap-3">
 					<Logo />
@@ -165,13 +165,22 @@ export function LoginForm() {
 							aria-label="Sign-in method"
 							className="grid h-auto w-full grid-cols-3"
 						>
-							<TabsTrigger className="min-h-10 px-2" value="signin">
+							<TabsTrigger
+								className="min-h-11 px-1 text-xs sm:px-2 sm:text-sm"
+								value="signin"
+							>
 								Sign in
 							</TabsTrigger>
-							<TabsTrigger className="min-h-10 px-2" value="signup">
+							<TabsTrigger
+								className="min-h-11 px-1 text-xs sm:px-2 sm:text-sm"
+								value="signup"
+							>
 								Create account
 							</TabsTrigger>
-							<TabsTrigger className="min-h-10 px-2" value="magic">
+							<TabsTrigger
+								className="min-h-11 px-1 text-xs sm:px-2 sm:text-sm"
+								value="magic"
+							>
 								Email link
 							</TabsTrigger>
 						</TabsList>

@@ -98,9 +98,9 @@ export function ProgressTaskCard({ task }: { task: ProgressTask }) {
 						{reportKindLabel(task.reportKind)}
 					</Badge>
 				</div>
-				<CardTitle className="text-base">
+				<CardTitle className="min-w-0 text-base">
 					<a
-						className="inline-flex min-h-11 items-center underline-offset-4 hover:underline"
+						className="inline-flex min-h-11 min-w-0 items-center break-all underline-offset-4 hover:underline"
 						href={task.reportHref}
 					>
 						{task.exerciseId}

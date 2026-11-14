@@ -117,13 +117,15 @@ export function LeaderboardScreen({ view }: { view: LeaderboardView }) {
 	const pinned = view.self && view.self.rank > view.topN ? view.self : null;
 	const emptyBoard = rows.length === 0 && pinned == null;
 	return (
-		<main className="mx-auto grid max-w-6xl gap-6 px-4 py-10">
+		<main className="mx-auto grid min-w-0 max-w-6xl gap-6 px-4 py-10">
 			<header className="grid gap-2">
 				<p className="font-medium text-muted-foreground text-sm uppercase tracking-wide">
 					Weekly habits
 				</p>
 				<div className="flex flex-wrap items-center gap-2">
-					<h1 className="font-semibold text-4xl tracking-tight">Leaderboard</h1>
+					<h1 className="font-semibold text-3xl tracking-tight sm:text-4xl">
+						Leaderboard
+					</h1>
 					{view.exampleData ? (
 						<Badge variant="outline">Example data</Badge>
 					) : null}

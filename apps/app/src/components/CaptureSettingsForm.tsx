@@ -127,7 +127,9 @@ export function CaptureSettingsForm() {
 								className="flex items-center justify-between gap-2"
 								key={device.id}
 							>
-								<span className="font-mono text-sm">{device.id}</span>
+								<span className="min-w-0 truncate font-mono text-sm">
+									{device.id}
+								</span>
 								<Button
 									disabled={busy}
 									onClick={() => runBackground(deleteDevice(device.id))}

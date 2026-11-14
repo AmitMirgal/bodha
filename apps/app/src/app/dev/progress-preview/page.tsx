@@ -39,12 +39,14 @@ export default async function ProgressPreviewPage({
 	if (view === "habits") {
 		return (
 			<ProgressPreviewFrame theme={theme}>
-				<main className="mx-auto grid max-w-6xl gap-10 px-4 py-10">
+				<main className="mx-auto grid min-w-0 max-w-6xl gap-10 px-4 py-10">
 					<header className="grid gap-3">
 						<p className="font-medium text-muted-foreground text-sm uppercase tracking-wide">
 							How you used AI
 						</p>
-						<h1 className="font-semibold text-4xl tracking-tight">Progress</h1>
+						<h1 className="font-semibold text-3xl tracking-tight sm:text-4xl">
+							Progress
+						</h1>
 					</header>
 					<HabitsPanel habits={seededHabitsView()} />
 				</main>

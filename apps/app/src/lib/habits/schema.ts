@@ -60,7 +60,6 @@ export function isMissingGamificationSchema(error: unknown): boolean {
 		return false;
 	}
 	return (
-		code === "P2010" ||
 		code === "P2021" ||
 		code === "42883" ||
 		code === "42P01" ||

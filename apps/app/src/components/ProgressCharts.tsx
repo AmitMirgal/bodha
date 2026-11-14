@@ -90,8 +90,8 @@ export function ProgressCharts({
 	);
 	const promptData = promptRows(tasks);
 	return (
-		<div className="grid gap-4 lg:grid-cols-2">
-			<Card className="shadow-sm">
+		<div className="grid min-w-0 gap-4 lg:grid-cols-2">
+			<Card className="min-w-0 shadow-sm">
 				<CardHeader>
 					<CardTitle className="text-base" id="progress-token-chart">
 						Measured tokens over time
@@ -169,7 +169,7 @@ export function ProgressCharts({
 					)}
 				</CardContent>
 			</Card>
-			<Card className="shadow-sm">
+			<Card className="min-w-0 shadow-sm">
 				<CardHeader>
 					<CardTitle className="text-base" id="progress-prompt-chart">
 						Prompts per task

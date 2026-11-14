@@ -87,7 +87,7 @@ export function ExerciseHome({
 	}
 
 	return (
-		<main className="mx-auto grid max-w-5xl gap-10 px-4 py-10">
+		<main className="mx-auto grid min-w-0 max-w-5xl gap-10 px-4 py-10">
 			<section className="grid gap-3">
 				<p className="text-muted-foreground text-sm uppercase tracking-wide">
 					Individual learning

@@ -20,10 +20,14 @@ describe("signed-in app navigation", () => {
 		expect(nav).toMatch(/Leaderboard/);
 		expect(nav).toMatch(/aria-current=\{active \? "page"/);
 		expect(nav).toMatch(/Open menu/);
+		expect(nav).toMatch(/aria-expanded=\{menuOpen\}/);
 	});
 
-	it("keeps the avatar menu for Settings and Sign out", () => {
+	it("puts Settings and Sign out in the mobile sheet and keeps the desktop avatar menu", () => {
 		expect(nav).toMatch(/UserMenu/);
+		expect(nav).toMatch(/hidden md:block/);
+		expect(nav).toMatch(/href="\/settings"/);
+		expect(nav).toMatch(/Sign out/);
 	});
 
 	it("defaults post-login redirects to /exercises", () => {
@@ -32,11 +36,14 @@ describe("signed-in app navigation", () => {
 });
 
 describe("marketing header signed-in state", () => {
-	it("shows Exercises, Progress, and Sign out when signed in", () => {
+	it("shows Exercises, Progress, Leaderboard, and Sign out when signed in", () => {
 		expect(header).toMatch(/Exercises/);
 		expect(header).toMatch(/Progress/);
+		expect(header).toMatch(/Leaderboard/);
 		expect(header).toMatch(/Sign out/);
 		expect(header).toMatch(/Sign in/);
+		expect(header).toMatch(/Open menu/);
+		expect(header).toMatch(/aria-expanded=\{menuOpen\}/);
 	});
 
 	it("changes the hero CTA to continue to exercises when signed in", () => {

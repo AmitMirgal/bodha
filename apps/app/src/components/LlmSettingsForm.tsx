@@ -22,6 +22,14 @@ import {
 } from "@repo/design-system/components/ui/card";
 import { Input } from "@repo/design-system/components/ui/input";
 import { Label } from "@repo/design-system/components/ui/label";
+import {
+	Select,
+	SelectContent,
+	SelectGroup,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from "@repo/design-system/components/ui/select";
 import { type FormEvent, useEffect, useMemo, useState } from "react";
 import { runBackground } from "../lib/background";
 
@@ -201,24 +209,28 @@ export function LlmSettingsForm() {
 					>
 						<div className="grid gap-2">
 							<Label htmlFor="provider">Provider</Label>
-							<select
-								className="h-9 rounded-md border border-input bg-background px-3 text-sm"
-								id="provider"
-								onChange={(event) => {
-									const next = parseMatiProvider(event.target.value);
+							<Select
+								onValueChange={(value) => {
+									const next = parseMatiProvider(value);
 									if (next) {
 										setProvider(next);
 									}
 								}}
-								required
 								value={provider}
 							>
-								{CATALOG.map((item) => (
-									<option key={item.id} value={item.id}>
-										{item.label}
-									</option>
-								))}
-							</select>
+								<SelectTrigger className="w-full" id="provider">
+									<SelectValue />
+								</SelectTrigger>
+								<SelectContent>
+									<SelectGroup>
+										{CATALOG.map((item) => (
+											<SelectItem key={item.id} value={item.id}>
+												{item.label}
+											</SelectItem>
+										))}
+									</SelectGroup>
+								</SelectContent>
+							</Select>
 						</div>
 						<div className="grid gap-2">
 							<Label htmlFor="model">Model</Label>

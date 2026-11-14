@@ -63,7 +63,7 @@ export function ProgressTaskDetail({ task }: { task: ProgressTask }) {
 		task.reportStatus === "complete" ? "Regenerate report" : "Generate report";
 	const duration = durationLabel(task.startedAt, task.finishedAt);
 	return (
-		<main className="mx-auto grid max-w-6xl gap-8 px-4 py-10">
+		<main className="mx-auto grid min-w-0 max-w-6xl gap-8 px-4 py-10">
 			<p className="text-muted-foreground text-sm">
 				<a className="underline-offset-4 hover:underline" href="/progress">
 					Progress

@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { withUserDb } from "../../../../lib/db/client";
-import { parseDisplayName } from "../../../../lib/habits/display-name";
 import {
 	loadLeaderboardSettings,
 	saveLeaderboardSettings,
@@ -9,6 +8,10 @@ import {
 	GamificationMigrationRequiredError,
 	isMissingGamificationSchema,
 } from "../../../../lib/habits/schema";
+import {
+	leaderboardSettingsWriteError,
+	parseLeaderboardSettingsBody,
+} from "../../../../lib/habits/settings";
 import { requireUser } from "../../../../lib/supabase/server";
 
 function migrationResponse() {
@@ -47,34 +50,26 @@ export async function PUT(request: Request) {
 	} catch {
 		return NextResponse.json({ error: "Invalid JSON." }, { status: 400 });
 	}
-	if (!body || typeof body !== "object") {
-		return NextResponse.json({ error: "Invalid JSON." }, { status: 400 });
-	}
-	const record = body as { displayName?: unknown; optedIn?: unknown };
-	const optedIn = record.optedIn === true;
-	let displayName: string | null = null;
-	if (optedIn || typeof record.displayName === "string") {
-		const parsed = parseDisplayName(
-			typeof record.displayName === "string" ? record.displayName : ""
-		);
-		if ("error" in parsed) {
-			if (optedIn) {
-				return NextResponse.json({ error: parsed.error }, { status: 400 });
-			}
-			displayName = null;
-		} else {
-			displayName = parsed.name;
-		}
+	const parsed = parseLeaderboardSettingsBody(body);
+	if (!parsed.ok) {
+		return NextResponse.json({ error: parsed.error }, { status: 400 });
 	}
 	try {
 		const settings = await withUserDb(userId, (db) =>
-			saveLeaderboardSettings(db, userId, { displayName, optedIn })
+			saveLeaderboardSettings(db, userId, {
+				displayName: parsed.displayName,
+				optedIn: parsed.optedIn,
+			})
 		);
 		return NextResponse.json(settings);
 	} catch (error) {
-		if (!isMissingGamificationSchema(error)) {
-			throw error;
+		const mapped = leaderboardSettingsWriteError(error);
+		if (mapped) {
+			return NextResponse.json(
+				{ error: mapped.error },
+				{ status: mapped.status }
+			);
 		}
-		return migrationResponse();
+		throw error;
 	}
 }

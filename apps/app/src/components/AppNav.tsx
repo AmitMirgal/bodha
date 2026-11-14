@@ -12,13 +12,17 @@ import {
 	Sheet,
 	SheetClose,
 	SheetContent,
+	SheetDescription,
 	SheetHeader,
 	SheetTitle,
 	SheetTrigger,
 } from "@repo/design-system/components/ui/sheet";
 import { Skeleton } from "@repo/design-system/components/ui/skeleton";
 import { Menu } from "lucide-react";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { useState } from "react";
+import { signOutRequest } from "../lib/auth/sign-out";
+import { runBackground } from "../lib/background";
 import { Logo } from "./Logo";
 import { NavLink } from "./NavLink";
 import { UserMenu } from "./UserMenu";
@@ -54,15 +58,71 @@ function AccountSlot({
 	pending: boolean;
 }) {
 	if (pending) {
-		return <Skeleton className="size-9 rounded-full" />;
+		return <Skeleton className="hidden size-9 rounded-full md:block" />;
 	}
 	if (email) {
-		return <UserMenu email={email} />;
+		return (
+			<div className="hidden md:block">
+				<UserMenu email={email} />
+			</div>
+		);
 	}
 	return (
-		<Button asChild>
+		<Button asChild className="hidden md:inline-flex">
 			<NavLink href="/login">Sign in</NavLink>
 		</Button>
+	);
+}
+
+function MobileAccount({
+	email,
+	onSignOut,
+	pathname,
+	pending,
+}: {
+	email?: string | null;
+	onSignOut: () => void;
+	pathname: string;
+	pending: boolean;
+}) {
+	if (pending) {
+		return <Skeleton className="h-11 w-full rounded-md" />;
+	}
+	if (email) {
+		const settingsActive = pathname === "/settings";
+		return (
+			<>
+				<p className="truncate px-3 text-muted-foreground text-sm">{email}</p>
+				<SheetClose asChild>
+					<NavLink
+						aria-current={settingsActive ? "page" : undefined}
+						className={`min-h-11 rounded-md px-3 py-2 text-base ${
+							settingsActive
+								? "bg-accent font-medium text-accent-foreground"
+								: "text-foreground"
+						}`}
+						href="/settings"
+					>
+						Settings
+					</NavLink>
+				</SheetClose>
+				<Button
+					className="min-h-11 justify-start px-3"
+					onClick={onSignOut}
+					type="button"
+					variant="ghost"
+				>
+					Sign out
+				</Button>
+			</>
+		);
+	}
+	return (
+		<SheetClose asChild>
+			<Button asChild className="min-h-11">
+				<NavLink href="/login">Sign in</NavLink>
+			</Button>
+		</SheetClose>
 	);
 }
 
@@ -104,21 +164,32 @@ export function AppNav({
 	pending?: boolean;
 }) {
 	const pathname = usePathname();
+	const router = useRouter();
+	const [menuOpen, setMenuOpen] = useState(false);
+
+	async function signOut() {
+		setMenuOpen(false);
+		await signOutRequest();
+		router.push("/login");
+		router.refresh();
+	}
 
 	return (
 		<header className="sticky top-0 z-40 border-b bg-background/95 px-4 py-3 backdrop-blur-sm">
-			<div className="mx-auto flex max-w-6xl items-center justify-between gap-3">
+			<div className="mx-auto flex min-w-0 max-w-6xl items-center justify-between gap-3">
 				<Logo />
 				<NavigationMenu className="hidden md:flex" viewport={false}>
 					<NavigationMenuList>
 						<NavItems pathname={pathname} />
 					</NavigationMenuList>
 				</NavigationMenu>
-				<div className="flex items-center gap-2">
-					<Sheet>
+				<div className="flex min-w-0 items-center gap-2">
+					<Sheet onOpenChange={setMenuOpen} open={menuOpen}>
 						<SheetTrigger asChild>
 							<Button
-								aria-label="Open menu"
+								aria-controls="app-mobile-nav"
+								aria-expanded={menuOpen}
+								aria-label={menuOpen ? "Close menu" : "Open menu"}
 								className="md:hidden"
 								size="icon"
 								type="button"
@@ -127,11 +198,20 @@ export function AppNav({
 								<Menu />
 							</Button>
 						</SheetTrigger>
-						<SheetContent side="left">
+						<SheetContent
+							className="w-full max-w-xs"
+							id="app-mobile-nav"
+							side="left"
+						>
 							<SheetHeader>
 								<SheetTitle className="p-0 font-normal">
-									<Logo />
+									<SheetClose asChild>
+										<Logo />
+									</SheetClose>
 								</SheetTitle>
+								<SheetDescription className="sr-only">
+									Exercises, Progress, Leaderboard, and account
+								</SheetDescription>
 							</SheetHeader>
 							<nav aria-label="Mobile" className="grid gap-2 px-4">
 								{APP_NAV_LINKS.map((link) => {
@@ -153,6 +233,14 @@ export function AppNav({
 									);
 								})}
 							</nav>
+							<div className="mt-auto grid gap-2 border-t px-4 py-4">
+								<MobileAccount
+									email={email}
+									onSignOut={() => runBackground(signOut())}
+									pathname={pathname}
+									pending={pending}
+								/>
+							</div>
 						</SheetContent>
 					</Sheet>
 					<AccountSlot email={email} pending={pending} />

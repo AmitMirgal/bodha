@@ -37,6 +37,21 @@ describe("isMissingGamificationSchema", () => {
 		);
 	});
 
+	it("does not treat a leaderboard CHECK failure as a missing migration", () => {
+		const error = Object.assign(
+			new Error("Invalid `prisma.leaderboardProfile.upsert()`"),
+			{
+				code: "P2010",
+				meta: {
+					code: "23514",
+					message:
+						'new row for relation "leaderboard_profiles" violates check constraint "leaderboard_profiles_display_name_format"',
+				},
+			}
+		);
+		expect(isMissingGamificationSchema(error)).toBe(false);
+	});
+
 	it("matches the typed migration error", () => {
 		expect(
 			isMissingGamificationSchema(new GamificationMigrationRequiredError())

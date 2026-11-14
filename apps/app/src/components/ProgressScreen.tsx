@@ -85,12 +85,14 @@ export function ProgressScreen({
 	const topSuggestion = tasks.find((task) => task.suggestions[0]);
 	const suggestion = topSuggestion?.suggestions[0];
 	return (
-		<main className="mx-auto grid max-w-6xl gap-10 px-4 py-10">
-			<header className="grid gap-3">
+		<main className="mx-auto grid min-w-0 max-w-6xl gap-10 px-4 py-10">
+			<header className="grid min-w-0 gap-3">
 				<p className="font-medium text-muted-foreground text-sm uppercase tracking-wide">
 					How you used AI
 				</p>
-				<h1 className="font-semibold text-4xl tracking-tight">Progress</h1>
+				<h1 className="font-semibold text-3xl tracking-tight sm:text-4xl">
+					Progress
+				</h1>
 				<p className="max-w-3xl text-muted-foreground">
 					How you used AI, and what to try next. Days use {view.timezone}.
 					Measured totals never mix in estimates. Missing counts are labeled,

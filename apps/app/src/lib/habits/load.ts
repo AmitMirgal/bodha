@@ -1,4 +1,4 @@
-import { insertOnce } from "../db/insert-once";
+import { insertOnce, isPrismaUnique } from "../db/insert-once";
 import type { MatiDb } from "../db/rls";
 import { computeHabits, toHabitsView, unavailableHabitsView } from "./compute";
 import { mapCaptureHabitTasks } from "./map-tasks";
@@ -7,12 +7,33 @@ import {
 	readGamificationSchema,
 	unavailableLeaderboardView,
 } from "./schema";
+import { LeaderboardSettingsError } from "./settings";
 import type { AwardDraft, HabitsView, LeaderboardView } from "./types";
 import { LEADERBOARD_TOP_N } from "./types";
 import { utcDay, utcMonday } from "./week";
 
 function dateOnly(day: string): Date {
 	return new Date(`${day}T00:00:00.000Z`);
+}
+
+async function ensureOwnProfile(db: MatiDb, userId: string): Promise<void> {
+	const existing = await db.profile.findUnique({ where: { id: userId } });
+	if (existing) {
+		return;
+	}
+	// Savepoint so a concurrent insert does not abort the outer RLS transaction.
+	// Do not use insertOnce here: it wraps RLS/FK failures as PersistenceError
+	// and would hide the production P2003 that this path is meant to prevent.
+	await db.$executeRawUnsafe("SAVEPOINT mati_ensure_profile");
+	try {
+		await db.profile.create({ data: { id: userId } });
+		await db.$executeRawUnsafe("RELEASE SAVEPOINT mati_ensure_profile");
+	} catch (error) {
+		await db.$executeRawUnsafe("ROLLBACK TO SAVEPOINT mati_ensure_profile");
+		if (!isPrismaUnique(error)) {
+			throw error;
+		}
+	}
 }
 
 async function loadHabitRows(db: MatiDb, userId: string) {
@@ -206,6 +227,16 @@ export async function saveLeaderboardSettings(
 	if (!schema.tablesReady) {
 		throw new GamificationMigrationRequiredError();
 	}
+	if (input.optedIn && !input.displayName) {
+		throw new LeaderboardSettingsError(
+			"Choose a display name between 3 and 24 characters before opting in."
+		);
+	}
+	// Production PUT /api/habits/leaderboard-settings 500ed with Prisma P2003
+	// leaderboard_profiles_user_id_fkey when public.profiles had no row for the
+	// signed-in user. handle_new_user() is a trigger on auth.users that hosted
+	// Supabase often cannot install (insufficient_privilege is swallowed).
+	await ensureOwnProfile(db, userId);
 	const now = new Date();
 	await db.leaderboardProfile.upsert({
 		create: {

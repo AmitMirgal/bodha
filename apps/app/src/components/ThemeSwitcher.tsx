@@ -1,6 +1,10 @@
 "use client";
 
 import { Label } from "@repo/design-system/components/ui/label";
+import {
+	RadioGroup,
+	RadioGroupItem,
+} from "@repo/design-system/components/ui/radio-group";
 import { useTheme } from "next-themes";
 import { useEffect, useState } from "react";
 
@@ -43,23 +47,23 @@ export function ThemeSwitcher() {
 			<p className="text-muted-foreground text-sm">
 				Default is System. The choice is stored in this browser.
 			</p>
-			<div className="grid gap-2">
+			<RadioGroup
+				className="grid gap-2"
+				disabled={!mounted}
+				onValueChange={(value) => {
+					if (isThemeChoice(value)) {
+						setTheme(value);
+					}
+				}}
+				value={selected}
+			>
 				{THEMES.map((value) => (
 					<div className="flex items-center gap-2" key={value}>
-						<input
-							checked={selected === value}
-							className="size-4 accent-primary"
-							disabled={!mounted}
-							id={`theme-${value}`}
-							name="theme"
-							onChange={() => setTheme(value)}
-							type="radio"
-							value={value}
-						/>
+						<RadioGroupItem id={`theme-${value}`} value={value} />
 						<Label htmlFor={`theme-${value}`}>{themeLabel(value)}</Label>
 					</div>
 				))}
-			</div>
+			</RadioGroup>
 		</fieldset>
 	);
 }

@@ -44,6 +44,7 @@ describe("marketing header signed-in state", () => {
 		expect(header).toMatch(/Sign in/);
 		expect(header).toMatch(/Open menu/);
 		expect(header).toMatch(/aria-expanded=\{menuOpen\}/);
+		expect(header).toMatch(/home-nav-menu/);
 	});
 
 	it("changes the hero CTA to continue to exercises when signed in", () => {

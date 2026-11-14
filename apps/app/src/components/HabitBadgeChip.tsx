@@ -1,5 +1,6 @@
 "use client";
 
+import { Button } from "@repo/design-system/components/ui/button";
 import {
 	Tooltip,
 	TooltipContent,
@@ -17,15 +18,16 @@ export function HabitBadgeChip({ id }: { id: string }) {
 	return (
 		<Tooltip>
 			<TooltipTrigger asChild>
-				<button
+				<Button
 					aria-label={label}
-					className="inline-flex max-w-full items-center gap-1 rounded-full border border-border bg-secondary px-2 py-1 text-secondary-foreground text-xs"
+					className="inline-flex h-auto max-w-full items-center gap-1 rounded-full border border-border bg-secondary px-2 py-1 text-secondary-foreground text-xs"
 					title={label}
 					type="button"
+					variant="secondary"
 				>
 					{habitBadgeGlyph(id, "size-3.5")}
 					<span>{entry.title}</span>
-				</button>
+				</Button>
 			</TooltipTrigger>
 			<TooltipContent>{label}</TooltipContent>
 		</Tooltip>

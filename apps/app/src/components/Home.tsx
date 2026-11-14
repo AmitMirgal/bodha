@@ -1,3 +1,4 @@
+import { Button } from "@repo/design-system/components/ui/button";
 import type { ChallengeMeta } from "../lib/types";
 import { MarketingHeader } from "./MarketingHeader";
 
@@ -45,13 +46,13 @@ export function MarketingHome({
 					be right. Then see how you used it.
 				</p>
 				{signedIn ? (
-					<a className="btn lime big" href="/exercises">
-						Continue to exercises
-					</a>
+					<Button asChild className="btn lime big">
+						<a href="/exercises">Continue to exercises</a>
+					</Button>
 				) : (
-					<a className="btn lime big" href="/login?next=/exercises">
-						Get started
-					</a>
+					<Button asChild className="btn lime big">
+						<a href="/login?next=/exercises">Get started</a>
+					</Button>
 				)}
 			</section>
 
@@ -88,12 +89,11 @@ export function MarketingHome({
 								))}
 							</ul>
 							<div className="card-actions">
-								<a
-									className="btn lime"
-									href={signedIn ? "/exercises" : "/login?next=/exercises"}
-								>
-									Start
-								</a>
+								<Button asChild className="btn lime">
+									<a href={signedIn ? "/exercises" : "/login?next=/exercises"}>
+										Start
+									</a>
+								</Button>
 							</div>
 						</article>
 					))}

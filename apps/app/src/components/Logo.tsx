@@ -1,5 +1,6 @@
 "use client";
 
+import { Button } from "@repo/design-system/components/ui/button";
 import { cn } from "@repo/design-system/lib/utils";
 import Link from "next/link";
 
@@ -22,14 +23,18 @@ export function Logo({
 }) {
 	if (onClick) {
 		return (
-			<button
-				className={cn("logo", className)}
+			<Button
+				className={cn(
+					"logo h-auto rounded-none px-0 hover:bg-transparent",
+					className
+				)}
 				onClick={onClick}
 				title={title}
 				type="button"
+				variant="ghost"
 			>
 				{MARK}
-			</button>
+			</Button>
 		);
 	}
 	return (

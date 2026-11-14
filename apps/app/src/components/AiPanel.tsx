@@ -1,5 +1,7 @@
 "use client";
 
+import { Button } from "@repo/design-system/components/ui/button";
+import { Textarea } from "@repo/design-system/components/ui/textarea";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import Markdown from "react-markdown";
@@ -154,7 +156,7 @@ export default function AiPanel({ sessionId }: { sessionId: string }) {
 					runBackground(send());
 				}}
 			>
-				<textarea
+				<Textarea
 					onChange={(event) => setInput(event.target.value)}
 					onKeyDown={(event) => {
 						if (event.key === "Enter" && !event.shiftKey) {
@@ -166,13 +168,13 @@ export default function AiPanel({ sessionId }: { sessionId: string }) {
 					rows={2}
 					value={input}
 				/>
-				<button
+				<Button
 					className="btn lime"
 					disabled={busy || !input.trim()}
 					type="submit"
 				>
 					Send
-				</button>
+				</Button>
 			</form>
 		</div>
 	);

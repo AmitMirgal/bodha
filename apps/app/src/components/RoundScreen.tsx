@@ -1,5 +1,6 @@
 "use client";
 
+import { Button } from "@repo/design-system/components/ui/button";
 import { useRouter } from "next/navigation";
 import { useCallback, useRef, useState } from "react";
 import { runBackground } from "../lib/background";
@@ -74,14 +75,15 @@ export default function RoundScreen({
 				<div className="fatal">
 					Saved revision conflict. Reload to take the stored copy, or retry to
 					write these files again.
-					<button
+					<Button
 						className="btn ghost"
 						onClick={() => router.refresh()}
 						type="button"
+						variant="ghost"
 					>
 						Reload
-					</button>
-					<button
+					</Button>
+					<Button
 						className="btn lime"
 						onClick={() => {
 							expectedUpdatedAt.current = undefined;
@@ -91,7 +93,7 @@ export default function RoundScreen({
 						type="button"
 					>
 						Retry save
-					</button>
+					</Button>
 				</div>
 			) : null}
 			<Round
